@@ -9,7 +9,7 @@ Plataforma web para entrenadores personales con modelo de licencias. Tres roles 
 
 ## Capturas
 
-**Pruébalo en vivo:** [anderssont-var.github.io/fitcoach-pro/](https://anderssont-var.github.io/fitcoach-pro/) (usa los botones de acceso rápido).
+**Demo interactiva (datos ficticios):** [anderssont-var.github.io/AnderssonT-var.github/demos/fitcoach/](https://anderssont-var.github.io/AnderssonT-var.github/demos/fitcoach/)
 
 **Vista del entrenador: sus clientes, rutinas y pagos**
 
