@@ -6,6 +6,23 @@ Plataforma web para entrenadores personales con modelo de licencias. Tres roles 
 - **Entrenador:** gestiona sus clientes, arma rutinas individuales dentro del perfil de cada cliente y registra los pagos de cada uno.
 - **Cliente:** consulta su rutina y su progreso.
 
+
+## Capturas
+
+**Pruébalo en vivo:** [anderssont-var.github.io/fitcoach-pro/](https://anderssont-var.github.io/fitcoach-pro/) (usa los botones de acceso rápido).
+
+**Vista del entrenador: sus clientes, rutinas y pagos**
+
+![Vista del entrenador: sus clientes, rutinas y pagos](docs/capturas/entrenador.jpg)
+
+**Vista del administrador**
+
+![Vista del administrador](docs/capturas/admin.jpg)
+
+**Vista del cliente**
+
+![Vista del cliente](docs/capturas/cliente.jpg)
+
 ## Tecnologías
 
 React 18 · Vite · JavaScript · SQL (esquema en `database/fitcoachpro.sql`)
