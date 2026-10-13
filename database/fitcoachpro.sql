@@ -322,6 +322,8 @@ CREATE TABLE routine_exercises (
   id           INT UNSIGNED NOT NULL AUTO_INCREMENT,
   routine_id   INT UNSIGNED NOT NULL,
   exercise_id  INT UNSIGNED NOT NULL,
+  day_index    TINYINT      NOT NULL DEFAULT 0   COMMENT 'Día de la rutina (0 = primero)',
+  day_name     VARCHAR(60)  NOT NULL DEFAULT 'Día 1' COMMENT 'Ej.: Torso, Pierna, Día A',
   sets         TINYINT      NOT NULL DEFAULT 3,
   reps         VARCHAR(20)  NOT NULL DEFAULT '10',
   rest_seconds SMALLINT     NOT NULL DEFAULT 90,
@@ -399,7 +401,9 @@ CREATE TABLE workout_sessions (
   started_at   TIMESTAMP    DEFAULT NULL,
   finished_at  TIMESTAMP    DEFAULT NULL,
   duration_min SMALLINT     DEFAULT NULL,
-  notes        TEXT         DEFAULT NULL,
+  day_name     VARCHAR(60)  DEFAULT NULL  COMMENT 'Día de la rutina que se entrenó',
+  difficulty   TINYINT      DEFAULT NULL  COMMENT '1 muy fácil … 5 al límite (lo elige el cliente al terminar)',
+  notes        TEXT         DEFAULT NULL  COMMENT 'Mensaje del cliente para su entrenador',
   status       ENUM('in_progress','completed','skipped')
                             NOT NULL DEFAULT 'completed',
   created_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -428,9 +432,11 @@ CREATE TABLE workout_sets (
   weight_kg    DECIMAL(6,2) DEFAULT NULL,
   rpe          TINYINT      DEFAULT NULL  COMMENT 'Escala 1-10 de esfuerzo percibido',
   rest_seconds SMALLINT     DEFAULT NULL,
+  is_completed BOOLEAN      NOT NULL DEFAULT TRUE,
   notes        VARCHAR(255) DEFAULT NULL,
   PRIMARY KEY (id),
   INDEX idx_wsets_session (session_id),
+  INDEX idx_wsets_exercise (exercise_id),
   CONSTRAINT fk_wsets_session  FOREIGN KEY (session_id)
     REFERENCES workout_sessions(id) ON DELETE CASCADE,
   CONSTRAINT fk_wsets_exercise FOREIGN KEY (exercise_id)

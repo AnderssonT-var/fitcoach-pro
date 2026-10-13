@@ -1,81 +1,77 @@
-import { useState } from "react";
-import { C } from './constants/colors';
-import { gfont } from './constants/fonts';
-import { initClients } from './constants/data';
-import Sidebar from './components/layout/Sidebar';
-import CoachClients from './components/clients/CoachClients';
-import PaymentModule from './components/payments/PaymentModule';
-import AdminDashboard from './pages/admin/AdminDashboard';
-import AdminLicencias from './pages/admin/AdminLicencias';
-import CoachDashboard from './pages/coach/CoachDashboard';
-import ClientDashboard from './pages/user/ClientDashboard';
-import Placeholder from './pages/Placeholder';
-import Login from './pages/Login';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { AppCtx } from "./context";
+import Shell from "./layout/Shell";
+import { Toasts } from "./ui/kit";
+import { coachCanWork, startWorkout, useDB, userById } from "./store/db";
+
+import Login from "./pages/auth/Login";
+import AdminHome from "./pages/admin/AdminHome";
+import Licenses from "./pages/admin/Licenses";
+import Coaches from "./pages/admin/Coaches";
+import CoachHome from "./pages/coach/CoachHome";
+import Clients from "./pages/coach/Clients";
+import ClientDetail from "./pages/coach/ClientDetail";
+import Payments from "./pages/coach/Payments";
+import Library from "./pages/coach/Library";
+import LicenseLock from "./pages/coach/LicenseLock";
+import ClientHome from "./pages/client/ClientHome";
+import MyRoutine from "./pages/client/MyRoutine";
+import Progress from "./pages/client/Progress";
+import MyPayments from "./pages/client/MyPayments";
+import Community from "./pages/shared/Community";
+import Messages from "./pages/shared/Messages";
+import WorkoutSession from "./workout/WorkoutSession";
 
 export default function App() {
-  const [session, setSession] = useState(null); // { role, name, email, page }
-  const [role, setRole] = useState("coach");
-  const [page, setPage] = useState("clientes");
+  const db = useDB();
+  const me = db.sessionUserId ? userById(db, db.sessionUserId) : null;
+  const [route, setRoute] = useState({ page: "inicio", params: {} });
+  const [training, setTraining] = useState(false);
 
-  function handleLogin(sess) {
-    setSession(sess);
-    setRole(sess.role);
-    setPage(sess.page);
-  }
+  const go = useCallback((page, params = {}) => {
+    setRoute({ page, params });
+    document.getElementById("content")?.scrollTo({ top: 0 });
+  }, []);
 
-  function handleLogout() {
-    setSession(null);
-    setRole("coach");
-    setPage("clientes");
-  }
+  // Al cambiar de usuario, volver al inicio
+  useEffect(() => { setRoute({ page: "inicio", params: {} }); setTraining(false); }, [me?.id]);
 
-  function changeRole(r) {
-    setRole(r);
-    setPage("dashboard");
-  }
+  // Si el cliente tiene un entrenamiento a medias, se puede retomar
+  const openWorkout = useCallback((dayId) => {
+    if (!me) return;
+    startWorkout(me.id, dayId);
+    setTraining(true);
+  }, [me]);
 
-  function renderPage() {
-    if (role === "admin") {
-      if (page === "dashboard") return <AdminDashboard />;
-      if (page === "licencias") return <AdminLicencias />;
-      return <Placeholder />;
-    }
-    if (role === "coach") {
-      if (page === "dashboard") return <CoachDashboard />;
-      if (page === "clientes")  return <CoachClients />;
-      if (page === "pagos")     return <PaymentModule initialClients={initClients} />;
-      return <Placeholder />;
-    }
-    if (role === "user") {
-      if (page === "dashboard") return <ClientDashboard />;
-      return <Placeholder />;
-    }
+  const ctx = useMemo(() => ({ me, page: route.page, params: route.params, go, openWorkout }), [me, route, go, openWorkout]);
+
+  if (!me) return <><Login /><Toasts /></>;
+
+  let view;
+  const { page, params } = route;
+  if (me.role === "admin") {
+    view = page === "licencias" ? <Licenses /> : page === "entrenadores" ? <Coaches /> : <AdminHome />;
+  } else if (me.role === "coach") {
+    if (!coachCanWork(db, me.id)) view = <LicenseLock />;
+    else if (page === "clientes" && params.id) view = <ClientDetail clientId={params.id} tab={params.tab} />;
+    else view = {
+      clientes: <Clients />, pagos: <Payments />, biblioteca: <Library />,
+      comunidad: <Community />, mensajes: <Messages />,
+    }[page] || <CoachHome />;
+  } else {
+    view = {
+      rutina: <MyRoutine />, progreso: <Progress />, pagos: <MyPayments />,
+      comunidad: <Community />, mensajes: <Messages />,
+    }[page] || <ClientHome />;
   }
 
   return (
-    <>
-      <style>{`
-        ${gfont}
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: ${C.bg}; }
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: ${C.surface}; }
-        ::-webkit-scrollbar-thumb { background: ${C.border}; border-radius: 4px; }
-        button:hover { opacity: .85; }
-        input:focus, select:focus { border-color: ${C.accent} !important; }
-        select option { background: ${C.card}; }
-      `}</style>
-
-      {!session ? (
-        <Login onLogin={handleLogin} />
-      ) : (
-        <div style={{ display: "flex", height: "100vh", background: C.bg, overflow: "hidden" }}>
-          <Sidebar role={role} active={page} onNav={setPage} onRoleChange={changeRole} onLogout={handleLogout} />
-          <main style={{ flex: 1, overflowY: "auto", padding: "30px 34px" }}>
-            {renderPage()}
-          </main>
-        </div>
+    <AppCtx.Provider value={ctx}>
+      <Shell>{view}</Shell>
+      {training && me.role === "client" && (
+        <WorkoutSession clientId={me.id} onClose={() => setTraining(false)} />
       )}
-    </>
+      <Toasts />
+    </AppCtx.Provider>
   );
 }
