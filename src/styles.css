@@ -258,7 +258,7 @@ input[type=number] { -moz-appearance: textfield; }
 .seg button[aria-pressed="true"] { background: var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,.12), 0 0 0 .5px rgba(0,0,0,.04); font-weight: 600; }
 
 /* ---------- modal / hoja ---------- */
-.overlay { position: fixed; inset: 0; background: var(--overlay); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; animation: fade .2s ease-out; }
+.overlay { position: fixed; inset: 0; background: var(--overlay); z-index: 1200; display: flex; align-items: center; justify-content: center; padding: 20px; animation: fade .2s ease-out; }
 .modal { background: var(--surface); border-radius: 16px; width: 100%; max-width: 500px; max-height: 88vh; display: flex; flex-direction: column; box-shadow: var(--shadow-lg); animation: rise .28s cubic-bezier(.2, .9, .3, 1.1); }
 .modal.wide { max-width: 760px; }
 .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 20px 10px; }
@@ -541,3 +541,4 @@ input[type=number] { -moz-appearance: textfield; }
   .ex-detail { grid-template-columns: minmax(0, 1fr); }
   .ex-tile-name { font-size: 13.5px; }
 }
+.ex-map-box .muscle-map { display: block; margin: 0 auto; max-width: 100%; height: auto; }

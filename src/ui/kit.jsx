@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import Icon from "./Icon";
 import { initials, sameDay, weekStart, addDays } from "../lib/format";
 import { useDB, userById } from "../store/db";
@@ -55,7 +56,8 @@ export function Modal({ title, onClose, children, footer, wide }) {
     first?.focus({ preventScroll: true });
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
-  return (
+  // Se monta en <body> para quedar siempre encima (p. ej. sobre la pantalla de entrenamiento).
+  return createPortal(
     <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}>
       <div className={`modal ${wide ? "wide" : ""}`} role="dialog" aria-modal="true" aria-label={title} ref={ref}>
         <div className="modal-head">
@@ -65,7 +67,8 @@ export function Modal({ title, onClose, children, footer, wide }) {
         <div className="modal-body">{children}</div>
         {footer && <div className="modal-foot">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
 import Icon from "../ui/Icon";
 import { PlateLoader } from "../ui/charts";
@@ -279,8 +280,8 @@ function RestPanel({ left, total, onAdjust, onSkip }) {
 function ExitSheet({ onClose, onLeave, onDiscard }) {
   const [ask, setAsk] = useState(false);
   if (ask) return <Confirm title="Descartar entrenamiento" confirmLabel="Descartar" onClose={() => setAsk(false)} onConfirm={onDiscard} text="Se borran las series que registraste en esta sesión." />;
-  return (
-    <div className="overlay" style={{ zIndex: 1200 }} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+  return createPortal(
+    <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal" role="dialog" aria-modal="true" aria-label="Salir del entrenamiento">
         <div className="modal-head"><h2>¿Salir del entrenamiento?</h2></div>
         <div className="modal-body">
@@ -290,7 +291,8 @@ function ExitSheet({ onClose, onLeave, onDiscard }) {
           <button className="btn btn-danger btn-block" onClick={() => setAsk(true)}>Descartar entrenamiento</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
