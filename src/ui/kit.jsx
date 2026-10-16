@@ -182,3 +182,12 @@ export function useNow(ms = 1000) {
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), ms); return () => clearInterval(t); }, [ms]);
   return now;
 }
+
+/** Crédito del desarrollador. */
+export function DevCredit({ className = "" }) {
+  return (
+    <p className={`dev-credit ${className}`}>
+      Desarrollado por <a href="https://anderssont-var.github.io/" target="_blank" rel="noopener">A.T.</a>
+    </p>
+  );
+}

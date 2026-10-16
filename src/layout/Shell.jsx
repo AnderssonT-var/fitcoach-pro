@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import Icon from "../ui/Icon";
-import { Avatar, BrandMark, Confirm, Modal, toast } from "../ui/kit";
+import { Avatar, BrandMark, Confirm, Modal, toast, DevCredit } from "../ui/kit";
 import { NAV, ROLE_LABEL, useApp } from "../context";
 import { brandOf, loginAs, resetDemo, unreadFor, useDB } from "../store/db";
 
@@ -85,6 +85,7 @@ export default function Shell({ children }) {
             </button>
             <button className="btn btn-ghost btn-icon btn-sm" onClick={signOut} aria-label="Cerrar sesión" title="Cerrar sesión"><Icon name="logout" size={18} /></button>
           </div>
+          <DevCredit className="in-sidebar" />
         </div>
       </aside>
 
@@ -167,6 +168,7 @@ export default function Shell({ children }) {
             <button className="btn btn-quiet grow" onClick={() => { setSheet(false); setAskReset(true); }}><Icon name="refresh" size={17} />Restablecer demo</button>
             <button className="btn btn-danger grow" onClick={() => { setSheet(false); signOut(); }}><Icon name="logout" size={17} />Cerrar sesión</button>
           </div>
+          <DevCredit />
         </Modal>
       )}
 

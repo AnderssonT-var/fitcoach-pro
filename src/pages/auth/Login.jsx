@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Icon from "../../ui/Icon";
-import { Avatar, BrandMark, Field, PlatesLogo, toast } from "../../ui/kit";
+import { Avatar, BrandMark, Field, PlatesLogo, toast, DevCredit } from "../../ui/kit";
 import { activateLicense, clientsOf, coachBySlug, login, normalizeCode, useDB } from "../../store/db";
 
 const DEMOS = [
@@ -129,6 +129,7 @@ function LoginForm({ db, coach, unknownSlug, onBrand, onActivate }) {
           </p>
         </>
       )}
+      <DevCredit />
     </div>
   );
 }
