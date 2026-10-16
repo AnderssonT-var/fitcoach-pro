@@ -36,6 +36,19 @@ Se filtran por **categoría** (pecho, espalda, hombros, bíceps, tríceps, anteb
 
 Imágenes y datos base: [Free Exercise DB](https://github.com/yuhonas/free-exercise-db) (dominio público, Unlicense). Nombres, pasos y consejos traducidos y adaptados al español. Las imágenes están en `public/ejercicios/`.
 
+## Mapa muscular
+
+Siluetas anatómicas de frente y espalda, de hombre o de mujer (cada cliente elige la suya en su perfil). Se usa en:
+
+- **Ficha del ejercicio:** músculos principales y secundarios; toca un músculo para ver su nombre.
+- **Biblioteca y selector de rutinas:** botón *Por músculo*: toca un músculo en el cuerpo y solo aparecen los ejercicios que lo trabajan.
+- **Crear ejercicio:** se marcan los músculos tocando el cuerpo (un toque principal, dos secundario, tres quita).
+- **Progreso del cliente (cliente y entrenador):** mapa de calor de series por semana por músculo en 7 o 30 días, barras con el rango de 10–20 series y la lista de músculos sin trabajar.
+- **Editor de rutinas:** balance muscular de las series semanales que plantea la rutina, antes de guardarla.
+- **Al terminar un entrenamiento:** mapa de los músculos trabajados ese día.
+
+Trazos de las siluetas basados en [react-native-body-highlighter](https://github.com/HichamELBSI/react-native-body-highlighter) © 2022 ELABBASSI Hicham, licencia MIT (`src/ui/bodyPaths.js`).
+
 ## Marca propia de cada entrenador
 
 Cada entrenador personaliza su cuenta sin afectar a los demás:

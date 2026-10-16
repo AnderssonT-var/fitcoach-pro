@@ -9,7 +9,7 @@ import { buildSeed } from "./seed";
 import { addDays, addMonths, monthName, planPrice, repsLow, startOfDay, weekStart } from "../lib/format";
 import { slugify } from "../lib/brand";
 
-const KEY = "fcp4.db";
+const KEY = "fcp5.db";
 
 /* ---------- persistencia segura ---------- */
 function load() {
@@ -17,7 +17,7 @@ function load() {
     const raw = window.localStorage.getItem(KEY);
     if (!raw) return null;
     const s = JSON.parse(raw);
-    return s?.version === 4 ? s : null;
+    return s?.version === 5 ? s : null;
   } catch { return null; }
 }
 let warnedFull = false;
@@ -458,7 +458,7 @@ export function deletePost(postId) { commit((d) => { d.posts = d.posts.filter((p
 /* ============================================================
    Perfiles y marca
    ============================================================ */
-const PROFILE_KEYS = ["name", "photo", "phone", "city", "headline", "years", "instagram", "bio", "specialties", "certifications", "services", "injuries", "birthYear"];
+const PROFILE_KEYS = ["name", "body", "photo", "phone", "city", "headline", "years", "instagram", "bio", "specialties", "certifications", "services", "injuries", "birthYear"];
 export function updateProfile(userId, patch) {
   commit((d) => {
     const u = d.users.find((x) => x.id === userId);

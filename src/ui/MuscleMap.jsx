@@ -1,5 +1,11 @@
-/* Mapa muscular (vista frontal y posterior) dibujado para la app.
-   Resalta en color fuerte los músculos principales y en suave los secundarios. */
+/* Mapa muscular anatómico (frente y espalda, silueta de hombre o mujer).
+   Modos:
+   - Ejercicio: `primary` / `secondary` resaltan músculos principales y secundarios.
+   - Calor: `heat` = { músculo: nivel 1–4 } para el volumen entrenado.
+   - Selección: `selected` + `onSelect` lo vuelven un selector táctil. */
+import { useContext, useMemo, useState } from "react";
+import { AppCtx } from "../context";
+import { BODY } from "./bodyPaths";
 
 const MUSCLE_ES = {
   chest: "Pecho", shoulders: "Hombros", biceps: "Bíceps", triceps: "Tríceps", forearms: "Antebrazos",
@@ -8,77 +14,125 @@ const MUSCLE_ES = {
   traps: "Trapecios", adductors: "Aductores", abductors: "Abductores", neck: "Cuello",
 };
 export const muscleName = (m) => MUSCLE_ES[m] || m;
+export const MUSCLES = Object.keys(MUSCLE_ES);
 
-/* Silueta compartida por ambas vistas */
-function Body() {
+/* Región del dibujo → músculo de la base de datos */
+const REGION_MUSCLE = {
+  chest: "chest", deltoids: "shoulders", biceps: "biceps", triceps: "triceps", forearm: "forearms",
+  abs: "abdominals", obliques: "abdominals", lats: "lats", midback: "middle back", "lower-back": "lower back",
+  trapezius: "traps", gluteal: "glutes", quadriceps: "quadriceps", hamstring: "hamstrings",
+  adductors: "adductors", calves: "calves", neck: "neck",
+};
+/* Músculos sin región propia que se pintan sobre otra */
+const ALSO = { gluteal: ["abductors"] };
+const musclesOfRegion = (r) => [REGION_MUSCLE[r], ...(ALSO[r] || [])].filter(Boolean);
+
+const BODY_KEY = "fcp.mm.body";
+function readBody() { try { return localStorage.getItem(BODY_KEY); } catch { return null; } }
+function writeBody(v) { try { localStorage.setItem(BODY_KEY, v); } catch { /* sin almacenamiento */ } }
+
+export default function MuscleMap({
+  primary = [], secondary = [], heat, selected, onSelect, describe,
+  body, bodyToggle = false, height = 260, hint, className = "",
+}) {
+  const app = useContext(AppCtx);
+  const [local, setLocal] = useState(null);
+  const sex = local || body || readBody() || (app?.me?.body === "f" ? "f" : "m");
+  const [hover, setHover] = useState(null);
+  const sel = selected == null ? [] : Array.isArray(selected) ? selected : [selected];
+  const interactive = !!onSelect;
+
+  /* estado de cada músculo: clase de color */
+  const tone = useMemo(() => {
+    const t = {};
+    if (heat) Object.entries(heat).forEach(([m, lv]) => { if (lv > 0) t[m] = `h${Math.min(4, lv)}`; });
+    secondary.forEach((m) => { t[m] = "sec"; });
+    primary.forEach((m) => { t[m] = "pri"; });
+    if (!heat) sel.forEach((m) => { t[m] = "pri"; });
+    return t;
+  }, [heat, primary, secondary, sel.join("|")]);
+
+  const rank = { pri: 6, sec: 1, h1: 2, h2: 3, h3: 4, h4: 5 };
+  const regionTone = (r) => musclesOfRegion(r).map((m) => tone[m]).filter(Boolean).sort((a, b) => rank[b] - rank[a])[0] || "";
+  const dim = sel.length > 0;
+
+  const label = (m) => {
+    const extra = describe?.(m);
+    const role = primary.includes(m) ? "principal" : secondary.includes(m) ? "secundario" : "";
+    return [muscleName(m), extra || role].filter(Boolean).join(" · ");
+  };
+
+  function figure(side) {
+    const v = BODY[sex][side];
+    const [, , w, h] = v.vb.split(" ").map(Number);
+    return (
+      <figure className="mm-fig" key={side}>
+        <svg viewBox={v.vb} style={{ height, width: (height * w) / h }} aria-hidden={interactive ? undefined : "true"}>
+          <path d={v.outline} className="mm-outline" />
+          {v.base.map((d, i) => <path key={i} d={d} className="mm-base" />)}
+          {Object.entries(v.regions).map(([r, ds]) => {
+            const ms = musclesOfRegion(r);
+            const main = ms[0];
+            const t = regionTone(r);
+            const on = main && (hover === main || (hover && ms.includes(hover)));
+            const isSel = ms.some((m) => sel.includes(m));
+            const cls = `mm-r ${t} ${main ? "mm-m" : "mm-neutral"} ${on ? "hover" : ""} ${isSel ? "sel" : ""} ${dim && !isSel ? "dim" : ""}`;
+            if (!main) return <g key={r} className={cls}>{ds.map((x, i) => <path key={i} d={x} />)}</g>;
+            const pick = () => onSelect?.(main);
+            return (
+              <g key={r} className={cls}
+                onPointerEnter={(e) => e.pointerType === "mouse" && setHover(main)}
+                onPointerLeave={(e) => e.pointerType === "mouse" && setHover((h) => (h === main ? null : h))}
+                onClick={() => { setHover(main); pick(); }}
+                {...(interactive ? {
+                  role: "button", tabIndex: 0, "aria-label": label(main), "aria-pressed": sel.includes(main),
+                  onKeyDown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } },
+                  onFocus: () => setHover(main), onBlur: () => setHover(null),
+                } : {})}>
+                <title>{label(main)}</title>
+                {ds.map((x, i) => <path key={i} d={x} />)}
+              </g>
+            );
+          })}
+        </svg>
+        <figcaption>{side === "front" ? "Frente" : "Espalda"}</figcaption>
+      </figure>
+    );
+  }
+
+  const summary = primary.length || secondary.length
+    ? `Músculos principales: ${primary.map(muscleName).join(", ") || "ninguno"}${secondary.length ? `. Secundarios: ${secondary.map(muscleName).join(", ")}` : ""}`
+    : heat ? `Mapa de músculos trabajados: ${Object.entries(heat).filter(([, v]) => v > 0).map(([m]) => label(m)).join(", ") || "sin registros"}`
+    : "Mapa muscular";
+
   return (
-    <g fill="var(--mm-body)">
-      <circle cx="50" cy="15" r="10" />
-      <rect x="45" y="23" width="10" height="9" rx="3" />
-      <path d="M29 37 Q50 29 71 37 L73 62 Q71 84 66 104 L64 114 Q50 121 36 114 L34 104 Q29 84 27 62 Z" />
-      <rect x="18" y="40" width="11" height="40" rx="5.5" transform="rotate(10 23.5 40)" />
-      <rect x="71" y="40" width="11" height="40" rx="5.5" transform="rotate(-10 76.5 40)" />
-      <rect x="13" y="78" width="10" height="36" rx="5" transform="rotate(8 18 78)" />
-      <rect x="77" y="78" width="10" height="36" rx="5" transform="rotate(-8 82 78)" />
-      <circle cx="13" cy="118" r="4.5" /><circle cx="87" cy="118" r="4.5" />
-      <rect x="35" y="108" width="14.5" height="54" rx="7" />
-      <rect x="50.5" y="108" width="14.5" height="54" rx="7" />
-      <rect x="36.5" y="158" width="11" height="42" rx="5.5" />
-      <rect x="52.5" y="158" width="11" height="42" rx="5.5" />
-      <ellipse cx="41" cy="203" rx="6" ry="3" /><ellipse cx="59" cy="203" rx="6" ry="3" />
-    </g>
+    <div className={`mm ${interactive ? "mm-interactive" : ""} ${className}`}>
+      {bodyToggle && (
+        <div className="seg seg-sm mm-toggle" role="group" aria-label="Silueta">
+          {[["m", "Hombre"], ["f", "Mujer"]].map(([k, l]) => (
+            <button key={k} type="button" aria-pressed={sex === k} onClick={() => { setLocal(k); writeBody(k); }}>{l}</button>
+          ))}
+        </div>
+      )}
+      <div className="mm-figs" role={interactive ? "group" : "img"} aria-label={interactive ? "Elige un músculo" : summary}>
+        {figure("front")}
+        {figure("back")}
+      </div>
+      {(hint !== false) && (
+        <div className="mm-caption" aria-live="polite">
+          {hover || sel[0] ? <strong>{label(hover || sel[0])}</strong> : <span className="muted">{hint || (interactive ? "Toca un músculo" : "Toca o pasa el cursor sobre un músculo")}</span>}
+        </div>
+      )}
+    </div>
   );
 }
 
-const FRONT = {
-  neck: [["ellipse", { cx: 50, cy: 29, rx: 4, ry: 3.5 }]],
-  traps: [["path", { d: "M38 36 Q44 32 46 30 L46 36 Z" }], ["path", { d: "M62 36 Q56 32 54 30 L54 36 Z" }]],
-  shoulders: [["ellipse", { cx: 29, cy: 44, rx: 7, ry: 7.5 }], ["ellipse", { cx: 71, cy: 44, rx: 7, ry: 7.5 }]],
-  chest: [["path", { d: "M37 41 Q46 39 49 42 L49 55 Q42 59 35 55 Q33 47 37 41 Z" }], ["path", { d: "M63 41 Q54 39 51 42 L51 55 Q58 59 65 55 Q67 47 63 41 Z" }]],
-  biceps: [["ellipse", { cx: 22.5, cy: 62, rx: 4.3, ry: 11, transform: "rotate(10 22.5 62)" }], ["ellipse", { cx: 77.5, cy: 62, rx: 4.3, ry: 11, transform: "rotate(-10 77.5 62)" }]],
-  forearms: [["ellipse", { cx: 16, cy: 95, rx: 4, ry: 12, transform: "rotate(8 16 95)" }], ["ellipse", { cx: 84, cy: 95, rx: 4, ry: 12, transform: "rotate(-8 84 95)" }]],
-  abdominals: [["rect", { x: 44, y: 60, width: 12, height: 40, rx: 4 }], ["ellipse", { cx: 38.5, cy: 80, rx: 3.5, ry: 11 }], ["ellipse", { cx: 61.5, cy: 80, rx: 3.5, ry: 11 }]],
-  abductors: [["ellipse", { cx: 36.5, cy: 116, rx: 2.6, ry: 8 }], ["ellipse", { cx: 63.5, cy: 116, rx: 2.6, ry: 8 }]],
-  adductors: [["ellipse", { cx: 47, cy: 124, rx: 2.4, ry: 12 }], ["ellipse", { cx: 53, cy: 124, rx: 2.4, ry: 12 }]],
-  quadriceps: [["ellipse", { cx: 41.5, cy: 134, rx: 6, ry: 21 }], ["ellipse", { cx: 58.5, cy: 134, rx: 6, ry: 21 }]],
-  calves: [["ellipse", { cx: 40.5, cy: 174, rx: 3.6, ry: 13 }], ["ellipse", { cx: 59.5, cy: 174, rx: 3.6, ry: 13 }]],
-};
-const BACK = {
-  neck: [["ellipse", { cx: 50, cy: 29, rx: 4, ry: 3.5 }]],
-  traps: [["path", { d: "M50 27 L62 38 L50 58 L38 38 Z" }]],
-  shoulders: [["ellipse", { cx: 29, cy: 44, rx: 7, ry: 7.5 }], ["ellipse", { cx: 71, cy: 44, rx: 7, ry: 7.5 }]],
-  triceps: [["ellipse", { cx: 22.5, cy: 62, rx: 4.3, ry: 11, transform: "rotate(10 22.5 62)" }], ["ellipse", { cx: 77.5, cy: 62, rx: 4.3, ry: 11, transform: "rotate(-10 77.5 62)" }]],
-  forearms: [["ellipse", { cx: 16, cy: 95, rx: 4, ry: 12, transform: "rotate(8 16 95)" }], ["ellipse", { cx: 84, cy: 95, rx: 4, ry: 12, transform: "rotate(-8 84 95)" }]],
-  lats: [["path", { d: "M33 46 Q40 50 45 62 L44 82 Q37 78 34 70 Q31 58 33 46 Z" }], ["path", { d: "M67 46 Q60 50 55 62 L56 82 Q63 78 66 70 Q69 58 67 46 Z" }]],
-  "middle back": [["path", { d: "M44 44 L56 44 L56 66 Q50 70 44 66 Z" }]],
-  "lower back": [["rect", { x: 44, y: 78, width: 12, height: 22, rx: 5 }]],
-  glutes: [["ellipse", { cx: 42.5, cy: 111, rx: 7.5, ry: 8.5 }], ["ellipse", { cx: 57.5, cy: 111, rx: 7.5, ry: 8.5 }]],
-  abductors: [["ellipse", { cx: 35.5, cy: 108, rx: 2.6, ry: 7 }], ["ellipse", { cx: 64.5, cy: 108, rx: 2.6, ry: 7 }]],
-  adductors: [["ellipse", { cx: 48, cy: 128, rx: 2, ry: 10 }], ["ellipse", { cx: 52, cy: 128, rx: 2, ry: 10 }]],
-  hamstrings: [["ellipse", { cx: 41.5, cy: 138, rx: 5.8, ry: 18 }], ["ellipse", { cx: 58.5, cy: 138, rx: 5.8, ry: 18 }]],
-  calves: [["ellipse", { cx: 41.5, cy: 172, rx: 5, ry: 13 }], ["ellipse", { cx: 58.5, cy: 172, rx: 5, ry: 13 }]],
-};
-
-function View({ map, primary, secondary, label, dx }) {
+/** Leyenda de colores para el modo ejercicio. */
+export function MuscleLegend({ primary = [], secondary = [] }) {
   return (
-    <g transform={`translate(${dx} 0)`}>
-      <Body />
-      {Object.entries(map).map(([m, shapes]) => {
-        const fill = primary.includes(m) ? "var(--mm-primary)" : secondary.includes(m) ? "var(--mm-secondary)" : "var(--mm-muscle)";
-        return shapes.map(([Tag, props], i) => <Tag key={`${m}${i}`} {...props} fill={fill}><title>{muscleName(m)}</title></Tag>);
-      })}
-      <text x="50" y="218" textAnchor="middle" fontSize="8" fill="var(--muted)" fontFamily="var(--body)">{label}</text>
-    </g>
-  );
-}
-
-export default function MuscleMap({ primary = [], secondary = [], size = 200 }) {
-  const names = [...primary.map(muscleName)];
-  return (
-    <svg className="muscle-map" viewBox="0 0 210 222" width={size} height={size * 222 / 210} role="img"
-      aria-label={`Músculos principales: ${names.join(", ") || "sin datos"}${secondary.length ? `. Secundarios: ${secondary.map(muscleName).join(", ")}` : ""}`}>
-      <View map={FRONT} primary={primary} secondary={secondary} label="Frente" dx={0} />
-      <View map={BACK} primary={primary} secondary={secondary} label="Espalda" dx={110} />
-    </svg>
+    <div className="mm-legend">
+      {primary.length > 0 && <div><span className="mm-dot pri" /><span className="muted">Principales</span><strong>{primary.map(muscleName).join(", ")}</strong></div>}
+      {secondary.length > 0 && <div><span className="mm-dot sec" /><span className="muted">Secundarios</span><span>{secondary.map(muscleName).join(", ")}</span></div>}
+    </div>
   );
 }

@@ -8,6 +8,7 @@ import { ExerciseDetail } from "../ui/exercises";
 import {
   bestSet, clientById, discardWorkout, exerciseById, exerciseImage, finishWorkout, updateWorkout, useDB, userById,
 } from "../store/db";
+import { SessionMuscles } from "./MuscleLoad";
 import { clock, kg, parseRest, repsLow, tons } from "../lib/format";
 
 /**
@@ -167,6 +168,7 @@ export default function WorkoutSession({ clientId, onClose }) {
                 <div className="stat"><span className="stat-label">Series</span><span className="stat-value num" style={{ fontSize: 28 }}>{result.done}</span></div>
                 <div className="stat"><span className="stat-label">Volumen</span><span className="stat-value num" style={{ fontSize: 28 }}>{tons(result.volume)}</span></div>
               </div>
+              <SessionMuscles session={s} body={userById(db, clientId)?.body} />
               {result.prs.length > 0 && (
                 <section className="panel" style={{ width: "100%", textAlign: "left", borderColor: "var(--yellow)" }}>
                   <div className="panel-head" style={{ background: "var(--yellow-soft)" }}><h2><Icon name="trophy" size={20} /> {result.prs.length === 1 ? "Nuevo récord" : "Nuevos récords"}</h2></div>

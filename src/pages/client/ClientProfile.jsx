@@ -26,7 +26,7 @@ export default function ClientProfile() {
 }
 
 function ProfileForm({ u, c, coachName }) {
-  const init = { name: u.name, phone: c.phone || "", birthYear: u.birthYear ?? "", bio: u.bio || "", injuries: u.injuries || "" };
+  const init = { name: u.name, phone: c.phone || "", birthYear: u.birthYear ?? "", bio: u.bio || "", injuries: u.injuries || "", body: u.body || "m" };
   const [f, setF] = useState(init);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const dirty = JSON.stringify(f) !== JSON.stringify(init);
@@ -58,6 +58,12 @@ function ProfileForm({ u, c, coachName }) {
         <div className="form-grid">
           <div className="full"><Field label="Nombre" id="pp-name"><input id="pp-name" className="input" value={f.name} onChange={set("name")} /></Field></div>
           <Field label="Teléfono" id="pp-phone"><input id="pp-phone" className="input" type="tel" value={f.phone} onChange={set("phone")} /></Field>
+          <div className="field">
+            <span className="label">Silueta del mapa muscular</span>
+            <div className="seg" role="group" aria-label="Silueta del mapa muscular">
+              {[["m", "Hombre"], ["f", "Mujer"]].map(([k, l]) => <button key={k} type="button" aria-pressed={f.body === k} onClick={() => setF({ ...f, body: k })}>{l}</button>)}
+            </div>
+          </div>
           <Field label="Año de nacimiento" id="pp-by"><input id="pp-by" className="input num" type="number" min="1920" max={year - 10} value={f.birthYear} onChange={set("birthYear")} /></Field>
           <div className="full"><Field label="Sobre mí" id="pp-bio" hint="Tu objetivo, horarios, lo que te motiva.">
             <textarea id="pp-bio" className="textarea" rows={3} maxLength={300} value={f.bio} onChange={set("bio")} />

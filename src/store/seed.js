@@ -181,6 +181,8 @@ export function buildSeed() {
     11: { bio: "Ingeniero, entreno antes del trabajo. Mi meta es levantar 150 kg en peso muerto.", injuries: "", birthYear: 1990 },
     13: { bio: "Quiero bajar de peso sin perder fuerza.", injuries: "Lumbar sensible.", birthYear: 1986 },
   };
+  const BODY_F = new Set([3, 10, 12, 20, 22]);
+  users.forEach((u) => { if (u.role !== "admin") u.body = BODY_F.has(u.id) ? "f" : "m"; });
   users.forEach((u) => { if (u.role === "client") Object.assign(u, { bio: "", injuries: "", birthYear: null, photo: null }, profile[u.id] || {}); else u.photo = null; });
 
   // Medidas corporales registradas por el entrenador
@@ -304,7 +306,7 @@ export function buildSeed() {
   ];
 
   return {
-    version: 4,
+    version: 5,
     users, licenses, clients, exercises: EXERCISES.map((e) => ({ ...e })),
     templates, payments, workouts, messages, posts, activity,
     active: {},

@@ -3,7 +3,7 @@ import Icon from "../../ui/Icon";
 import { Confirm, Empty, Field, Modal, toast } from "../../ui/kit";
 import { ImageDrop } from "../../ui/inputs";
 import { ExerciseDetail, ExerciseFilters, ExerciseTile, GROUPS, LEVELS, MUSCLE_KEYS, useExerciseFilters } from "../../ui/exercises";
-import { muscleName } from "../../ui/MuscleMap";
+import MuscleMap, { MuscleLegend, muscleName } from "../../ui/MuscleMap";
 import { useApp } from "../../context";
 import { deleteExercise, deleteTemplate, exerciseById, exerciseInUse, upsertExercise, useDB } from "../../store/db";
 import { clock, shortDate } from "../../lib/format";
@@ -99,11 +99,16 @@ function ExerciseModal({ ex, onClose, onSave }) {
           <Field label="Desc. (s)" id="ex-rest"><input id="ex-rest" className="input num" type="number" min="0" value={f.rest} onChange={set("rest")} /></Field>
         </div>
         <div className="full field">
-          <span className="label">Músculos trabajados <span className="muted" style={{ fontWeight: 400 }}>· un toque: principal, dos: secundario</span></span>
-          <div className="chips">
+          <span className="label">Músculos trabajados <span className="muted" style={{ fontWeight: 400 }}>· toca el cuerpo o la lista: un toque principal, dos secundario, tres quita</span></span>
+          <div className="body-picker stack gap-sm">
+            <MuscleMap primary={f.primary} secondary={f.secondary} onSelect={toggleMuscle} height={220}
+              describe={(m) => (f.primary.includes(m) ? "principal" : f.secondary.includes(m) ? "secundario" : "toca para marcar")} />
+            {(f.primary.length > 0 || f.secondary.length > 0) && <MuscleLegend primary={f.primary} secondary={f.secondary} />}
+          </div>
+          <div className="chips" style={{ marginTop: 8 }}>
             {MUSCLE_KEYS.map((m) => {
               const p = f.primary.includes(m), s = f.secondary.includes(m);
-              return <button key={m} type="button" className="chip" aria-pressed={p} style={s ? { background: "var(--mm-secondary)", color: "#3a1a10", boxShadow: "none" } : null} onClick={() => toggleMuscle(m)}>{muscleName(m)}</button>;
+              return <button key={m} type="button" className="chip" aria-pressed={p} style={s ? { background: "var(--mm-secondary)", color: "var(--ink)", boxShadow: "none" } : null} onClick={() => toggleMuscle(m)}>{muscleName(m)}</button>;
             })}
           </div>
         </div>

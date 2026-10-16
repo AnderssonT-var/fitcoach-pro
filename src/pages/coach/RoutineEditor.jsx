@@ -6,6 +6,7 @@ import { exerciseById, exerciseImage, newUid, saveRoutine, saveTemplate, useDB, 
 import { ExerciseDetail, ExerciseFilters, ExerciseTile, useExerciseFilters } from "../../ui/exercises";
 import { clock } from "../../lib/format";
 import { GOALS } from "./Clients";
+import { RoutineBalance } from "../../workout/MuscleLoad";
 
 const RESTS = [30, 45, 60, 75, 90, 120, 150, 180, 240];
 const blank = () => ({ name: "", goal: "Hipertrofia", frequency: 3, notes: "", days: [{ id: newUid(), name: "Día 1", exercises: [] }] });
@@ -135,6 +136,8 @@ export default function RoutineEditor({ clientId }) {
           <button className="btn btn-quiet" onClick={() => setPicker(true)} style={{ borderStyle: "dashed" }}><Icon name="plus" size={18} />Agregar ejercicio a {day.name || "este día"}</button>
         </div>
       </section>
+
+      <RoutineBalance routine={draft} body={user.body} />
 
       <div className="panel panel-pad row wrap spread" style={{ position: "sticky", bottom: 12, zIndex: 5, boxShadow: "var(--shadow)", paddingBlock: 12 }}>
         <span className="small muted">{dirty ? "Tienes cambios sin guardar" : client.routine ? `${first} ve esta versión` : "Aún no se ha guardado"} · {draft.days.length} {draft.days.length === 1 ? "día" : "días"}, {total} ejercicios</span>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Icon from "./Icon";
 import { Modal } from "./kit";
-import MuscleMap, { muscleName } from "./MuscleMap";
+import MuscleMap, { MuscleLegend, muscleName } from "./MuscleMap";
 import { exerciseImage } from "../store/db";
 import { clock, parseRest } from "../lib/format";
 
@@ -12,25 +12,32 @@ const LEVEL_TONE = { Principiante: "ok", Intermedio: "info", Avanzado: "warn" };
 
 /* ---------- filtros ---------- */
 export function useExerciseFilters(list, coachId) {
-  const [f, setF] = useState({ q: "", group: "Todos", equipment: "", level: "", mine: false });
+  const [f, setF] = useState({ q: "", group: "Todos", equipment: "", level: "", mine: false, muscle: "" });
   const norm = (s) => (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
   const base = useMemo(() => list.filter((e) =>
     (!f.q || norm(`${e.name} ${e.muscle} ${e.equipment} ${(e.primary || []).map(muscleName).join(" ")}`).includes(norm(f.q))) &&
     (!f.equipment || e.equipment === f.equipment) &&
     (!f.level || e.level === f.level) &&
-    (!f.mine || e.coachId === coachId)), [list, f.q, f.equipment, f.level, f.mine, coachId]);
+    (!f.mine || e.coachId === coachId) &&
+    (!f.muscle || (e.primary || []).includes(f.muscle))), [list, f.q, f.equipment, f.level, f.mine, f.muscle, coachId]);
   const shown = useMemo(() => base.filter((e) => f.group === "Todos" || e.muscle === f.group).sort((a, b) => a.name.localeCompare(b.name, "es")), [base, f.group]);
   const groups = useMemo(() => {
     const extra = [...new Set(list.map((e) => e.muscle))].filter((g) => g && !GROUPS.includes(g));
     return ["Todos", ...GROUPS, ...extra].map((g) => ({ g, n: g === "Todos" ? base.length : base.filter((e) => e.muscle === g).length })).filter((x) => x.g === "Todos" || x.n > 0 || x.g === f.group);
   }, [list, base, f.group]);
   const equipment = useMemo(() => [...new Set(list.map((e) => e.equipment).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es")), [list]);
-  return { f, setF, shown, groups, equipment, total: list.length };
+  const muscleCount = useMemo(() => {
+    const c = {};
+    list.forEach((e) => (e.primary || []).forEach((m) => { c[m] = (c[m] || 0) + 1; }));
+    return c;
+  }, [list]);
+  return { f, setF, shown, groups, equipment, muscleCount, total: list.length };
 }
 
-export function ExerciseFilters({ state, idPrefix = "ex", showMine }) {
-  const { f, setF, groups, equipment } = state;
-  const active = f.equipment || f.level || f.mine || f.q;
+export function ExerciseFilters({ state, idPrefix = "ex", showMine, bodyOpen = false }) {
+  const { f, setF, groups, equipment, muscleCount } = state;
+  const [body, setBody] = useState(bodyOpen);
+  const active = f.equipment || f.level || f.mine || f.q || f.muscle;
   return (
     <div className="stack gap-sm">
       <div className="row wrap" style={{ gap: 10 }}>
@@ -49,8 +56,26 @@ export function ExerciseFilters({ state, idPrefix = "ex", showMine }) {
           {LEVELS.map((l) => <button key={l} aria-pressed={f.level === l} onClick={() => setF({ ...f, level: l })}>{l}</button>)}
         </div>
         {showMine && <label className="toggle small"><input type="checkbox" checked={f.mine} onChange={(e) => setF({ ...f, mine: e.target.checked })} />Solo míos</label>}
-        {active && <button className="link-btn small" onClick={() => setF({ q: "", group: f.group, equipment: "", level: "", mine: false })}>Limpiar filtros</button>}
+        <button type="button" className={`btn btn-sm ${body ? "btn-primary" : "btn-quiet"}`} aria-expanded={body} onClick={() => setBody(!body)}>
+          <Icon name="user" size={15} />Por músculo
+        </button>
+        {active && <button className="link-btn small" onClick={() => setF({ q: "", group: f.group, equipment: "", level: "", mine: false, muscle: "" })}>Limpiar filtros</button>}
       </div>
+      {body && (
+        <div className="body-picker">
+          <MuscleMap selected={f.muscle || null} onSelect={(m) => setF({ ...f, muscle: f.muscle === m ? "" : m, group: "Todos" })}
+            describe={(m) => `${muscleCount[m] || 0} ejercicios`} height={250} bodyToggle
+            hint={f.muscle ? undefined : "Toca un músculo para ver sus ejercicios"} />
+        </div>
+      )}
+      {f.muscle && (
+        <div className="row gap-sm wrap">
+          <span className="small muted">Músculo principal:</span>
+          <button type="button" className="chip" aria-pressed="true" onClick={() => setF({ ...f, muscle: "" })} aria-label={`Quitar filtro ${muscleName(f.muscle)}`}>
+            {muscleName(f.muscle)}<Icon name="x" size={14} />
+          </button>
+        </div>
+      )}
       <div className="chips ex-groups" role="group" aria-label="Grupo muscular">
         {groups.map(({ g, n }) => (
           <button key={g} className="chip" aria-pressed={f.group === g} onClick={() => setF({ ...f, group: g })}>{g}<span className="chip-n">{n}</span></button>
@@ -71,7 +96,7 @@ export function ExerciseTile({ ex, onOpen, action }) {
             <img src={img0} alt="" loading="lazy" />
             {img1 && img1 !== img0 && <img src={img1} alt="" loading="lazy" className="alt" />}
           </>
-        ) : <div className="ex-tile-map"><MuscleMap primary={ex.primary || []} secondary={ex.secondary || []} size={150} /></div>}
+        ) : <div className="ex-tile-map"><MuscleMap primary={ex.primary || []} secondary={ex.secondary || []} height={112} hint={false} /></div>}
         {ex.coachId && <span className="ex-badge">Tuyo</span>}
       </button>
       <div className="ex-tile-body">
@@ -128,11 +153,8 @@ export function ExerciseDetail({ ex, onClose, footer, coachName }) {
         </div>
         <div className="stack">
           <div className="ex-map-box">
-            <MuscleMap primary={ex.primary || []} secondary={ex.secondary || []} size={230} />
-            <div className="stack gap-xs small">
-              {ex.primary?.length > 0 && <div><span className="mm-dot primary" />Principales: <strong>{ex.primary.map(muscleName).join(", ")}</strong></div>}
-              {ex.secondary?.length > 0 && <div><span className="mm-dot secondary" />Secundarios: {ex.secondary.map(muscleName).join(", ")}</div>}
-            </div>
+            <MuscleMap primary={ex.primary || []} secondary={ex.secondary || []} height={250} bodyToggle />
+            <MuscleLegend primary={ex.primary || []} secondary={ex.secondary || []} />
           </div>
           {steps.length > 0 && (
             <div className="stack gap-sm">

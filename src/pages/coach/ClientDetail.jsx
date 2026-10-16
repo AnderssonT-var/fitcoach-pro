@@ -11,6 +11,7 @@ import { useApp } from "../../context";
 import {
   addBodyWeight, clientById, paymentStatus, resetClientPassword, updateClient, useDB, userById, weekStreak, workoutsOf,
 } from "../../store/db";
+import { MuscleLoadPanel } from "../../workout/MuscleLoad";
 import { ago, kg, money, shortDate } from "../../lib/format";
 
 const TABS = [["resumen", "Resumen"], ["rutina", "Rutina"], ["historial", "Entrenamientos"], ["medidas", "Medidas"], ["fotos", "Fotos"], ["notas", "Notas"], ["pagos", "Pagos"], ["datos", "Datos"]];
@@ -95,6 +96,7 @@ function Summary({ clientId, onTab }) {
         <AdherenceChart clientId={clientId} />
         <WeightChart clientId={clientId} />
       </div>
+      <MuscleLoadPanel clientId={clientId} />
       <div className="grid-2">
         <VolumeChart clientId={clientId} />
         <Records clientId={clientId} />
