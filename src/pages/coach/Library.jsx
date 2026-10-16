@@ -9,14 +9,14 @@ import { deleteExercise, deleteTemplate, exerciseById, exerciseInUse, upsertExer
 import { clock, shortDate } from "../../lib/format";
 import { progressImage } from "../../lib/image";
 
-const EQUIP = ["Barra", "Barra Z", "Mancuernas", "Polea", "Máquina", "Peso corporal", "Barra fija", "Paralelas", "Kettlebell", "Banda elástica", "Balón medicinal", "Fitball", "Cajón", "Cuerda", "Otro"];
+const EQUIP = ["Barra", "Barra Z", "Mancuernas", "Polea", "Máquina", "Hammer Strength", "Máquina Smith", "Peso corporal", "Barra fija", "Paralelas", "Kettlebell", "Banda elástica", "Balón medicinal", "Fitball", "Cajón", "Cuerda", "Disco", "Trineo", "Otro"];
 
 export default function Library() {
   const [tab, setTab] = useState("ejercicios");
   return (
     <div className="page">
       <div className="page-head">
-        <div><h1>Biblioteca</h1><p>Más de 100 ejercicios listos con fotos, músculos trabajados y técnica. Agrega los tuyos y arma plantillas.</p></div>
+        <div><h1>Biblioteca</h1><p>Más de 200 ejercicios listos con fotos, músculos trabajados y técnica. Agrega los tuyos y arma plantillas.</p></div>
       </div>
       <div className="tabs" role="tablist">
         <button role="tab" className="tab" aria-selected={tab === "ejercicios"} onClick={() => setTab("ejercicios")}>Ejercicios</button>

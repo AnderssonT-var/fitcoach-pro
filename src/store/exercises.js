@@ -1665,7 +1665,7 @@ export const EXERCISE_LIBRARY = [
   "id": 67,
   "name": "Sentadilla en máquina Smith",
   "muscle": "Cuádriceps",
-  "equipment": "Máquina",
+  "equipment": "Máquina Smith",
   "level": "Principiante",
   "type": "Fuerza",
   "primary": [
@@ -2543,7 +2543,6 @@ export const EXERCISE_LIBRARY = [
    "lower back",
    "middle back",
    "quadriceps",
-   "shoulders",
    "traps",
    "triceps"
   ],
@@ -2964,9 +2963,7 @@ export const EXERCISE_LIBRARY = [
   "primary": [
    "quadriceps"
   ],
-  "secondary": [
-   "quadriceps"
-  ],
+  "secondary": [],
   "cues": "Aprieta el glúteo de la pierna de atrás.",
   "steps": [
    "Una rodilla en el piso y la otra pierna al frente.",
@@ -3026,5 +3023,2491 @@ export const EXERCISE_LIBRARY = [
   "rest": 15,
   "images": 2,
   "source": "Calf_Stretch_Hands_Against_Wall"
+ },
+ {
+  "id": 120,
+  "name": "Press de pecho en Hammer",
+  "muscle": "Pecho",
+  "equipment": "Hammer Strength",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "chest"
+  ],
+  "secondary": [
+   "shoulders",
+   "triceps"
+  ],
+  "cues": "Cada brazo trabaja por separado: empuja parejo con los dos.",
+  "steps": [
+   "Ajusta el asiento para que los agarres queden a la altura del pecho.",
+   "Empuja los agarres al frente hasta casi estirar los brazos.",
+   "Regresa lento hasta sentir el estiramiento en el pecho."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Leverage_Chest_Press"
+ },
+ {
+  "id": 121,
+  "name": "Press inclinado en Hammer",
+  "muscle": "Pecho",
+  "equipment": "Hammer Strength",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "chest"
+  ],
+  "secondary": [
+   "shoulders",
+   "triceps"
+  ],
+  "cues": "Pecho alto y escápulas pegadas al respaldo.",
+  "steps": [
+   "Siéntate con la espalda apoyada y toma los agarres a la altura de la parte alta del pecho.",
+   "Empuja hacia arriba y al frente sin bloquear los codos.",
+   "Baja controlando el recorrido completo."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Leverage_Incline_Chest_Press"
+ },
+ {
+  "id": 122,
+  "name": "Press declinado en Hammer",
+  "muscle": "Pecho",
+  "equipment": "Hammer Strength",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "chest"
+  ],
+  "secondary": [
+   "shoulders",
+   "triceps"
+  ],
+  "cues": "Enfoca la parte baja del pecho; codos a 45°.",
+  "steps": [
+   "Siéntate y toma los agarres a la altura de la parte baja del pecho.",
+   "Empuja hacia abajo y al frente hasta estirar los brazos.",
+   "Regresa lento sin despegar la espalda."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Leverage_Decline_Chest_Press"
+ },
+ {
+  "id": 123,
+  "name": "Press banca en Smith",
+  "muscle": "Pecho",
+  "equipment": "Máquina Smith",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "chest"
+  ],
+  "secondary": [
+   "shoulders",
+   "triceps"
+  ],
+  "cues": "Coloca el banco para que la barra baje a la mitad del pecho.",
+  "steps": [
+   "Acuéstate bajo la barra y gírala para soltar los seguros.",
+   "Baja la barra controlada hasta rozar el pecho.",
+   "Empuja hasta estirar los brazos y vuelve a asegurar al final."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Smith_Machine_Bench_Press"
+ },
+ {
+  "id": 124,
+  "name": "Press inclinado en Smith",
+  "muscle": "Pecho",
+  "equipment": "Máquina Smith",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "chest"
+  ],
+  "secondary": [
+   "shoulders",
+   "triceps"
+  ],
+  "cues": "Banco a 30°; la barra cae en la parte alta del pecho.",
+  "steps": [
+   "Coloca el banco inclinado bajo la barra.",
+   "Libera la barra y bájala a la parte alta del pecho.",
+   "Empuja hacia arriba sin bloquear los codos."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Smith_Machine_Incline_Bench_Press"
+ },
+ {
+  "id": 125,
+  "name": "Press declinado con barra",
+  "muscle": "Pecho",
+  "equipment": "Barra",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "chest"
+  ],
+  "secondary": [
+   "shoulders",
+   "triceps"
+  ],
+  "cues": "Pide ayuda para sacar la barra del soporte.",
+  "steps": [
+   "Asegura los pies en el banco declinado y toma la barra al ancho de hombros.",
+   "Baja la barra a la parte baja del pecho.",
+   "Empuja hasta estirar los brazos."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Decline_Barbell_Bench_Press"
+ },
+ {
+  "id": 126,
+  "name": "Press inclinado con agarre neutro",
+  "muscle": "Pecho",
+  "equipment": "Mancuernas",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "chest"
+  ],
+  "secondary": [
+   "shoulders",
+   "triceps"
+  ],
+  "cues": "Palmas mirándose: más cómodo para los hombros.",
+  "steps": [
+   "En banco inclinado, sostén las mancuernas con las palmas enfrentadas.",
+   "Empuja hacia arriba hasta casi juntarlas.",
+   "Baja lento con los codos cerca del cuerpo."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Hammer_Grip_Incline_DB_Bench_Press"
+ },
+ {
+  "id": 127,
+  "name": "Aperturas inclinadas en polea",
+  "muscle": "Pecho",
+  "equipment": "Polea",
+  "level": "Intermedio",
+  "type": "Fuerza",
+  "primary": [
+   "chest"
+  ],
+  "secondary": [
+   "shoulders"
+  ],
+  "cues": "Codos un poco flexionados y fijos todo el movimiento.",
+  "steps": [
+   "Coloca un banco inclinado entre dos poleas bajas.",
+   "Con los brazos abiertos, junta las manos sobre el pecho en arco.",
+   "Abre lento hasta sentir el estiramiento."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 2,
+  "source": "Incline_Cable_Flye"
+ },
+ {
+  "id": 128,
+  "name": "Cruce de poleas bajo",
+  "muscle": "Pecho",
+  "equipment": "Polea",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "chest"
+  ],
+  "secondary": [
+   "shoulders"
+  ],
+  "cues": "Sube las manos hasta la altura de la barbilla.",
+  "steps": [
+   "Toma las poleas bajas y da un paso al frente.",
+   "Lleva las manos hacia arriba y al centro en arco.",
+   "Regresa controlando."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 2,
+  "source": "Low_Cable_Crossover"
+ },
+ {
+  "id": 129,
+  "name": "Aperturas en polea en banco plano",
+  "muscle": "Pecho",
+  "equipment": "Polea",
+  "level": "Intermedio",
+  "type": "Fuerza",
+  "primary": [
+   "chest"
+  ],
+  "secondary": [],
+  "cues": "Tensión constante gracias a la polea.",
+  "steps": [
+   "Acuéstate en un banco plano entre dos poleas bajas.",
+   "Junta las manos sobre el pecho con los codos suaves.",
+   "Abre lento hasta la altura del pecho."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 2,
+  "source": "Flat_Bench_Cable_Flyes"
+ },
+ {
+  "id": 130,
+  "name": "Press de pecho de pie en polea",
+  "muscle": "Pecho",
+  "equipment": "Polea",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "chest"
+  ],
+  "secondary": [
+   "shoulders",
+   "triceps"
+  ],
+  "cues": "Abdomen firme para no arquear la espalda.",
+  "steps": [
+   "De espaldas a la polea, toma los agarres a la altura del pecho.",
+   "Empuja al frente hasta estirar los brazos.",
+   "Regresa controlando."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Standing_Cable_Chest_Press"
+ },
+ {
+  "id": 131,
+  "name": "Pullover con mancuerna",
+  "muscle": "Pecho",
+  "equipment": "Mancuernas",
+  "level": "Intermedio",
+  "type": "Fuerza",
+  "primary": [
+   "chest"
+  ],
+  "secondary": [
+   "lats",
+   "shoulders",
+   "triceps"
+  ],
+  "cues": "Baja solo hasta donde controles con los hombros.",
+  "steps": [
+   "Acuéstate en el banco con una mancuerna sobre el pecho, brazos casi estirados.",
+   "Lleva la mancuerna hacia atrás de la cabeza en arco.",
+   "Regresa a la posición inicial."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Straight-Arm_Dumbbell_Pullover"
+ },
+ {
+  "id": 132,
+  "name": "Flexiones inclinadas",
+  "muscle": "Pecho",
+  "equipment": "Peso corporal",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "chest"
+  ],
+  "secondary": [
+   "shoulders",
+   "triceps"
+  ],
+  "cues": "Buena opción para empezar con las flexiones.",
+  "steps": [
+   "Apoya las manos en un banco con el cuerpo en línea recta.",
+   "Baja el pecho hasta el borde del banco.",
+   "Empuja hasta estirar los brazos."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Incline_Push-Up"
+ },
+ {
+  "id": 133,
+  "name": "Flexiones declinadas",
+  "muscle": "Pecho",
+  "equipment": "Peso corporal",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "chest"
+  ],
+  "secondary": [
+   "shoulders",
+   "triceps"
+  ],
+  "cues": "Pies elevados: más trabajo en la parte alta del pecho.",
+  "steps": [
+   "Pies sobre un banco y manos en el piso.",
+   "Baja el pecho manteniendo el cuerpo recto.",
+   "Empuja hasta estirar los brazos."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Decline_Push-Up"
+ },
+ {
+  "id": 134,
+  "name": "Remo en Hammer (Iso-Lateral)",
+  "muscle": "Espalda",
+  "equipment": "Hammer Strength",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "lats"
+  ],
+  "secondary": [
+   "biceps",
+   "middle back"
+  ],
+  "cues": "Pecho contra el apoyo; tira con los codos.",
+  "steps": [
+   "Siéntate con el pecho apoyado y toma los agarres.",
+   "Tira hacia atrás juntando las escápulas.",
+   "Estira los brazos lento sin despegar el pecho."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Leverage_Iso_Row"
+ },
+ {
+  "id": 135,
+  "name": "Remo alto en Hammer",
+  "muscle": "Espalda",
+  "equipment": "Hammer Strength",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "middle back"
+  ],
+  "secondary": [
+   "lats"
+  ],
+  "cues": "Lleva los codos hacia abajo y atrás.",
+  "steps": [
+   "Siéntate con los muslos fijos y toma los agarres altos.",
+   "Tira hacia la parte alta del pecho bajando los codos.",
+   "Sube controlando hasta estirar los brazos."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Leverage_High_Row"
+ },
+ {
+  "id": 136,
+  "name": "Peso muerto en Hammer",
+  "muscle": "Cuerpo completo",
+  "equipment": "Hammer Strength",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "quadriceps",
+   "glutes"
+  ],
+  "secondary": [
+   "hamstrings",
+   "lower back",
+   "traps"
+  ],
+  "cues": "Espalda neutra, empuja el piso con las piernas.",
+  "steps": [
+   "Párate dentro de la máquina y toma los agarres.",
+   "Sube extendiendo cadera y rodillas a la vez.",
+   "Baja controlando con la espalda recta."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Leverage_Deadlift"
+ },
+ {
+  "id": 137,
+  "name": "Encogimientos en Hammer",
+  "muscle": "Espalda",
+  "equipment": "Hammer Strength",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "traps"
+  ],
+  "secondary": [
+   "forearms"
+  ],
+  "cues": "Sube recto hacia las orejas y pausa arriba.",
+  "steps": [
+   "Párate en la máquina y toma los agarres a los costados.",
+   "Sube los hombros lo más alto posible.",
+   "Baja lento hasta estirar los trapecios."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 2,
+  "source": "Leverage_Shrug"
+ },
+ {
+  "id": 138,
+  "name": "Remo en T con pecho apoyado",
+  "muscle": "Espalda",
+  "equipment": "Máquina",
+  "level": "Intermedio",
+  "type": "Fuerza",
+  "primary": [
+   "middle back"
+  ],
+  "secondary": [
+   "biceps",
+   "lats"
+  ],
+  "cues": "Sin impulso: el apoyo protege la espalda baja.",
+  "steps": [
+   "Acuéstate boca abajo en la máquina y toma los agarres.",
+   "Tira hacia el pecho juntando las escápulas.",
+   "Baja hasta estirar los brazos."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Lying_T-Bar_Row"
+ },
+ {
+  "id": 139,
+  "name": "Remo en Smith",
+  "muscle": "Espalda",
+  "equipment": "Máquina Smith",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "middle back"
+  ],
+  "secondary": [
+   "biceps",
+   "lats",
+   "shoulders"
+  ],
+  "cues": "Torso inclinado y espalda recta.",
+  "steps": [
+   "Inclina el torso con la barra colgando frente a las rodillas.",
+   "Lleva la barra hacia el ombligo.",
+   "Baja hasta estirar los brazos."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Smith_Machine_Bent_Over_Row"
+ },
+ {
+  "id": 140,
+  "name": "Remo en polea a una mano",
+  "muscle": "Espalda",
+  "equipment": "Polea",
+  "level": "Intermedio",
+  "type": "Fuerza",
+  "primary": [
+   "middle back"
+  ],
+  "secondary": [
+   "biceps",
+   "lats",
+   "traps"
+  ],
+  "cues": "Gira un poco el torso al estirar para mayor recorrido.",
+  "steps": [
+   "Sentado frente a la polea, toma el agarre con una mano.",
+   "Tira hacia la cadera llevando el codo atrás.",
+   "Estira el brazo controlando y cambia de lado."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Seated_One-arm_Cable_Pulley_Rows"
+ },
+ {
+  "id": 141,
+  "name": "Jalón supino",
+  "muscle": "Espalda",
+  "equipment": "Polea",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "lats"
+  ],
+  "secondary": [
+   "biceps",
+   "middle back",
+   "shoulders"
+  ],
+  "cues": "Palmas hacia ti y codos al frente del cuerpo.",
+  "steps": [
+   "Siéntate y toma la barra con agarre supino al ancho de hombros.",
+   "Tira hacia la parte alta del pecho.",
+   "Sube controlando hasta estirar los brazos."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Underhand_Cable_Pulldowns"
+ },
+ {
+  "id": 142,
+  "name": "Remo con mancuernas en banco inclinado",
+  "muscle": "Espalda",
+  "equipment": "Mancuernas",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "middle back"
+  ],
+  "secondary": [
+   "biceps",
+   "forearms",
+   "lats",
+   "shoulders"
+  ],
+  "cues": "Pecho apoyado: aísla la espalda alta.",
+  "steps": [
+   "Acuéstate boca abajo en un banco inclinado con una mancuerna en cada mano.",
+   "Tira de las mancuernas juntando las escápulas.",
+   "Baja hasta estirar los brazos."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Dumbbell_Incline_Row"
+ },
+ {
+  "id": 143,
+  "name": "Remo con barra agarre supino",
+  "muscle": "Espalda",
+  "equipment": "Barra",
+  "level": "Intermedio",
+  "type": "Fuerza",
+  "primary": [
+   "middle back"
+  ],
+  "secondary": [
+   "biceps",
+   "lats",
+   "shoulders"
+  ],
+  "cues": "Codos pegados al cuerpo.",
+  "steps": [
+   "Inclina el torso y toma la barra con las palmas hacia adelante.",
+   "Tira hacia el ombligo.",
+   "Baja controlando."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Reverse_Grip_Bent-Over_Rows"
+ },
+ {
+  "id": 144,
+  "name": "Hiperextensión inversa",
+  "muscle": "Isquiotibiales",
+  "equipment": "Máquina",
+  "level": "Intermedio",
+  "type": "Fuerza",
+  "primary": [
+   "hamstrings"
+  ],
+  "secondary": [
+   "calves",
+   "glutes"
+  ],
+  "cues": "Sube con glúteos, no con impulso.",
+  "steps": [
+   "Acuéstate boca abajo con la cadera en el borde de la máquina.",
+   "Sube las piernas hasta alinearlas con el torso.",
+   "Baja lento."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 2,
+  "source": "Reverse_Hyperextension"
+ },
+ {
+  "id": 145,
+  "name": "Press de hombros en Hammer",
+  "muscle": "Hombros",
+  "equipment": "Hammer Strength",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "shoulders"
+  ],
+  "secondary": [
+   "triceps"
+  ],
+  "cues": "Espalda pegada al respaldo.",
+  "steps": [
+   "Ajusta el asiento para que los agarres queden a la altura de los hombros.",
+   "Empuja hacia arriba sin bloquear los codos.",
+   "Baja controlando."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Leverage_Shoulder_Press"
+ },
+ {
+  "id": 146,
+  "name": "Press de hombros en Smith",
+  "muscle": "Hombros",
+  "equipment": "Máquina Smith",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "shoulders"
+  ],
+  "secondary": [
+   "triceps"
+  ],
+  "cues": "La barra baja frente a la cara, no detrás.",
+  "steps": [
+   "Siéntate bajo la barra con el banco vertical.",
+   "Empuja la barra sobre la cabeza.",
+   "Baja hasta la altura de la barbilla."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Smith_Machine_Overhead_Shoulder_Press"
+ },
+ {
+  "id": 147,
+  "name": "Press militar sentado",
+  "muscle": "Hombros",
+  "equipment": "Barra",
+  "level": "Intermedio",
+  "type": "Fuerza",
+  "primary": [
+   "shoulders"
+  ],
+  "secondary": [
+   "triceps"
+  ],
+  "cues": "Abdomen firme y sin arquear la espalda.",
+  "steps": [
+   "Siéntate con la barra a la altura de las clavículas.",
+   "Empuja la barra sobre la cabeza.",
+   "Baja controlando."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Seated_Barbell_Military_Press"
+ },
+ {
+  "id": 148,
+  "name": "Elevación lateral en polea",
+  "muscle": "Hombros",
+  "equipment": "Polea",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "shoulders"
+  ],
+  "secondary": [
+   "middle back",
+   "traps"
+  ],
+  "cues": "La polea mantiene la tensión abajo.",
+  "steps": [
+   "Toma el agarre de una polea baja con la mano contraria.",
+   "Eleva el brazo hacia el lado hasta la altura del hombro.",
+   "Baja lento y cambia de lado."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 2,
+  "source": "Cable_Seated_Lateral_Raise"
+ },
+ {
+  "id": 149,
+  "name": "Elevación frontal en polea",
+  "muscle": "Hombros",
+  "equipment": "Polea",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "shoulders"
+  ],
+  "secondary": [],
+  "cues": "Sube solo hasta los ojos.",
+  "steps": [
+   "De espaldas a la polea baja, toma el agarre entre las piernas.",
+   "Eleva el brazo al frente hasta la altura de los hombros.",
+   "Baja controlando."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 2,
+  "source": "Front_Cable_Raise"
+ },
+ {
+  "id": 150,
+  "name": "Pájaros en máquina",
+  "muscle": "Hombros",
+  "equipment": "Máquina",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "shoulders"
+  ],
+  "secondary": [],
+  "cues": "Abre con los brazos casi estirados.",
+  "steps": [
+   "Siéntate de frente al respaldo del pec deck y toma los agarres.",
+   "Abre los brazos hacia atrás juntando las escápulas.",
+   "Regresa lento."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 2,
+  "source": "Reverse_Machine_Flyes"
+ },
+ {
+  "id": 151,
+  "name": "Aperturas posteriores en polea",
+  "muscle": "Hombros",
+  "equipment": "Polea",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "shoulders"
+  ],
+  "secondary": [],
+  "cues": "Cruza los cables y abre hacia afuera.",
+  "steps": [
+   "Toma las poleas altas cruzadas frente a ti.",
+   "Abre los brazos hacia los lados y atrás.",
+   "Regresa controlando."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 2,
+  "source": "Cable_Rear_Delt_Fly"
+ },
+ {
+  "id": 152,
+  "name": "Pájaros sentado",
+  "muscle": "Hombros",
+  "equipment": "Mancuernas",
+  "level": "Intermedio",
+  "type": "Fuerza",
+  "primary": [
+   "shoulders"
+  ],
+  "secondary": [],
+  "cues": "Torso pegado a los muslos.",
+  "steps": [
+   "Sentado e inclinado, sostén las mancuernas bajo las piernas.",
+   "Abre los brazos hacia los lados.",
+   "Baja lento."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 2,
+  "source": "Seated_Bent-Over_Rear_Delt_Raise"
+ },
+ {
+  "id": 153,
+  "name": "Elevaciones laterales sentado",
+  "muscle": "Hombros",
+  "equipment": "Mancuernas",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "shoulders"
+  ],
+  "secondary": [],
+  "cues": "Sentado no hay impulso con las piernas.",
+  "steps": [
+   "Sentado con una mancuerna en cada mano.",
+   "Eleva los brazos a los lados hasta los hombros.",
+   "Baja lento."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 2,
+  "source": "Seated_Side_Lateral_Raise"
+ },
+ {
+  "id": 154,
+  "name": "Elevación frontal con disco",
+  "muscle": "Hombros",
+  "equipment": "Disco",
+  "level": "Intermedio",
+  "type": "Fuerza",
+  "primary": [
+   "shoulders"
+  ],
+  "secondary": [],
+  "cues": "Brazos casi estirados.",
+  "steps": [
+   "Sostén un disco con ambas manos frente a los muslos.",
+   "Elévalo al frente hasta la altura de los ojos.",
+   "Baja controlando."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 2,
+  "source": "Front_Plate_Raise"
+ },
+ {
+  "id": 155,
+  "name": "Remo al mentón con mancuernas",
+  "muscle": "Hombros",
+  "equipment": "Mancuernas",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "traps"
+  ],
+  "secondary": [
+   "biceps",
+   "shoulders"
+  ],
+  "cues": "Codos por encima de las manos.",
+  "steps": [
+   "De pie con las mancuernas frente a los muslos.",
+   "Súbelas pegadas al cuerpo hasta el pecho.",
+   "Baja lento."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Standing_Dumbbell_Upright_Row"
+ },
+ {
+  "id": 156,
+  "name": "Rotación externa en polea",
+  "muscle": "Hombros",
+  "equipment": "Polea",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "shoulders"
+  ],
+  "secondary": [],
+  "cues": "Codo pegado al costado; poco peso.",
+  "steps": [
+   "De lado a la polea, toma el agarre con el codo a 90°.",
+   "Gira el antebrazo hacia afuera.",
+   "Regresa lento."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 2,
+  "source": "External_Rotation_with_Cable"
+ },
+ {
+  "id": 157,
+  "name": "Curl de bíceps en máquina",
+  "muscle": "Bíceps",
+  "equipment": "Máquina",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "biceps"
+  ],
+  "secondary": [],
+  "cues": "Codos alineados con el eje de la máquina.",
+  "steps": [
+   "Siéntate con los brazos sobre el apoyo y toma los agarres.",
+   "Flexiona los codos hasta arriba.",
+   "Baja lento hasta casi estirar."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 2,
+  "source": "Machine_Bicep_Curl"
+ },
+ {
+  "id": 158,
+  "name": "Curl predicador en máquina",
+  "muscle": "Bíceps",
+  "equipment": "Máquina",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "biceps"
+  ],
+  "secondary": [],
+  "cues": "No despegues los brazos del apoyo.",
+  "steps": [
+   "Siéntate con la parte de atrás de los brazos sobre el apoyo.",
+   "Sube flexionando los codos.",
+   "Baja controlando."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 2,
+  "source": "Machine_Preacher_Curls"
+ },
+ {
+  "id": 159,
+  "name": "Curl araña",
+  "muscle": "Bíceps",
+  "equipment": "Barra Z",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "biceps"
+  ],
+  "secondary": [],
+  "cues": "Brazos colgando: elimina el impulso.",
+  "steps": [
+   "Acuéstate boca abajo en un banco inclinado con la barra colgando.",
+   "Flexiona los codos hasta arriba.",
+   "Baja lento."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 2,
+  "source": "Spider_Curl"
+ },
+ {
+  "id": 160,
+  "name": "Curl en polea alta",
+  "muscle": "Bíceps",
+  "equipment": "Polea",
+  "level": "Intermedio",
+  "type": "Fuerza",
+  "primary": [
+   "biceps"
+  ],
+  "secondary": [],
+  "cues": "Pose de doble bíceps; codos fijos.",
+  "steps": [
+   "Entre dos poleas altas, toma un agarre en cada mano.",
+   "Lleva las manos hacia la cabeza flexionando los codos.",
+   "Regresa lento."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 2,
+  "source": "Overhead_Cable_Curl"
+ },
+ {
+  "id": 161,
+  "name": "Curl invertido con barra",
+  "muscle": "Bíceps",
+  "equipment": "Barra",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "biceps"
+  ],
+  "secondary": [
+   "forearms"
+  ],
+  "cues": "Trabaja también los antebrazos.",
+  "steps": [
+   "Toma la barra con las palmas hacia abajo.",
+   "Flexiona los codos hasta arriba.",
+   "Baja controlando."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 2,
+  "source": "Reverse_Barbell_Curl"
+ },
+ {
+  "id": 162,
+  "name": "Curl martillo inclinado",
+  "muscle": "Bíceps",
+  "equipment": "Mancuernas",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "biceps"
+  ],
+  "secondary": [],
+  "cues": "Palmas enfrentadas todo el recorrido.",
+  "steps": [
+   "Recostado en un banco inclinado con las mancuernas colgando.",
+   "Sube con agarre neutro.",
+   "Baja lento."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 2,
+  "source": "Incline_Hammer_Curls"
+ },
+ {
+  "id": 163,
+  "name": "Curl martillo cruzado",
+  "muscle": "Bíceps",
+  "equipment": "Mancuernas",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "biceps"
+  ],
+  "secondary": [
+   "forearms"
+  ],
+  "cues": "Lleva la mancuerna hacia el hombro contrario.",
+  "steps": [
+   "De pie con las mancuernas a los costados.",
+   "Sube una mancuerna cruzando hacia el hombro contrario.",
+   "Baja y alterna."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 2,
+  "source": "Cross_Body_Hammer_Curl"
+ },
+ {
+  "id": 164,
+  "name": "Extensión de tríceps en máquina",
+  "muscle": "Tríceps",
+  "equipment": "Máquina",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "triceps"
+  ],
+  "secondary": [],
+  "cues": "Estira por completo los brazos.",
+  "steps": [
+   "Siéntate con los codos sobre el apoyo.",
+   "Extiende los brazos empujando los agarres.",
+   "Regresa lento."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 2,
+  "source": "Machine_Triceps_Extension"
+ },
+ {
+  "id": 165,
+  "name": "Fondos en máquina",
+  "muscle": "Tríceps",
+  "equipment": "Máquina",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "triceps"
+  ],
+  "secondary": [
+   "chest",
+   "shoulders"
+  ],
+  "cues": "Torso erguido para enfocar tríceps.",
+  "steps": [
+   "Siéntate y toma los agarres a los costados.",
+   "Empuja hacia abajo hasta estirar los brazos.",
+   "Sube controlando."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Dip_Machine"
+ },
+ {
+  "id": 166,
+  "name": "Extensión en polea agarre supino",
+  "muscle": "Tríceps",
+  "equipment": "Polea",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "triceps"
+  ],
+  "secondary": [],
+  "cues": "Palmas hacia arriba; poco peso.",
+  "steps": [
+   "Toma la barra de la polea alta con las palmas hacia arriba.",
+   "Empuja hacia abajo hasta estirar los brazos.",
+   "Regresa controlando."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 2,
+  "source": "Reverse_Grip_Triceps_Pushdown"
+ },
+ {
+  "id": 167,
+  "name": "Rompecráneos con barra Z",
+  "muscle": "Tríceps",
+  "equipment": "Barra Z",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "triceps"
+  ],
+  "secondary": [
+   "forearms"
+  ],
+  "cues": "Codos apuntando al techo.",
+  "steps": [
+   "Acostado, sostén la barra Z sobre el pecho.",
+   "Baja la barra hacia la frente flexionando los codos.",
+   "Extiende los brazos."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 2,
+  "source": "EZ-Bar_Skullcrusher"
+ },
+ {
+  "id": 168,
+  "name": "Press cerrado en Smith",
+  "muscle": "Tríceps",
+  "equipment": "Máquina Smith",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "triceps"
+  ],
+  "secondary": [
+   "chest",
+   "shoulders"
+  ],
+  "cues": "Manos al ancho de hombros.",
+  "steps": [
+   "Acuéstate bajo la barra con agarre cerrado.",
+   "Baja con los codos pegados al cuerpo.",
+   "Empuja hasta estirar los brazos."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Smith_Machine_Close-Grip_Bench_Press"
+ },
+ {
+  "id": 169,
+  "name": "Extensión de tríceps a una mano",
+  "muscle": "Tríceps",
+  "equipment": "Polea",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "triceps"
+  ],
+  "secondary": [],
+  "cues": "Codo fijo al costado.",
+  "steps": [
+   "Toma el agarre de la polea alta con una mano.",
+   "Extiende el brazo hacia abajo.",
+   "Regresa lento y cambia."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 2,
+  "source": "Cable_One_Arm_Tricep_Extension"
+ },
+ {
+  "id": 170,
+  "name": "Flexiones diamante",
+  "muscle": "Tríceps",
+  "equipment": "Peso corporal",
+  "level": "Intermedio",
+  "type": "Fuerza",
+  "primary": [
+   "triceps"
+  ],
+  "secondary": [
+   "chest",
+   "shoulders"
+  ],
+  "cues": "Manos juntas bajo el pecho.",
+  "steps": [
+   "Coloca las manos juntas bajo el pecho.",
+   "Baja manteniendo los codos pegados.",
+   "Empuja hasta estirar los brazos."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Push-Ups_-_Close_Triceps_Position"
+ },
+ {
+  "id": 171,
+  "name": "Sentadilla hack pies juntos",
+  "muscle": "Cuádriceps",
+  "equipment": "Máquina",
+  "level": "Intermedio",
+  "type": "Fuerza",
+  "primary": [
+   "quadriceps"
+  ],
+  "secondary": [
+   "calves",
+   "glutes",
+   "hamstrings"
+  ],
+  "cues": "Más trabajo en el vasto externo.",
+  "steps": [
+   "Apoya la espalda en la máquina con los pies juntos.",
+   "Baja hasta 90° o más si controlas.",
+   "Empuja con todo el pie."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Narrow_Stance_Hack_Squats"
+ },
+ {
+  "id": 172,
+  "name": "Sentadilla en máquina inclinada",
+  "muscle": "Cuádriceps",
+  "equipment": "Máquina",
+  "level": "Intermedio",
+  "type": "Fuerza",
+  "primary": [
+   "quadriceps"
+  ],
+  "secondary": [
+   "calves",
+   "glutes",
+   "hamstrings"
+  ],
+  "cues": "Espalda apoyada todo el recorrido.",
+  "steps": [
+   "Acuéstate en la máquina con los hombros bajo los apoyos.",
+   "Baja flexionando las rodillas.",
+   "Empuja hasta casi estirar."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Lying_Machine_Squat"
+ },
+ {
+  "id": 173,
+  "name": "Sentadilla hack con barra",
+  "muscle": "Cuádriceps",
+  "equipment": "Barra",
+  "level": "Intermedio",
+  "type": "Fuerza",
+  "primary": [
+   "quadriceps"
+  ],
+  "secondary": [
+   "calves",
+   "forearms",
+   "hamstrings"
+  ],
+  "cues": "Barra detrás de las piernas, pecho alto.",
+  "steps": [
+   "Sostén la barra detrás de las piernas.",
+   "Sube extendiendo cadera y rodillas.",
+   "Baja controlando."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Barbell_Hack_Squat"
+ },
+ {
+  "id": 174,
+  "name": "Zancada con barra",
+  "muscle": "Cuádriceps",
+  "equipment": "Barra",
+  "level": "Intermedio",
+  "type": "Fuerza",
+  "primary": [
+   "quadriceps"
+  ],
+  "secondary": [
+   "calves",
+   "glutes",
+   "hamstrings"
+  ],
+  "cues": "Torso erguido.",
+  "steps": [
+   "Con la barra sobre la espalda, da un paso al frente.",
+   "Baja hasta que ambas rodillas formen 90°.",
+   "Regresa y alterna."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Barbell_Lunge"
+ },
+ {
+  "id": 175,
+  "name": "Zancada atrás con mancuernas",
+  "muscle": "Cuádriceps",
+  "equipment": "Mancuernas",
+  "level": "Intermedio",
+  "type": "Fuerza",
+  "primary": [
+   "quadriceps"
+  ],
+  "secondary": [
+   "calves",
+   "glutes",
+   "hamstrings"
+  ],
+  "cues": "Más amable con las rodillas.",
+  "steps": [
+   "De pie con mancuernas a los costados.",
+   "Da un paso atrás y baja la rodilla.",
+   "Regresa y alterna."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Dumbbell_Rear_Lunge"
+ },
+ {
+  "id": 176,
+  "name": "Zancada estática en Smith",
+  "muscle": "Cuádriceps",
+  "equipment": "Máquina Smith",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "quadriceps"
+  ],
+  "secondary": [
+   "calves",
+   "glutes",
+   "hamstrings"
+  ],
+  "cues": "Peso en la pierna de adelante.",
+  "steps": [
+   "Con la barra sobre la espalda, coloca un pie adelante y otro atrás.",
+   "Baja la rodilla de atrás hacia el piso.",
+   "Sube y repite antes de cambiar."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Smith_Single-Leg_Split_Squat"
+ },
+ {
+  "id": 177,
+  "name": "Subidas al cajón con barra",
+  "muscle": "Cuádriceps",
+  "equipment": "Barra",
+  "level": "Intermedio",
+  "type": "Fuerza",
+  "primary": [
+   "quadriceps"
+  ],
+  "secondary": [
+   "calves",
+   "glutes",
+   "hamstrings"
+  ],
+  "cues": "Empuja con la pierna de arriba.",
+  "steps": [
+   "Con la barra sobre la espalda, frente a un cajón.",
+   "Sube un pie y empuja hasta quedar de pie.",
+   "Baja y alterna."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Barbell_Step_Ups"
+ },
+ {
+  "id": 178,
+  "name": "Peso muerto rumano en Smith",
+  "muscle": "Isquiotibiales",
+  "equipment": "Máquina Smith",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "hamstrings"
+  ],
+  "secondary": [
+   "glutes",
+   "lower back"
+  ],
+  "cues": "Cadera atrás y espalda neutra.",
+  "steps": [
+   "Sostén la barra frente a los muslos.",
+   "Baja llevando la cadera atrás.",
+   "Sube apretando glúteos."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Smith_Machine_Stiff-Legged_Deadlift"
+ },
+ {
+  "id": 179,
+  "name": "Pull through en polea",
+  "muscle": "Glúteos",
+  "equipment": "Polea",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "glutes"
+  ],
+  "secondary": [
+   "hamstrings",
+   "lower back"
+  ],
+  "cues": "Movimiento de bisagra de cadera.",
+  "steps": [
+   "De espaldas a la polea baja, toma la cuerda entre las piernas.",
+   "Extiende la cadera hasta quedar erguido.",
+   "Baja llevando la cadera atrás."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Pull_Through"
+ },
+ {
+  "id": 180,
+  "name": "Patada de glúteo en polea",
+  "muscle": "Glúteos",
+  "equipment": "Polea",
+  "level": "Intermedio",
+  "type": "Fuerza",
+  "primary": [
+   "glutes"
+  ],
+  "secondary": [
+   "hamstrings"
+  ],
+  "cues": "No arquees la espalda.",
+  "steps": [
+   "Coloca la tobillera de la polea baja.",
+   "Lleva la pierna hacia atrás.",
+   "Regresa lento y cambia."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 2,
+  "source": "One-Legged_Cable_Kickback"
+ },
+ {
+  "id": 181,
+  "name": "Puente de glúteo a una pierna",
+  "muscle": "Glúteos",
+  "equipment": "Peso corporal",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "glutes"
+  ],
+  "secondary": [
+   "hamstrings"
+  ],
+  "cues": "Pausa arriba.",
+  "steps": [
+   "Acostado, apoya un pie y estira la otra pierna.",
+   "Sube la cadera empujando con el talón.",
+   "Baja lento."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 2,
+  "source": "Single_Leg_Glute_Bridge"
+ },
+ {
+  "id": 182,
+  "name": "Aductores en polea",
+  "muscle": "Cuádriceps",
+  "equipment": "Polea",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "adductors"
+  ],
+  "secondary": [
+   "glutes"
+  ],
+  "cues": "Movimiento lento.",
+  "steps": [
+   "Con la tobillera en la polea baja, de lado.",
+   "Lleva la pierna hacia adentro cruzando.",
+   "Regresa controlando."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 2,
+  "source": "Cable_Hip_Adduction"
+ },
+ {
+  "id": 183,
+  "name": "Pantorrilla en Smith",
+  "muscle": "Pantorrillas",
+  "equipment": "Máquina Smith",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "calves"
+  ],
+  "secondary": [],
+  "cues": "Recorrido completo.",
+  "steps": [
+   "De pie sobre un escalón con la barra en la espalda.",
+   "Sube los talones al máximo.",
+   "Baja estirando."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 2,
+  "source": "Smith_Machine_Calf_Raise"
+ },
+ {
+  "id": 184,
+  "name": "Pantorrilla sentado a una pierna",
+  "muscle": "Pantorrillas",
+  "equipment": "Mancuernas",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "calves"
+  ],
+  "secondary": [],
+  "cues": "Mancuerna sobre la rodilla.",
+  "steps": [
+   "Sentado con la punta del pie en un disco.",
+   "Sube el talón.",
+   "Baja lento y cambia."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 2,
+  "source": "Dumbbell_Seated_One-Leg_Calf_Raise"
+ },
+ {
+  "id": 185,
+  "name": "Empuje de trineo",
+  "muscle": "Cuerpo completo",
+  "equipment": "Trineo",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "quadriceps"
+  ],
+  "secondary": [
+   "calves",
+   "chest",
+   "glutes",
+   "hamstrings",
+   "triceps"
+  ],
+  "cues": "Brazos estirados y pasos cortos.",
+  "steps": [
+   "Toma los postes del trineo inclinado.",
+   "Empuja con pasos cortos y potentes.",
+   "Mantén la distancia indicada."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Sled_Push"
+ },
+ {
+  "id": 186,
+  "name": "Crunch en máquina",
+  "muscle": "Abdomen",
+  "equipment": "Máquina",
+  "level": "Intermedio",
+  "type": "Fuerza",
+  "primary": [
+   "abdominals"
+  ],
+  "secondary": [],
+  "cues": "Redondea la espalda; no tires con los brazos.",
+  "steps": [
+   "Siéntate y toma los agarres.",
+   "Flexiona el tronco hacia adelante.",
+   "Regresa lento."
+  ],
+  "sets": 3,
+  "reps": "15",
+  "rest": 45,
+  "images": 2,
+  "source": "Ab_Crunch_Machine"
+ },
+ {
+  "id": 187,
+  "name": "Crunch inverso",
+  "muscle": "Abdomen",
+  "equipment": "Peso corporal",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "abdominals"
+  ],
+  "secondary": [],
+  "cues": "Sube la cadera, no balancees las piernas.",
+  "steps": [
+   "Acostado con las rodillas flexionadas.",
+   "Lleva las rodillas al pecho subiendo la cadera.",
+   "Baja controlando."
+  ],
+  "sets": 3,
+  "reps": "15",
+  "rest": 45,
+  "images": 2,
+  "source": "Reverse_Crunch"
+ },
+ {
+  "id": 188,
+  "name": "Crunch oblicuo",
+  "muscle": "Abdomen",
+  "equipment": "Peso corporal",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "abdominals"
+  ],
+  "secondary": [],
+  "cues": "Codo hacia la cadera.",
+  "steps": [
+   "Acostado de lado con las rodillas flexionadas.",
+   "Sube el torso de lado.",
+   "Baja y cambia."
+  ],
+  "sets": 3,
+  "reps": "15",
+  "rest": 45,
+  "images": 2,
+  "source": "Oblique_Crunches_-_On_The_Floor"
+ },
+ {
+  "id": 189,
+  "name": "Leñador en polea",
+  "muscle": "Abdomen",
+  "equipment": "Polea",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "abdominals"
+  ],
+  "secondary": [
+   "shoulders"
+  ],
+  "cues": "Gira desde el torso.",
+  "steps": [
+   "De lado a la polea alta, toma el agarre con ambas manos.",
+   "Tira en diagonal hacia la rodilla contraria.",
+   "Regresa controlando."
+  ],
+  "sets": 3,
+  "reps": "15",
+  "rest": 45,
+  "images": 2,
+  "source": "Standing_Cable_Wood_Chop"
+ },
+ {
+  "id": 190,
+  "name": "Abdominales completos",
+  "muscle": "Abdomen",
+  "equipment": "Peso corporal",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "abdominals"
+  ],
+  "secondary": [],
+  "cues": "Sin tirar del cuello.",
+  "steps": [
+   "Acostado con las rodillas flexionadas.",
+   "Sube el torso hasta quedar sentado.",
+   "Baja lento."
+  ],
+  "sets": 3,
+  "reps": "15",
+  "rest": 45,
+  "images": 2,
+  "source": "Sit-Up"
+ },
+ {
+  "id": 191,
+  "name": "Pike colgado",
+  "muscle": "Abdomen",
+  "equipment": "Barra fija",
+  "level": "Avanzado",
+  "type": "Fuerza",
+  "primary": [
+   "abdominals"
+  ],
+  "secondary": [],
+  "cues": "Avanzado: lleva los pies a la barra.",
+  "steps": [
+   "Cuélgate de la barra.",
+   "Sube las piernas estiradas hasta la barra.",
+   "Baja controlando."
+  ],
+  "sets": 3,
+  "reps": "15",
+  "rest": 45,
+  "images": 2,
+  "source": "Hanging_Pike"
+ },
+ {
+  "id": 192,
+  "name": "Landmine 180°",
+  "muscle": "Abdomen",
+  "equipment": "Barra",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "abdominals"
+  ],
+  "secondary": [
+   "glutes",
+   "lower back",
+   "shoulders"
+  ],
+  "cues": "Gira con los brazos estirados.",
+  "steps": [
+   "Sostén la punta de la barra frente a ti.",
+   "Llévala de un lado a otro en arco.",
+   "Mantén la cadera estable."
+  ],
+  "sets": 3,
+  "reps": "15",
+  "rest": 45,
+  "images": 2,
+  "source": "Landmine_180s"
+ },
+ {
+  "id": 193,
+  "name": "Cargada colgante",
+  "muscle": "Cuerpo completo",
+  "equipment": "Barra",
+  "level": "Intermedio",
+  "type": "Halterofilia",
+  "primary": [
+   "quadriceps"
+  ],
+  "secondary": [
+   "calves",
+   "forearms",
+   "glutes",
+   "hamstrings",
+   "lower back",
+   "shoulders",
+   "traps"
+  ],
+  "cues": "La barra sube pegada al cuerpo.",
+  "steps": [
+   "Sostén la barra a la altura de los muslos.",
+   "Extiende la cadera con fuerza y recibe la barra en los hombros.",
+   "Regresa controlando."
+  ],
+  "sets": 4,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 2,
+  "source": "Hang_Clean"
+ },
+ {
+  "id": 194,
+  "name": "Sentadilla péndulo",
+  "muscle": "Cuádriceps",
+  "equipment": "Máquina",
+  "level": "Intermedio",
+  "type": "Fuerza",
+  "primary": [
+   "quadriceps"
+  ],
+  "secondary": [
+   "glutes",
+   "adductors"
+  ],
+  "cues": "Rodillas pasan la punta de los pies; espalda pegada.",
+  "steps": [
+   "Apoya la espalda y los hombros en la máquina péndulo.",
+   "Baja profundo controlando el arco del péndulo.",
+   "Empuja con todo el pie hasta casi estirar."
+  ],
+  "sets": 4,
+  "reps": "8-12",
+  "rest": 120,
+  "images": 0,
+  "source": null
+ },
+ {
+  "id": 195,
+  "name": "Belt squat",
+  "muscle": "Cuádriceps",
+  "equipment": "Máquina",
+  "level": "Intermedio",
+  "type": "Fuerza",
+  "primary": [
+   "quadriceps",
+   "glutes"
+  ],
+  "secondary": [
+   "adductors",
+   "hamstrings"
+  ],
+  "cues": "Carga en la cadera: cero presión en la espalda.",
+  "steps": [
+   "Coloca el cinturón en la cadera y párate en la plataforma.",
+   "Baja en sentadilla con el torso erguido.",
+   "Sube empujando el piso."
+  ],
+  "sets": 4,
+  "reps": "10",
+  "rest": 120,
+  "images": 0,
+  "source": null
+ },
+ {
+  "id": 196,
+  "name": "V-squat",
+  "muscle": "Cuádriceps",
+  "equipment": "Máquina",
+  "level": "Intermedio",
+  "type": "Fuerza",
+  "primary": [
+   "quadriceps"
+  ],
+  "secondary": [
+   "glutes"
+  ],
+  "cues": "Pies en la parte baja para más cuádriceps.",
+  "steps": [
+   "Coloca los hombros bajo los apoyos.",
+   "Baja hasta 90° o más.",
+   "Empuja sin bloquear las rodillas."
+  ],
+  "sets": 4,
+  "reps": "10",
+  "rest": 90,
+  "images": 0,
+  "source": null
+ },
+ {
+  "id": 197,
+  "name": "Hack squat inverso",
+  "muscle": "Glúteos",
+  "equipment": "Máquina",
+  "level": "Intermedio",
+  "type": "Fuerza",
+  "primary": [
+   "glutes",
+   "hamstrings"
+  ],
+  "secondary": [
+   "quadriceps"
+  ],
+  "cues": "Pecho contra el respaldo y cadera atrás.",
+  "steps": [
+   "Párate de frente al respaldo de la hack.",
+   "Baja llevando la cadera atrás.",
+   "Sube apretando glúteos."
+  ],
+  "sets": 3,
+  "reps": "10",
+  "rest": 90,
+  "images": 0,
+  "source": null
+ },
+ {
+  "id": 198,
+  "name": "Sentadilla sissy",
+  "muscle": "Cuádriceps",
+  "equipment": "Peso corporal",
+  "level": "Avanzado",
+  "type": "Fuerza",
+  "primary": [
+   "quadriceps"
+  ],
+  "secondary": [],
+  "cues": "Cadera estirada; rodillas al frente.",
+  "steps": [
+   "Sujétate de un soporte y ponte en puntas.",
+   "Inclina el torso atrás y baja llevando las rodillas al frente.",
+   "Sube controlando."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 0,
+  "source": null
+ },
+ {
+  "id": 199,
+  "name": "Sentadilla con safety bar",
+  "muscle": "Cuádriceps",
+  "equipment": "Barra",
+  "level": "Intermedio",
+  "type": "Fuerza",
+  "primary": [
+   "quadriceps",
+   "glutes"
+  ],
+  "secondary": [
+   "hamstrings",
+   "lower back"
+  ],
+  "cues": "Torso erguido gracias a la barra.",
+  "steps": [
+   "Coloca la barra de seguridad sobre los trapecios.",
+   "Baja en sentadilla.",
+   "Sube empujando el piso."
+  ],
+  "sets": 4,
+  "reps": "6-8",
+  "rest": 150,
+  "images": 0,
+  "source": null
+ },
+ {
+  "id": 200,
+  "name": "Peso muerto con barra hexagonal",
+  "muscle": "Cuerpo completo",
+  "equipment": "Barra",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "quadriceps",
+   "glutes"
+  ],
+  "secondary": [
+   "hamstrings",
+   "lower back",
+   "traps"
+  ],
+  "cues": "Más amable con la espalda que el convencional.",
+  "steps": [
+   "Párate dentro de la barra y toma los agarres.",
+   "Sube extendiendo cadera y rodillas.",
+   "Baja controlando."
+  ],
+  "sets": 4,
+  "reps": "5-8",
+  "rest": 150,
+  "images": 0,
+  "source": null
+ },
+ {
+  "id": 201,
+  "name": "Prensa horizontal",
+  "muscle": "Cuádriceps",
+  "equipment": "Máquina",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "quadriceps"
+  ],
+  "secondary": [
+   "glutes",
+   "hamstrings"
+  ],
+  "cues": "Espalda baja pegada al respaldo.",
+  "steps": [
+   "Siéntate con los pies en la plataforma.",
+   "Flexiona las rodillas hasta 90°.",
+   "Empuja sin bloquear."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 90,
+  "images": 0,
+  "source": null
+ },
+ {
+  "id": 202,
+  "name": "Hip thrust en máquina",
+  "muscle": "Glúteos",
+  "equipment": "Máquina",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "glutes"
+  ],
+  "secondary": [
+   "hamstrings"
+  ],
+  "cues": "Pausa de 1 s arriba.",
+  "steps": [
+   "Apoya la espalda alta y coloca el cinturón sobre la cadera.",
+   "Empuja con los talones hasta alinear el cuerpo.",
+   "Baja lento."
+  ],
+  "sets": 3,
+  "reps": "10",
+  "rest": 90,
+  "images": 0,
+  "source": null
+ },
+ {
+  "id": 203,
+  "name": "Curl femoral de pie",
+  "muscle": "Isquiotibiales",
+  "equipment": "Máquina",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "hamstrings"
+  ],
+  "secondary": [
+   "calves"
+  ],
+  "cues": "Cadera fija contra el apoyo.",
+  "steps": [
+   "Coloca el talón bajo el rodillo.",
+   "Flexiona la rodilla llevando el talón al glúteo.",
+   "Baja lento y cambia."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 0,
+  "source": null
+ },
+ {
+  "id": 204,
+  "name": "Jalón al pecho en Hammer",
+  "muscle": "Espalda",
+  "equipment": "Hammer Strength",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "lats"
+  ],
+  "secondary": [
+   "biceps",
+   "middle back"
+  ],
+  "cues": "Cada brazo trabaja por separado.",
+  "steps": [
+   "Siéntate con los muslos fijos y toma los agarres.",
+   "Tira hacia abajo llevando los codos a los costados.",
+   "Sube controlando."
+  ],
+  "sets": 3,
+  "reps": "10",
+  "rest": 90,
+  "images": 0,
+  "source": null
+ },
+ {
+  "id": 205,
+  "name": "Remo bajo en Hammer",
+  "muscle": "Espalda",
+  "equipment": "Hammer Strength",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "lats",
+   "middle back"
+  ],
+  "secondary": [
+   "biceps"
+  ],
+  "cues": "Pecho apoyado y codos pegados.",
+  "steps": [
+   "Siéntate con el pecho contra el apoyo.",
+   "Tira de los agarres hacia la cadera.",
+   "Estira los brazos lento."
+  ],
+  "sets": 3,
+  "reps": "10",
+  "rest": 90,
+  "images": 0,
+  "source": null
+ },
+ {
+  "id": 206,
+  "name": "Remo con pecho apoyado en máquina",
+  "muscle": "Espalda",
+  "equipment": "Máquina",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "middle back",
+   "lats"
+  ],
+  "secondary": [
+   "biceps",
+   "shoulders"
+  ],
+  "cues": "No despegues el pecho.",
+  "steps": [
+   "Ajusta el asiento y apoya el pecho.",
+   "Tira juntando las escápulas.",
+   "Regresa controlando."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 75,
+  "images": 0,
+  "source": null
+ },
+ {
+  "id": 207,
+  "name": "Pullover en máquina",
+  "muscle": "Espalda",
+  "equipment": "Máquina",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "lats"
+  ],
+  "secondary": [
+   "chest",
+   "triceps"
+  ],
+  "cues": "Codos hacia abajo en arco.",
+  "steps": [
+   "Siéntate con los codos sobre los apoyos.",
+   "Lleva los brazos hacia abajo en arco.",
+   "Regresa lento."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 75,
+  "images": 0,
+  "source": null
+ },
+ {
+  "id": 208,
+  "name": "Remo Meadows",
+  "muscle": "Espalda",
+  "equipment": "Barra",
+  "level": "Intermedio",
+  "type": "Fuerza",
+  "primary": [
+   "lats"
+  ],
+  "secondary": [
+   "middle back",
+   "biceps"
+  ],
+  "cues": "Codo hacia atrás y arriba.",
+  "steps": [
+   "Toma la punta de una barra anclada (landmine) con una mano.",
+   "Tira hacia la cadera.",
+   "Baja y cambia."
+  ],
+  "sets": 3,
+  "reps": "10",
+  "rest": 75,
+  "images": 0,
+  "source": null
+ },
+ {
+  "id": 209,
+  "name": "Remo Pendlay",
+  "muscle": "Espalda",
+  "equipment": "Barra",
+  "level": "Avanzado",
+  "type": "Fuerza",
+  "primary": [
+   "middle back",
+   "lats"
+  ],
+  "secondary": [
+   "biceps",
+   "lower back"
+  ],
+  "cues": "La barra vuelve al piso en cada repetición.",
+  "steps": [
+   "Torso paralelo al piso y barra apoyada.",
+   "Tira explosivo hacia el pecho bajo.",
+   "Regresa la barra al piso."
+  ],
+  "sets": 4,
+  "reps": "6",
+  "rest": 120,
+  "images": 0,
+  "source": null
+ },
+ {
+  "id": 210,
+  "name": "Dominadas asistidas en máquina",
+  "muscle": "Espalda",
+  "equipment": "Máquina",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "lats"
+  ],
+  "secondary": [
+   "biceps",
+   "middle back"
+  ],
+  "cues": "Usa la asistencia mínima posible.",
+  "steps": [
+   "Arrodíllate en la plataforma y toma la barra.",
+   "Sube hasta pasar la barbilla.",
+   "Baja lento."
+  ],
+  "sets": 3,
+  "reps": "8-10",
+  "rest": 90,
+  "images": 0,
+  "source": null
+ },
+ {
+  "id": 211,
+  "name": "Fondos asistidos en máquina",
+  "muscle": "Tríceps",
+  "equipment": "Máquina",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "triceps"
+  ],
+  "secondary": [
+   "chest",
+   "shoulders"
+  ],
+  "cues": "Hombros abajo y atrás.",
+  "steps": [
+   "Arrodíllate en la plataforma y toma las paralelas.",
+   "Baja hasta 90° en los codos.",
+   "Empuja hasta arriba."
+  ],
+  "sets": 3,
+  "reps": "10",
+  "rest": 75,
+  "images": 0,
+  "source": null
+ },
+ {
+  "id": 212,
+  "name": "Elevaciones laterales en máquina",
+  "muscle": "Hombros",
+  "equipment": "Máquina",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "shoulders"
+  ],
+  "secondary": [
+   "traps"
+  ],
+  "cues": "Sube con los codos.",
+  "steps": [
+   "Siéntate con los brazos contra los apoyos.",
+   "Eleva los brazos a los lados.",
+   "Baja lento."
+  ],
+  "sets": 3,
+  "reps": "12-15",
+  "rest": 60,
+  "images": 0,
+  "source": null
+ },
+ {
+  "id": 213,
+  "name": "Press landmine",
+  "muscle": "Hombros",
+  "equipment": "Barra",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "shoulders"
+  ],
+  "secondary": [
+   "chest",
+   "triceps"
+  ],
+  "cues": "Amable con los hombros.",
+  "steps": [
+   "Sostén la punta de la barra anclada frente al hombro.",
+   "Empuja hacia arriba y al frente.",
+   "Baja controlando."
+  ],
+  "sets": 3,
+  "reps": "10",
+  "rest": 75,
+  "images": 0,
+  "source": null
+ },
+ {
+  "id": 214,
+  "name": "Elevación Y en banco inclinado",
+  "muscle": "Hombros",
+  "equipment": "Mancuernas",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "shoulders"
+  ],
+  "secondary": [
+   "traps",
+   "middle back"
+  ],
+  "cues": "Poco peso, pulgares arriba.",
+  "steps": [
+   "Boca abajo en un banco inclinado.",
+   "Eleva los brazos formando una Y.",
+   "Baja lento."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 0,
+  "source": null
+ },
+ {
+  "id": 215,
+  "name": "Curl bayesiano en polea",
+  "muscle": "Bíceps",
+  "equipment": "Polea",
+  "level": "Intermedio",
+  "type": "Fuerza",
+  "primary": [
+   "biceps"
+  ],
+  "secondary": [
+   "forearms"
+  ],
+  "cues": "Brazo detrás del cuerpo para estirar el bíceps.",
+  "steps": [
+   "De espaldas a la polea baja, toma el agarre.",
+   "Flexiona el codo manteniéndolo atrás.",
+   "Baja lento y cambia."
+  ],
+  "sets": 3,
+  "reps": "12",
+  "rest": 60,
+  "images": 0,
+  "source": null
+ },
+ {
+  "id": 216,
+  "name": "Press de pecho en Hammer agarre ancho",
+  "muscle": "Pecho",
+  "equipment": "Hammer Strength",
+  "level": "Principiante",
+  "type": "Fuerza",
+  "primary": [
+   "chest"
+  ],
+  "secondary": [
+   "shoulders",
+   "triceps"
+  ],
+  "cues": "Codos abiertos a unos 60°.",
+  "steps": [
+   "Toma los agarres anchos a la altura del pecho.",
+   "Empuja al frente.",
+   "Regresa estirando el pecho."
+  ],
+  "sets": 3,
+  "reps": "10",
+  "rest": 90,
+  "images": 0,
+  "source": null
+ },
+ {
+  "id": 217,
+  "name": "Plancha Copenhague",
+  "muscle": "Abdomen",
+  "equipment": "Peso corporal",
+  "level": "Avanzado",
+  "type": "Fuerza",
+  "primary": [
+   "adductors",
+   "abdominals"
+  ],
+  "secondary": [],
+  "cues": "Cuerpo en línea recta.",
+  "steps": [
+   "De lado, apoya el antebrazo y la pierna de arriba en un banco.",
+   "Sube la cadera.",
+   "Sostén el tiempo indicado."
+  ],
+  "sets": 3,
+  "reps": "20 s",
+  "rest": 45,
+  "images": 0,
+  "source": null
  }
 ];

@@ -9,7 +9,7 @@ import { buildSeed } from "./seed";
 import { addDays, addMonths, monthName, planPrice, repsLow, startOfDay, weekStart } from "../lib/format";
 import { slugify } from "../lib/brand";
 
-const KEY = "fcp5.db";
+const KEY = "fcp6.db";
 
 /* ---------- persistencia segura ---------- */
 function load() {
@@ -17,7 +17,7 @@ function load() {
     const raw = window.localStorage.getItem(KEY);
     if (!raw) return null;
     const s = JSON.parse(raw);
-    return s?.version === 5 ? s : null;
+    return s?.version === 6 ? s : null;
   } catch { return null; }
 }
 let warnedFull = false;

@@ -306,7 +306,7 @@ export function buildSeed() {
   ];
 
   return {
-    version: 5,
+    version: 6,
     users, licenses, clients, exercises: EXERCISES.map((e) => ({ ...e })),
     templates, payments, workouts, messages, posts, activity,
     active: {},

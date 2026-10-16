@@ -26,13 +26,13 @@ Plataforma para entrenadores personales con modelo de licencias. Funciona en PC 
 
 ## Biblioteca de ejercicios
 
-Cada entrenador empieza con **119 ejercicios precargados**, cada uno con:
+Cada entrenador empieza con **217 ejercicios precargados**, incluidas máquinas Hammer Strength (press de pecho, inclinado, declinado, de hombros, remo Iso-Lateral, remo alto, jalón), máquina Smith, poleas, sentadilla péndulo, belt squat, V-squat, hack, hip thrust en máquina y barra hexagonal. Cada uno trae:
 
-- Fotos de la posición inicial y final (se animan en la ficha).
+- Fotos de la posición inicial y final (se animan en la ficha). Los 24 ejercicios que no existen en la base de imágenes muestran el mapa muscular en su lugar.
 - Mapa muscular de frente y espalda con los músculos principales y secundarios resaltados.
 - Pasos de ejecución, un consejo técnico y series/reps/descanso sugeridos que se usan al agregarlo a una rutina.
 
-Se filtran por **categoría** (pecho, espalda, hombros, bíceps, tríceps, antebrazos, abdomen, glúteos, cuádriceps, isquiotibiales, pantorrillas, cuerpo completo, cardio y estiramiento), por **equipo** y por **nivel**, con búsqueda por nombre o músculo. El entrenador puede crear los suyos con su propia imagen y músculos.
+Se filtran por **categoría** (pecho, espalda, hombros, bíceps, tríceps, antebrazos, abdomen, glúteos, cuádriceps, isquiotibiales, pantorrillas, cuerpo completo, cardio y estiramiento), por **equipo** (incluye Hammer Strength y máquina Smith), por **nivel** y tocando un músculo en el cuerpo, con búsqueda por nombre o músculo. El entrenador puede crear los suyos con su propia imagen y músculos.
 
 Imágenes y datos base: [Free Exercise DB](https://github.com/yuhonas/free-exercise-db) (dominio público, Unlicense). Nombres, pasos y consejos traducidos y adaptados al español. Las imágenes están en `public/ejercicios/`.
 
