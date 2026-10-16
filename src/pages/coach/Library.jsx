@@ -1,18 +1,22 @@
 import { useState } from "react";
 import Icon from "../../ui/Icon";
 import { Confirm, Empty, Field, Modal, toast } from "../../ui/kit";
+import { ImageDrop } from "../../ui/inputs";
+import { ExerciseDetail, ExerciseFilters, ExerciseTile, GROUPS, LEVELS, MUSCLE_KEYS, useExerciseFilters } from "../../ui/exercises";
+import { muscleName } from "../../ui/MuscleMap";
 import { useApp } from "../../context";
 import { deleteExercise, deleteTemplate, exerciseById, exerciseInUse, upsertExercise, useDB } from "../../store/db";
 import { clock, shortDate } from "../../lib/format";
+import { progressImage } from "../../lib/image";
 
-const EQUIP = ["Barra", "Mancuernas", "Polea", "Máquina", "Peso corporal", "Kettlebell", "Banda elástica", "Accesorio"];
+const EQUIP = ["Barra", "Barra Z", "Mancuernas", "Polea", "Máquina", "Peso corporal", "Barra fija", "Paralelas", "Kettlebell", "Banda elástica", "Balón medicinal", "Fitball", "Cajón", "Cuerda", "Otro"];
 
 export default function Library() {
   const [tab, setTab] = useState("ejercicios");
   return (
     <div className="page">
       <div className="page-head">
-        <div><h1>Biblioteca</h1><p>Los ejercicios y plantillas que usas para armar rutinas.</p></div>
+        <div><h1>Biblioteca</h1><p>Más de 100 ejercicios listos con fotos, músculos trabajados y técnica. Agrega los tuyos y arma plantillas.</p></div>
       </div>
       <div className="tabs" role="tablist">
         <button role="tab" className="tab" aria-selected={tab === "ejercicios"} onClick={() => setTab("ejercicios")}>Ejercicios</button>
@@ -26,51 +30,35 @@ export default function Library() {
 function Exercises() {
   const db = useDB();
   const { me } = useApp();
-  const [q, setQ] = useState("");
-  const [muscle, setMuscle] = useState("Todos");
+  const list = db.exercises.filter((e) => e.coachId == null || e.coachId === me.id);
+  const filters = useExerciseFilters(list, me.id);
+  const [open, setOpen] = useState(null);
   const [edit, setEdit] = useState(null);
   const [del, setDel] = useState(null);
-  const list = db.exercises.filter((e) => e.coachId == null || e.coachId === me.id);
-  const muscles = ["Todos", "Tuyos", ...new Set(list.map((e) => e.muscle))];
-  const shown = list
-    .filter((e) => muscle === "Todos" || (muscle === "Tuyos" ? e.coachId === me.id : e.muscle === muscle))
-    .filter((e) => !q || `${e.name} ${e.muscle} ${e.equipment}`.toLowerCase().includes(q.toLowerCase()))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const blank = { name: "", muscle: "Pecho", equipment: "Mancuernas", level: "Intermedio", primary: [], secondary: [], steps: [], cues: "", sets: 3, reps: "12", rest: 60, photo: null };
 
   return (
     <>
-      <div className="row wrap" style={{ gap: 10 }}>
-        <div className="search">
-          <Icon name="search" size={18} />
-          <label className="sr-only" htmlFor="lib-q">Buscar ejercicio</label>
-          <input id="lib-q" className="input" placeholder="Buscar ejercicio" value={q} onChange={(e) => setQ(e.target.value)} />
-        </div>
-        <button className="btn btn-primary" onClick={() => setEdit({ name: "", muscle: "Pecho", equipment: "Barra", cues: "" })}><Icon name="plus" size={18} />Nuevo ejercicio</button>
+      <div className="row spread wrap gap-sm">
+        <span className="small muted">{filters.shown.length} de {filters.total} ejercicios</span>
+        <button className="btn btn-primary" onClick={() => setEdit(blank)}><Icon name="plus" size={18} />Nuevo ejercicio</button>
       </div>
-      <div className="chips">{muscles.map((m) => <button key={m} className="chip" aria-pressed={muscle === m} onClick={() => setMuscle(m)}>{m}</button>)}</div>
-      <section className="panel">
-        {shown.length === 0 ? <Empty icon="dumbbell" title="Sin resultados" text="Crea el ejercicio con tus propias indicaciones." /> : (
-          <div className="list">
-            {shown.map((e) => (
-              <div key={e.id} className="list-row" style={{ alignItems: "flex-start" }}>
-                <span className="avatar sm" style={{ background: "var(--surface-3)", color: "var(--ink-2)" }}><Icon name="dumbbell" size={16} /></span>
-                <div className="grow">
-                  <div className="row wrap gap-sm"><span className="strong">{e.name}</span>{e.coachId && <span className="tag">Tuyo</span>}</div>
-                  <div className="small muted">{e.muscle} · {e.equipment}</div>
-                  {e.cues && <div className="small ink2" style={{ marginTop: 4 }}>{e.cues}</div>}
-                </div>
-                {e.coachId === me.id && (
-                  <div className="row gap-xs">
-                    <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setEdit(e)} aria-label={`Editar ${e.name}`}><Icon name="pencil" size={16} /></button>
-                    <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDel(e)} aria-label={`Eliminar ${e.name}`}><Icon name="trash" size={16} /></button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-      {edit && <ExerciseModal ex={edit} muscles={[...new Set(list.map((e) => e.muscle))]} onClose={() => setEdit(null)} onSave={(d) => { upsertExercise(me.id, d); toast(d.id ? "Ejercicio actualizado" : "Ejercicio creado"); setEdit(null); }} />}
+      <ExerciseFilters state={filters} idPrefix="lib" showMine />
+      {filters.shown.length === 0 ? (
+        <section className="panel"><Empty icon="dumbbell" title="No hay ejercicios con esos filtros" text="Cambia la categoría o crea el ejercicio con tus propias indicaciones." /></section>
+      ) : (
+        <div className="ex-grid">
+          {filters.shown.map((e) => <ExerciseTile key={e.id} ex={e} onOpen={setOpen} />)}
+        </div>
+      )}
+      {open && (
+        <ExerciseDetail ex={exerciseById(db, open.id)} onClose={() => setOpen(null)}
+          footer={open.coachId === me.id ? <>
+            <button className="btn btn-ghost" onClick={() => { setDel(open); setOpen(null); }}><Icon name="trash" size={16} />Eliminar</button>
+            <button className="btn btn-primary" onClick={() => { setEdit(exerciseById(db, open.id)); setOpen(null); }}><Icon name="pencil" size={16} />Editar</button>
+          </> : null} />
+      )}
+      {edit && <ExerciseModal ex={edit} onClose={() => setEdit(null)} onSave={(d) => { upsertExercise(me.id, d); toast(d.id ? "Ejercicio actualizado" : "Ejercicio creado"); setEdit(null); }} />}
       {del && (exerciseInUse(db, del.id)
         ? <Confirm title="No se puede eliminar" tone="primary" confirmLabel="Entendido" onConfirm={() => {}} onClose={() => setDel(null)} text={`${del.name} está en la rutina de al menos un cliente. Quítalo de esas rutinas primero.`} />
         : <Confirm title="Eliminar ejercicio" confirmLabel="Eliminar" onClose={() => setDel(null)} onConfirm={() => { deleteExercise(del.id); toast("Ejercicio eliminado", "trash"); }} text={`${del.name} se quitará de tu biblioteca.`} />)}
@@ -78,23 +66,59 @@ function Exercises() {
   );
 }
 
-function ExerciseModal({ ex, muscles, onClose, onSave }) {
-  const [f, setF] = useState(ex);
+function ExerciseModal({ ex, onClose, onSave }) {
+  const [f, setF] = useState({ ...ex, stepsText: (ex.steps || []).join("\n") });
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const toggleMuscle = (m) => {
+    const p = f.primary.includes(m), s = f.secondary.includes(m);
+    // ninguno → principal → secundario → ninguno
+    if (!p && !s) setF({ ...f, primary: [...f.primary, m] });
+    else if (p) setF({ ...f, primary: f.primary.filter((x) => x !== m), secondary: [...f.secondary, m] });
+    else setF({ ...f, secondary: f.secondary.filter((x) => x !== m) });
+  };
+  async function photo(files) {
+    try { setF({ ...f, photo: await progressImage(files[0]) }); } catch (e) { toast(e.message, "alert"); }
+  }
+  function save() {
+    const { stepsText, ...rest } = f;
+    onSave({ ...rest, name: f.name.trim(), steps: stepsText.split("\n").map((x) => x.trim()).filter(Boolean), sets: +f.sets || 3, rest: +f.rest || 60 });
+  }
   return (
-    <Modal title={ex.id ? "Editar ejercicio" : "Nuevo ejercicio"} onClose={onClose} footer={<>
+    <Modal title={ex.id ? "Editar ejercicio" : "Nuevo ejercicio"} onClose={onClose} wide footer={<>
       <button className="btn btn-quiet" onClick={onClose}>Cancelar</button>
-      <button className="btn btn-primary" disabled={!f.name.trim()} onClick={() => onSave({ ...f, name: f.name.trim() })}>{ex.id ? "Guardar" : "Crear ejercicio"}</button>
+      <button className="btn btn-primary" disabled={!f.name.trim()} onClick={save}>{ex.id ? "Guardar" : "Crear ejercicio"}</button>
     </>}>
-      <Field label="Nombre" id="ex-name"><input id="ex-name" className="input" value={f.name} onChange={set("name")} placeholder="Ej.: Sentadilla búlgara" /></Field>
       <div className="form-grid">
-        <Field label="Grupo muscular" id="ex-muscle">
-          <input id="ex-muscle" className="input" list="ex-muscles" value={f.muscle} onChange={set("muscle")} />
-          <datalist id="ex-muscles">{muscles.map((m) => <option key={m} value={m} />)}</datalist>
-        </Field>
+        <div className="full"><Field label="Nombre" id="ex-name"><input id="ex-name" className="input" value={f.name} onChange={set("name")} placeholder="Ej.: Sentadilla con pausa" /></Field></div>
+        <Field label="Categoría" id="ex-group"><select id="ex-group" className="select" value={f.muscle} onChange={set("muscle")}>{GROUPS.map((g) => <option key={g}>{g}</option>)}</select></Field>
         <Field label="Equipo" id="ex-eq"><select id="ex-eq" className="select" value={f.equipment} onChange={set("equipment")}>{EQUIP.map((m) => <option key={m}>{m}</option>)}</select></Field>
+        <Field label="Nivel" id="ex-level"><select id="ex-level" className="select" value={f.level} onChange={set("level")}>{LEVELS.map((m) => <option key={m}>{m}</option>)}</select></Field>
+        <div className="row gap-sm" style={{ alignItems: "flex-end" }}>
+          <Field label="Series" id="ex-sets"><input id="ex-sets" className="input num" type="number" min="1" value={f.sets} onChange={set("sets")} /></Field>
+          <Field label="Reps" id="ex-reps"><input id="ex-reps" className="input num" value={f.reps} onChange={set("reps")} /></Field>
+          <Field label="Desc. (s)" id="ex-rest"><input id="ex-rest" className="input num" type="number" min="0" value={f.rest} onChange={set("rest")} /></Field>
+        </div>
+        <div className="full field">
+          <span className="label">Músculos trabajados <span className="muted" style={{ fontWeight: 400 }}>· un toque: principal, dos: secundario</span></span>
+          <div className="chips">
+            {MUSCLE_KEYS.map((m) => {
+              const p = f.primary.includes(m), s = f.secondary.includes(m);
+              return <button key={m} type="button" className="chip" aria-pressed={p} style={s ? { background: "var(--mm-secondary)", color: "#3a1a10", boxShadow: "none" } : null} onClick={() => toggleMuscle(m)}>{muscleName(m)}</button>;
+            })}
+          </div>
+        </div>
+        <div className="full"><Field label="Pasos (uno por línea)" id="ex-steps"><textarea id="ex-steps" className="textarea" rows={3} value={f.stepsText} onChange={set("stepsText")} /></Field></div>
+        <div className="full"><Field label="Consejo técnico" id="ex-cues"><input id="ex-cues" className="input" value={f.cues} onChange={set("cues")} /></Field></div>
+        <div className="full field">
+          <span className="label">Imagen (opcional)</span>
+          {f.photo ? (
+            <div className="row gap-sm">
+              <img src={f.photo} alt="" className="ex-thumb" style={{ width: 120, height: 80 }} />
+              <button className="btn btn-ghost btn-sm" onClick={() => setF({ ...f, photo: null })}>Quitar</button>
+            </div>
+          ) : <ImageDrop onFiles={photo} label="Subir imagen del ejercicio" hint="Si no subes una, se muestra el mapa muscular." />}
+        </div>
       </div>
-      <Field label="Indicaciones técnicas" id="ex-cues" hint="Tus clientes las ven mientras entrenan."><textarea id="ex-cues" className="textarea" value={f.cues} onChange={set("cues")} /></Field>
     </Modal>
   );
 }

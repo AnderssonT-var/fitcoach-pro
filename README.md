@@ -24,6 +24,18 @@ Plataforma para entrenadores personales con modelo de licencias. Funciona en PC 
 - **Entrenador:** activa su cuenta con un código de licencia. Gestiona clientes, arma rutinas por días, controla mensualidades, chatea con sus clientes y anima a su comunidad. Si la licencia vence o se revoca, el panel se bloquea hasta canjear un código nuevo (sus datos se conservan).
 - **Cliente:** ve su rutina, entrena en modo en vivo desde el celular, registra su peso, ve su progreso y sus pagos, y habla con su entrenador.
 
+## Biblioteca de ejercicios
+
+Cada entrenador empieza con **119 ejercicios precargados**, cada uno con:
+
+- Fotos de la posición inicial y final (se animan en la ficha).
+- Mapa muscular de frente y espalda con los músculos principales y secundarios resaltados.
+- Pasos de ejecución, un consejo técnico y series/reps/descanso sugeridos que se usan al agregarlo a una rutina.
+
+Se filtran por **categoría** (pecho, espalda, hombros, bíceps, tríceps, antebrazos, abdomen, glúteos, cuádriceps, isquiotibiales, pantorrillas, cuerpo completo, cardio y estiramiento), por **equipo** y por **nivel**, con búsqueda por nombre o músculo. El entrenador puede crear los suyos con su propia imagen y músculos.
+
+Imágenes y datos base: [Free Exercise DB](https://github.com/yuhonas/free-exercise-db) (dominio público, Unlicense). Nombres, pasos y consejos traducidos y adaptados al español. Las imágenes están en `public/ejercicios/`.
+
 ## Marca propia de cada entrenador
 
 Cada entrenador personaliza su cuenta sin afectar a los demás:

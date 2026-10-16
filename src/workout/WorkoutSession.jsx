@@ -3,8 +3,9 @@ import Icon from "../ui/Icon";
 import { PlateLoader } from "../ui/charts";
 import { Confirm } from "../ui/kit";
 import { DIFFICULTY } from "./SessionList";
+import { ExerciseDetail } from "../ui/exercises";
 import {
-  bestSet, clientById, discardWorkout, exerciseById, finishWorkout, updateWorkout, useDB, userById,
+  bestSet, clientById, discardWorkout, exerciseById, exerciseImage, finishWorkout, updateWorkout, useDB, userById,
 } from "../store/db";
 import { clock, kg, parseRest, repsLow, tons } from "../lib/format";
 
@@ -200,20 +201,31 @@ function ExerciseCard({ ex, info, best, isCurrent, coachFirst, onToggle, onEdit,
   const complete = ex.sets.every((x) => x.done);
   const next = ex.sets.findIndex((x) => !x.done);
   const barbell = info.equipment === "Barra";
+  const [how, setHow] = useState(false);
+  const thumb = exerciseImage(info);
   const shownWeight = (() => { const st = ex.sets[next >= 0 ? next : ex.sets.length - 1]; return +(st.weight || st.prevWeight || 0); })();
   return (
     <section ref={refEl} className={`ex-card ${complete ? "complete" : ""}`} aria-label={info.name}>
       <div className="row" style={{ alignItems: "flex-start", marginBottom: 10 }}>
-        <span className="avatar sm" style={{ background: complete ? "var(--green)" : "var(--surface-3)", color: complete ? "#fff" : "var(--ink-2)" }}>
-          <Icon name={complete ? "check" : "dumbbell"} size={16} stroke={complete ? 3 : 2} />
-        </span>
+        {thumb ? (
+          <button className="ex-thumb-btn" onClick={() => setHow(true)} aria-label={`Ver técnica de ${info.name}`} style={{ position: "relative" }}>
+            <img className="ex-thumb" src={thumb} alt="" style={{ width: 64, height: 46 }} />
+            {complete && <span className="avatar sm" style={{ position: "absolute", right: -6, bottom: -6, width: 22, height: 22, background: "var(--green)" }}><Icon name="check" size={13} stroke={3} /></span>}
+          </button>
+        ) : (
+          <span className="avatar sm" style={{ background: complete ? "var(--green)" : "var(--surface-3)", color: complete ? "#fff" : "var(--ink-2)" }}>
+            <Icon name={complete ? "check" : "dumbbell"} size={16} stroke={complete ? 3 : 2} />
+          </span>
+        )}
         <div className="grow">
           <div className="section-title" style={{ fontSize: 22 }}>{info.name}</div>
+          <button className="link-btn" style={{ fontSize: 13 }} onClick={() => setHow(true)}>Ver técnica</button>
           <div className="small muted">Objetivo {ex.target.sets} × {ex.target.reps} · descanso {clock(parseRest(ex.target.rest))}</div>
         </div>
         {best && best.weight > 0 && <div style={{ textAlign: "right" }}><div className="tiny muted">Récord</div><div className="display num" style={{ fontSize: 20, color: "var(--yellow-ink)" }}>{kg(best.weight)} kg</div></div>}
       </div>
       {ex.notes && <div className="note-box small" style={{ marginBottom: 10 }}><Icon name="note" size={16} /><span><strong>{coachFirst}:</strong> {ex.notes}</span></div>}
+      {how && <ExerciseDetail ex={info} coachName={coachFirst} onClose={() => setHow(false)} />}
       {barbell && shownWeight > 20 && !complete && <div style={{ marginBottom: 8 }}><PlateLoader weight={shownWeight} /></div>}
 
       <div className="set-grid tiny muted strong" style={{ padding: "0 4px 6px" }}>

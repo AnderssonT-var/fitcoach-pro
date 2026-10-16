@@ -2,7 +2,8 @@ import { useState } from "react";
 import Icon from "../../ui/Icon";
 import { Empty } from "../../ui/kit";
 import { useApp } from "../../context";
-import { bestSet, clientById, exerciseById, lastPerformance, nextDay, useDB, userById } from "../../store/db";
+import { bestSet, clientById, exerciseById, exerciseImage, lastPerformance, nextDay, useDB, userById } from "../../store/db";
+import { ExerciseDetail } from "../../ui/exercises";
 import { clock, kg, parseRest } from "../../lib/format";
 import { estimateMin } from "./ClientHome";
 
@@ -13,6 +14,7 @@ export default function MyRoutine() {
   const coach = userById(db, c.coachId);
   const [dayId, setDayId] = useState(() => nextDay(db, me.id)?.id);
   const active = db.active[me.id];
+  const [view, setView] = useState(null);
 
   if (!c.routine) {
     return <div className="page"><section className="panel"><Empty icon="dumbbell" title="Aún no tienes rutina" text={`${coach.name.split(" ")[0]} la está preparando.`} /></section></div>;
@@ -44,13 +46,18 @@ export default function MyRoutine() {
           return (
             <li key={e.uid} className="panel panel-pad stack" style={{ gap: 10 }}>
               <div className="row" style={{ alignItems: "flex-start" }}>
-                <span className="display num" style={{ fontSize: 30, width: 28, lineHeight: 1, color: "var(--muted)" }}>{i + 1}</span>
-                <div className="grow">
-                  <div className="section-title">{info.name}</div>
+                {exerciseImage(info) ? (
+                  <button className="ex-thumb-btn" onClick={() => setView(info)} aria-label={`Ver técnica de ${info.name}`}>
+                    <img className="ex-thumb" src={exerciseImage(info)} alt="" style={{ width: 84, height: 60 }} />
+                  </button>
+                ) : <span className="display num" style={{ fontSize: 30, width: 28, lineHeight: 1, color: "var(--muted)" }}>{i + 1}</span>}
+                <div className="grow" style={{ minWidth: 0 }}>
+                  <div className="section-title" style={{ overflowWrap: "anywhere" }}>{info.name}</div>
                   <div className="small muted">{info.muscle} · {info.equipment}</div>
+                  <button className="link-btn small" style={{ fontSize: 13 }} onClick={() => setView(info)}>Ver técnica</button>
                 </div>
-                <div style={{ textAlign: "right" }}>
-                  <div className="display num" style={{ fontSize: 26, lineHeight: 1 }}>{e.sets} × {e.reps}</div>
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <div className="display num" style={{ fontSize: 24, lineHeight: 1, whiteSpace: "nowrap" }}>{e.sets} × {e.reps}</div>
                   <div className="tiny muted num">descanso {clock(parseRest(e.rest))}</div>
                 </div>
               </div>
@@ -66,6 +73,7 @@ export default function MyRoutine() {
           );
         })}
       </ol>
+      {view && <ExerciseDetail ex={view} coachName={coach.name.split(" ")[0]} onClose={() => setView(null)} />}
     </div>
   );
 }

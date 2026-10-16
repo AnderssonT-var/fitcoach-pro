@@ -9,7 +9,7 @@ import { buildSeed } from "./seed";
 import { addDays, addMonths, monthName, planPrice, repsLow, startOfDay, weekStart } from "../lib/format";
 import { slugify } from "../lib/brand";
 
-const KEY = "fcp3.db";
+const KEY = "fcp4.db";
 
 /* ---------- persistencia segura ---------- */
 function load() {
@@ -17,7 +17,7 @@ function load() {
     const raw = window.localStorage.getItem(KEY);
     if (!raw) return null;
     const s = JSON.parse(raw);
-    return s?.version === 3 ? s : null;
+    return s?.version === 4 ? s : null;
   } catch { return null; }
 }
 let warnedFull = false;
@@ -80,7 +80,14 @@ export function brandOf(s, user) {
   return { coach, name: b.businessName || "", logo: b.logo || null, color: b.color || "", tagline: b.tagline || "", slug: b.slug || "" };
 }
 
-export const exerciseById = (s, id) => s.exercises.find((e) => e.id === id) || { id, name: "Ejercicio", muscle: "", equipment: "" };
+export const exerciseById = (s, id) => s.exercises.find((e) => e.id === id) || { id, name: "Ejercicio", muscle: "", equipment: "", primary: [], secondary: [] };
+
+/** Imagen del ejercicio: foto propia del entrenador o las de la biblioteca (0 = inicio, 1 = final). */
+export function exerciseImage(ex, frame = 0) {
+  if (ex?.photo) return ex.photo;
+  if (!ex?.images) return null;
+  return `${import.meta.env.BASE_URL}ejercicios/${ex.id}-${Math.min(frame, ex.images - 1)}.webp`;
+}
 
 export function licenseStatus(l) {
   if (l.revoked) return "revoked";

@@ -9,32 +9,9 @@ import { svgData } from "../lib/brand";
 const LOGO_MENDEZ = svgData('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><rect width="120" height="120" rx="28" fill="#E8590C"/><path d="M30 84V36l30 30 30-30v48" fill="none" stroke="#fff" stroke-width="12" stroke-linejoin="round" stroke-linecap="round"/><rect x="20" y="93" width="80" height="7" rx="3.5" fill="#fff" fill-opacity=".8"/></svg>');
 const LOGO_TORRES = svgData('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><circle cx="60" cy="60" r="60" fill="#0E8A9C"/><path d="M34 38h52M60 38v44" stroke="#fff" stroke-width="12" stroke-linecap="round"/><path d="M30 92c10-8 20-8 30 0s20 8 30 0" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round" stroke-opacity=".85"/></svg>');
 
-export const EXERCISES = [
-  { id: 1,  name: "Press banca",                 muscle: "Pecho",          equipment: "Barra",          cues: "Escápulas juntas y pies firmes. Baja la barra al esternón." },
-  { id: 2,  name: "Sentadilla trasera",          muscle: "Piernas",        equipment: "Barra",          cues: "Rodillas siguen la punta del pie. Baja hasta el paralelo." },
-  { id: 3,  name: "Dominadas",                   muscle: "Espalda",        equipment: "Peso corporal",  cues: "Pecho hacia la barra, sin balanceo." },
-  { id: 4,  name: "Press militar",               muscle: "Hombros",        equipment: "Barra",          cues: "Glúteos apretados, la barra sube en línea recta." },
-  { id: 5,  name: "Curl de bíceps",              muscle: "Brazos",         equipment: "Mancuernas",     cues: "Codos pegados, sin impulso con la espalda." },
-  { id: 6,  name: "Extensión de tríceps en polea", muscle: "Brazos",       equipment: "Polea",          cues: "Codos fijos, extiende por completo." },
-  { id: 7,  name: "Peso muerto",                 muscle: "Cadena posterior", equipment: "Barra",        cues: "Espalda neutra, empuja el piso con las piernas." },
-  { id: 8,  name: "Hip thrust",                  muscle: "Glúteos",        equipment: "Barra",          cues: "Barbilla al pecho, pausa de 1 s arriba." },
-  { id: 9,  name: "Remo con barra",              muscle: "Espalda",        equipment: "Barra",          cues: "Torso a 45°, lleva la barra al ombligo." },
-  { id: 10, name: "Fondos en paralelas",         muscle: "Pecho",          equipment: "Peso corporal",  cues: "Inclínate un poco adelante, baja a 90°." },
-  { id: 11, name: "Press inclinado con mancuernas", muscle: "Pecho",       equipment: "Mancuernas",     cues: "Banco a 30°, baja controlado." },
-  { id: 12, name: "Jalón al pecho",              muscle: "Espalda",        equipment: "Polea",          cues: "Saca el pecho y lleva la barra a la clavícula." },
-  { id: 13, name: "Elevaciones laterales",       muscle: "Hombros",        equipment: "Mancuernas",     cues: "Codos un poco flexionados, sube hasta los hombros." },
-  { id: 14, name: "Peso muerto rumano",          muscle: "Isquiotibiales", equipment: "Barra",          cues: "Cadera atrás, la barra roza los muslos." },
-  { id: 15, name: "Prensa de piernas",           muscle: "Piernas",        equipment: "Máquina",        cues: "No bloquees las rodillas arriba." },
-  { id: 16, name: "Zancadas con mancuernas",     muscle: "Piernas",        equipment: "Mancuernas",     cues: "Paso largo, rodilla trasera casi al piso." },
-  { id: 17, name: "Curl femoral",                muscle: "Isquiotibiales", equipment: "Máquina",        cues: "Baja en 3 segundos." },
-  { id: 18, name: "Elevación de talones",        muscle: "Pantorrillas",   equipment: "Máquina",        cues: "Pausa abajo con estiramiento completo." },
-  { id: 19, name: "Plancha",                     muscle: "Core",           equipment: "Peso corporal",  cues: "Cuerpo en línea recta, abdomen activo." },
-  { id: 20, name: "Face pull",                   muscle: "Hombros",        equipment: "Polea",          cues: "Tira hacia la frente abriendo los codos." },
-  { id: 21, name: "Remo con mancuerna",          muscle: "Espalda",        equipment: "Mancuernas",     cues: "Apoya rodilla y mano, codo hacia la cadera." },
-  { id: 22, name: "Sentadilla goblet",           muscle: "Piernas",        equipment: "Mancuernas",     cues: "Mancuerna pegada al pecho, torso erguido." },
-  { id: 23, name: "Rueda abdominal",             muscle: "Core",           equipment: "Accesorio",      cues: "No arquees la zona lumbar." },
-  { id: 24, name: "Bicicleta estática",          muscle: "Cardio",         equipment: "Máquina",        cues: "Ritmo constante, puedes hablar sin ahogarte." },
-].map((e) => ({ ...e, coachId: null }));
+import { EXERCISE_LIBRARY } from "./exercises";
+
+export const EXERCISES = EXERCISE_LIBRARY.map((e) => ({ ...e, coachId: null }));
 
 let n = 0;
 const id = (p) => `${p}${++n}`;
@@ -327,7 +304,7 @@ export function buildSeed() {
   ];
 
   return {
-    version: 3,
+    version: 4,
     users, licenses, clients, exercises: EXERCISES.map((e) => ({ ...e })),
     templates, payments, workouts, messages, posts, activity,
     active: {},

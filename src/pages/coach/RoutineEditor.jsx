@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import Icon from "../../ui/Icon";
 import { Confirm, Empty, Field, Modal, toast } from "../../ui/kit";
 import { useApp } from "../../context";
-import { exerciseById, newUid, saveRoutine, saveTemplate, useDB, userById } from "../../store/db";
+import { exerciseById, exerciseImage, newUid, saveRoutine, saveTemplate, useDB, userById } from "../../store/db";
+import { ExerciseDetail, ExerciseFilters, ExerciseTile, useExerciseFilters } from "../../ui/exercises";
 import { clock } from "../../lib/format";
 import { GOALS } from "./Clients";
 
@@ -23,6 +24,7 @@ export default function RoutineEditor({ clientId }) {
   const [asTemplate, setAsTemplate] = useState(false);
   const [askDiscard, setAskDiscard] = useState(false);
   const [askDelDay, setAskDelDay] = useState(false);
+  const [view, setView] = useState(null);
 
   const dirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(client.routine ?? null), [draft, client.routine]);
 
@@ -104,7 +106,10 @@ export default function RoutineEditor({ clientId }) {
                     <span className="display num" style={{ fontSize: 22, width: 22, color: "var(--muted)" }}>{i + 1}</span>
                     <div className="grow stack" style={{ gap: 10 }}>
                       <div className="row spread wrap gap-sm">
-                        <div><div className="strong">{info.name}</div><div className="tiny muted">{info.muscle} · {info.equipment}</div></div>
+                        <div className="row gap-sm" style={{ minWidth: 0 }}>
+                          {exerciseImage(info) && <button className="ex-thumb-btn" onClick={() => setView(info)} aria-label={`Ver ${info.name}`}><img className="ex-thumb" src={exerciseImage(info)} alt="" /></button>}
+                          <div style={{ minWidth: 0 }}><div className="strong">{info.name}</div><div className="tiny muted">{info.muscle} · {info.equipment}</div></div>
+                        </div>
                         <div className="row gap-xs">
                           <button className="btn btn-ghost btn-icon btn-sm" disabled={i === 0} onClick={() => upDay((d) => { [d.exercises[i - 1], d.exercises[i]] = [d.exercises[i], d.exercises[i - 1]]; })} aria-label={`Subir ${info.name}`}><Icon name="arrowUp" size={17} /></button>
                           <button className="btn btn-ghost btn-icon btn-sm" disabled={i === day.exercises.length - 1} onClick={() => upDay((d) => { [d.exercises[i + 1], d.exercises[i]] = [d.exercises[i], d.exercises[i + 1]]; })} aria-label={`Bajar ${info.name}`}><Icon name="arrowDown" size={17} /></button>
@@ -140,9 +145,10 @@ export default function RoutineEditor({ clientId }) {
       </div>
 
       {picker && <ExercisePicker dayName={day.name} onClose={() => setPicker(false)}
-        onPick={(ex) => { upDay((d) => { d.exercises.push({ uid: newUid(), exId: ex.id, sets: 3, reps: "10", rest: 90, notes: "" }); }); toast(`${ex.name} agregado`); }} />}
+        onPick={(ex) => { upDay((d) => { d.exercises.push({ uid: newUid(), exId: ex.id, sets: ex.sets || 3, reps: String(ex.reps || "10"), rest: RESTS.includes(+ex.rest) ? +ex.rest : 90, notes: "" }); }); toast(`${ex.name} agregado`); }} />}
       {templates && <TemplatePicker onClose={() => setTemplates(false)} onPick={(t) => { setDraft({ ...cloneWithIds(t), name: draft.name || t.name }); setDayIdx(0); setTemplates(false); toast("Plantilla aplicada. Revisa y guarda"); }} />}
       {asTemplate && <TemplateNameModal initial={draft.name} onClose={() => setAsTemplate(false)} onSave={(name) => { saveTemplate(me.id, draft, name); toast("Plantilla guardada en tu biblioteca", "layers"); setAsTemplate(false); }} />}
+      {view && <ExerciseDetail ex={view} onClose={() => setView(null)} />}
       {askDiscard && <Confirm title="Descartar cambios" confirmLabel="Descartar" onClose={() => setAskDiscard(false)} onConfirm={() => { setDraft(structuredClone(client.routine)); setDayIdx(0); }} text="Vuelves a la última versión guardada de la rutina." />}
       {askDelDay && <Confirm title={`Quitar ${day.name}`} confirmLabel="Quitar día" onClose={() => setAskDelDay(false)} onConfirm={() => { up((n) => { n.days.splice(dayIdx, 1); }); setDayIdx(0); }} text={`Se quitan sus ${day.exercises.length} ejercicios. El cambio se aplica cuando guardes la rutina.`} />}
     </div>
@@ -152,28 +158,24 @@ export default function RoutineEditor({ clientId }) {
 export function ExercisePicker({ onClose, onPick, dayName }) {
   const db = useDB();
   const { me } = useApp();
-  const [q, setQ] = useState("");
-  const [muscle, setMuscle] = useState("Todos");
   const list = db.exercises.filter((e) => e.coachId == null || e.coachId === me.id);
-  const muscles = ["Todos", ...new Set(list.map((e) => e.muscle))];
-  const shown = list.filter((e) => (muscle === "Todos" || e.muscle === muscle) && (!q || `${e.name} ${e.muscle} ${e.equipment}`.toLowerCase().includes(q.toLowerCase())));
+  const filters = useExerciseFilters(list, me.id);
+  const [open, setOpen] = useState(null);
+  const [added, setAdded] = useState({});
+  const add = (e) => { onPick(e); setAdded((a) => ({ ...a, [e.id]: (a[e.id] || 0) + 1 })); };
   return (
     <Modal title={`Agregar a ${dayName || "este día"}`} onClose={onClose} wide footer={<button className="btn btn-primary" onClick={onClose}>Listo</button>}>
-      <div className="search" style={{ maxWidth: "none" }}>
-        <Icon name="search" size={18} />
-        <label className="sr-only" htmlFor="pick-q">Buscar ejercicio</label>
-        <input id="pick-q" className="input" placeholder="Buscar ejercicio" value={q} onChange={(e) => setQ(e.target.value)} />
-      </div>
-      <div className="chips">{muscles.map((m) => <button key={m} className="chip" aria-pressed={muscle === m} onClick={() => setMuscle(m)}>{m}</button>)}</div>
-      <div className="panel list">
-        {shown.length === 0 && <div className="list-row muted">Sin resultados. Puedes crear el ejercicio en tu biblioteca.</div>}
-        {shown.map((e) => (
-          <button key={e.id} className="list-row" onClick={() => onPick(e)}>
-            <div className="grow"><div className="strong">{e.name}{e.coachId && <span className="tag" style={{ marginLeft: 8 }}>Tuyo</span>}</div><div className="small muted">{e.muscle} · {e.equipment}</div></div>
-            <span className="btn btn-quiet btn-sm" aria-hidden="true"><Icon name="plus" size={16} />Agregar</span>
-          </button>
+      <ExerciseFilters state={filters} idPrefix="pick" showMine />
+      <span className="small muted">{filters.shown.length} ejercicios</span>
+      <div className="ex-grid">
+        {filters.shown.map((e) => (
+          <ExerciseTile key={e.id} ex={e} onOpen={setOpen}
+            action={<button className={`btn btn-sm ${added[e.id] ? "btn-success" : "btn-primary"}`} onClick={() => add(e)} aria-label={`Agregar ${e.name}`}>
+              <Icon name={added[e.id] ? "check" : "plus"} size={14} />{added[e.id] ? "Agregado" : "Agregar"}
+            </button>} />
         ))}
       </div>
+      {open && <ExerciseDetail ex={open} onClose={() => setOpen(null)} footer={<button className="btn btn-primary" onClick={() => { add(open); setOpen(null); }}><Icon name="plus" size={16} />Agregar a {dayName || "este día"}</button>} />}
     </Modal>
   );
 }
