@@ -3,6 +3,11 @@
    así el demo siempre se ve actual.
    ============================================================ */
 import { DAY, addDays, addMonths, planPrice, startOfDay, weekStart } from "../lib/format";
+import { svgData } from "../lib/brand";
+
+/* Logos de ejemplo (diseños propios del demo) */
+const LOGO_MENDEZ = svgData('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><rect width="120" height="120" rx="28" fill="#E8590C"/><path d="M30 84V36l30 30 30-30v48" fill="none" stroke="#fff" stroke-width="12" stroke-linejoin="round" stroke-linecap="round"/><rect x="20" y="93" width="80" height="7" rx="3.5" fill="#fff" fill-opacity=".8"/></svg>');
+const LOGO_TORRES = svgData('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><circle cx="60" cy="60" r="60" fill="#0E8A9C"/><path d="M34 38h52M60 38v44" stroke="#fff" stroke-width="12" stroke-linecap="round"/><path d="M30 92c10-8 20-8 30 0s20 8 30 0" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round" stroke-opacity=".85"/></svg>');
 
 export const EXERCISES = [
   { id: 1,  name: "Press banca",                 muscle: "Pecho",          equipment: "Barra",          cues: "Escápulas juntas y pies firmes. Baja la barra al esternón." },
@@ -132,9 +137,21 @@ export function buildSeed() {
   /* ---------- usuarios ---------- */
   const users = [
     { id: 1,  role: "admin",  name: "Andrea Vélez",     email: "admin@fitcoach.com",  password: "admin123", createdAt: daysAgo(400) },
-    { id: 2,  role: "coach",  name: "Carlos Méndez",    email: "carlos@fitcoach.com", password: "coach123", createdAt: daysAgo(160), phone: "098 765 4321", city: "Quito" },
-    { id: 3,  role: "coach",  name: "Ana Torres",       email: "ana@fitcoach.com",    password: "coach123", createdAt: daysAgo(62),  phone: "099 112 2334", city: "Guayaquil" },
-    { id: 4,  role: "coach",  name: "Diego Ruiz",       email: "diego@fitcoach.com",  password: "coach123", createdAt: daysAgo(115), phone: "097 554 1290", city: "Cuenca" },
+    { id: 2,  role: "coach",  name: "Carlos Méndez",    email: "carlos@fitcoach.com", password: "coach123", createdAt: daysAgo(160), phone: "098 765 4321", city: "Quito",
+      headline: "Fuerza e hipertrofia", years: 8, instagram: "@mendez.strength",
+      bio: "Entrenador de fuerza con 8 años de experiencia. Trabajo con planes por días, progresión medida en cada sesión y revisión semanal de cada asesorado.",
+      specialties: ["Fuerza", "Hipertrofia", "Técnica de barra"], certifications: ["NSCA-CPT", "Powerlifting nivel 2"],
+      services: ["Plan de entrenamiento personalizado", "Revisión semanal de progreso", "Chat directo conmigo"],
+      brand: { businessName: "Méndez Strength", slug: "mendez-strength", color: "#E8590C", logo: LOGO_MENDEZ, tagline: "Entrena con método. Progresa con datos." } },
+    { id: 3,  role: "coach",  name: "Ana Torres",       email: "ana@fitcoach.com",    password: "coach123", createdAt: daysAgo(62),  phone: "099 112 2334", city: "Guayaquil",
+      headline: "Salud y recomposición corporal", years: 5, instagram: "@torresfit.studio",
+      bio: "Acompaño a personas que empiezan o retoman el ejercicio, con rutinas cortas y hábitos que se pueden sostener.",
+      specialties: ["Principiantes", "Recomposición", "Movilidad"], certifications: ["ACE Personal Trainer"],
+      services: ["Rutina de 3 días", "Plan de hábitos", "Seguimiento de medidas"],
+      brand: { businessName: "Torres Fit Studio", slug: "torres-fit", color: "#0E8A9C", logo: LOGO_TORRES, tagline: "Tu mejor versión, una sesión a la vez." } },
+    { id: 4,  role: "coach",  name: "Diego Ruiz",       email: "diego@fitcoach.com",  password: "coach123", createdAt: daysAgo(115), phone: "097 554 1290", city: "Cuenca",
+      headline: "Entrenamiento funcional", years: 3, instagram: "", bio: "", specialties: ["Funcional"], certifications: [], services: [],
+      brand: { businessName: "", slug: "diego-ruiz", color: "", logo: null, tagline: "" } },
     { id: 10, role: "client", name: "Sofía López",      email: "sofia@fitcoach.com",  password: "user123",  createdAt: daysAgo(48) },
     { id: 11, role: "client", name: "Mario García",     email: "mario@fitcoach.com",  password: "user123",  createdAt: daysAgo(40) },
     { id: 12, role: "client", name: "Valeria Cruz",     email: "valeria@fitcoach.com",password: "user123",  createdAt: daysAgo(3) },
@@ -178,7 +195,36 @@ export function buildSeed() {
     { userId: 21, coachId: 3, goal: "Hipertrofia",   phone: "098 222 0606", heightCm: 174, fee: 45, billingDay: 10, active: true, routine: routineFull(), weights: [] },
     { userId: 22, coachId: 4, goal: "Fuerza",        phone: "097 222 0707", heightCm: 170, fee: 50, billingDay: 1,  active: true, routine: null, weights: [] },
   ];
-  clients.forEach((c) => { c.joinedAt = users.find((u) => u.id === c.userId).createdAt; });
+  clients.forEach((c) => {
+    c.joinedAt = users.find((u) => u.id === c.userId).createdAt;
+    c.measurements = []; c.photos = []; c.notes = [];
+  });
+  const profile = {
+    10: { bio: "Me gusta entrenar en la tarde. Quiero ganar fuerza en las piernas.", injuries: "Molestia leve en la rodilla derecha en sentadilla profunda.", birthYear: 1997 },
+    11: { bio: "Ingeniero, entreno antes del trabajo. Mi meta es levantar 150 kg en peso muerto.", injuries: "", birthYear: 1990 },
+    13: { bio: "Quiero bajar de peso sin perder fuerza.", injuries: "Lumbar sensible.", birthYear: 1986 },
+  };
+  users.forEach((u) => { if (u.role === "client") Object.assign(u, { bio: "", injuries: "", birthYear: null, photo: null }, profile[u.id] || {}); else u.photo = null; });
+
+  // Medidas corporales registradas por el entrenador
+  const meas = (clientId, rows) => {
+    const c = clients.find((x) => x.userId === clientId);
+    c.measurements = rows.map((r, i) => ({ id: `ms-${clientId}-${i}`, date: daysAgo(r[0], 8), weight: r[1], fat: r[2], waist: r[3], hip: r[4], chest: r[5], arm: r[6], thigh: r[7], note: r[8] || "" }));
+  };
+  meas(10, [[43, 61.8, 27.5, 72, 98, 88, 28, 56, "Medición inicial"], [29, 61.5, 26.8, 71, 97.5, 88.5, 28.3, 56.5], [15, 61.0, 26.0, 70, 97, 89, 28.6, 57], [1, 60.4, 25.1, 68.5, 96.5, 89.5, 29, 57.5, "Buena evolución de cintura"]]);
+  meas(11, [[36, 84.0, 18.2, 86, 100, 104, 36, 60, "Medición inicial"], [8, 85.2, 17.9, 85.5, 100, 106, 37, 61]]);
+  meas(13, [[63, 92.0, 29.0, 102, 108, 110, 35, 64, "Medición inicial"], [33, 90.6, 27.6, 99, 106, 108, 35, 63], [3, 89.5, 26.8, 97, 105, 107, 35.5, 63]]);
+
+  // Notas privadas del entrenador
+  const note = (clientId, d, category, text, pinned = false) => {
+    clients.find((x) => x.userId === clientId).notes.push({ id: `nt-${clientId}-${d}`, at: daysAgo(d, 11), category, text, pinned });
+  };
+  note(10, 20, "Lesión", "Molestia leve en la rodilla derecha al bajar en sentadilla profunda. Mantener profundidad al paralelo y revisar en 2 semanas.", true);
+  note(10, 9, "Técnica", "Mejoró la retracción escapular en press banca. Lista para subir a 40 kg.");
+  note(10, 40, "General", "Prefiere entrenar en la tarde. Responde bien a volumen alto.");
+  note(11, 12, "Técnica", "En peso muerto la cadera sube antes que el pecho en la última rep. Bajar 5 kg si se repite.", true);
+  note(11, 30, "Pagos", "Suele pagar tarde: recordarle el día 3.");
+  note(13, 10, "General", "Lleva varios días sin entrenar por trabajo. Proponer rutina de 30 min.");
 
   /* ---------- entrenamientos ---------- */
   const workouts = [
@@ -281,7 +327,7 @@ export function buildSeed() {
   ];
 
   return {
-    version: 2,
+    version: 3,
     users, licenses, clients, exercises: EXERCISES.map((e) => ({ ...e })),
     templates, payments, workouts, messages, posts, activity,
     active: {},

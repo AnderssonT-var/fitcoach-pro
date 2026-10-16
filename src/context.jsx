@@ -17,6 +17,7 @@ export const NAV = {
     { id: "mensajes", icon: "chat", label: "Mensajes", badge: "unread" },
     { id: "comunidad", icon: "community", label: "Comunidad" },
     { id: "biblioteca", icon: "book", label: "Biblioteca" },
+    { id: "perfil", icon: "user", label: "Perfil y marca" },
   ],
   client: [
     { id: "inicio", icon: "home", label: "Inicio" },
@@ -25,6 +26,7 @@ export const NAV = {
     { id: "mensajes", icon: "chat", label: "Entrenador", badge: "unread" },
     { id: "comunidad", icon: "community", label: "Comunidad" },
     { id: "pagos", icon: "wallet", label: "Pagos" },
+    { id: "perfil", icon: "user", label: "Mi perfil" },
   ],
 };
 

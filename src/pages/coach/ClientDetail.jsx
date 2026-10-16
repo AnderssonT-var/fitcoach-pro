@@ -4,6 +4,7 @@ import { Avatar, Confirm, CopyButton, Field, Modal, Pill, Stat, toast } from "..
 import SessionList from "../../workout/SessionList";
 import { AdherenceChart, Records, VolumeChart, WeightChart, quickStats } from "../../workout/ProgressWidgets";
 import RoutineEditor from "./RoutineEditor";
+import { Measurements, Notes, Photos } from "./Tracking";
 import { PayRow, PaymentModal } from "./Payments";
 import { GOALS } from "./Clients";
 import { useApp } from "../../context";
@@ -12,7 +13,7 @@ import {
 } from "../../store/db";
 import { ago, kg, money, shortDate } from "../../lib/format";
 
-const TABS = [["resumen", "Resumen"], ["rutina", "Rutina"], ["historial", "Entrenamientos"], ["pagos", "Pagos"], ["datos", "Datos"]];
+const TABS = [["resumen", "Resumen"], ["rutina", "Rutina"], ["historial", "Entrenamientos"], ["medidas", "Medidas"], ["fotos", "Fotos"], ["notas", "Notas"], ["pagos", "Pagos"], ["datos", "Datos"]];
 
 export default function ClientDetail({ clientId, tab: initialTab }) {
   const db = useDB();
@@ -52,6 +53,9 @@ export default function ClientDetail({ clientId, tab: initialTab }) {
       {tab === "resumen" && <Summary clientId={clientId} onTab={setTab} />}
       {tab === "rutina" && <RoutineEditor key={clientId} clientId={clientId} />}
       {tab === "historial" && <section className="panel"><SessionList sessions={ws} /></section>}
+      {tab === "medidas" && <Measurements clientId={clientId} canEdit />}
+      {tab === "fotos" && <Photos clientId={clientId} canUpload canDelete />}
+      {tab === "notas" && <Notes clientId={clientId} />}
       {tab === "pagos" && <ClientPayments clientId={clientId} />}
       {tab === "datos" && <ClientData key={clientId} clientId={clientId} />}
     </div>
@@ -77,6 +81,13 @@ function Summary({ clientId, onTab }) {
       {!c.routine && (
         <div className="warn-box"><Icon name="alert" size={18} /><span className="grow">Este cliente aún no tiene rutina.</span><button className="btn btn-quiet btn-sm" onClick={() => onTab("rutina")}>Crear rutina</button></div>
       )}
+      {userById(db, clientId)?.injuries && (
+        <div className="error-box" style={{ alignItems: "center" }}><Icon name="alert" size={18} /><span className="grow"><strong>Lesiones reportadas por el cliente:</strong> {userById(db, clientId).injuries}</span></div>
+      )}
+      {(c.notes || []).filter((n) => n.pinned).map((n) => (
+        <div key={n.id} className="warn-box"><Icon name="note" size={18} /><span className="grow"><strong>{n.category}:</strong> {n.text}</span>
+          <button className="btn btn-quiet btn-sm" onClick={() => onTab("notas")}>Ver notas</button></div>
+      ))}
       {lastComment && (
         <div className="note-box"><Icon name="chat" size={18} /><span className="grow">Último comentario ({lastComment.dayName}, {ago(lastComment.finishedAt)}): “{lastComment.comment}”</span></div>
       )}

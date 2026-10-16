@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Icon from "../../ui/Icon";
-import { Avatar, Field, PlatesLogo, toast } from "../../ui/kit";
-import { activateLicense, login, normalizeCode, useDB } from "../../store/db";
+import { Avatar, BrandMark, Field, PlatesLogo, toast } from "../../ui/kit";
+import { activateLicense, clientsOf, coachBySlug, login, normalizeCode, useDB } from "../../store/db";
 
 const DEMOS = [
   { email: "carlos@fitcoach.com", password: "coach123", role: "Entrenador", what: "Clientes, rutinas, pagos y mensajes" },
@@ -9,54 +9,76 @@ const DEMOS = [
   { email: "admin@fitcoach.com", password: "admin123", role: "Administrador", what: "Licencias y entrenadores" },
 ];
 
-export default function Login() {
+export default function Login({ slug = "", onBrand }) {
   const db = useDB();
   const [mode, setMode] = useState("login");
+  const coach = coachBySlug(db, slug);
   return (
     <div className="auth">
-      {mode === "login" ? <LoginForm db={db} onActivate={() => setMode("activate")} /> : <ActivateForm db={db} onBack={() => setMode("login")} />}
+      {mode === "login"
+        ? <LoginForm key={coach?.id || "general"} db={db} coach={coach} unknownSlug={slug && !coach ? slug : ""} onBrand={onBrand} onActivate={() => setMode("activate")} />
+        : <ActivateForm db={db} onBack={() => setMode("login")} />}
     </div>
   );
 }
 
-function LoginForm({ db, onActivate }) {
+function LoginForm({ db, coach, unknownSlug, onBrand, onActivate }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [error, setError] = useState("");
+  const b = coach?.brand || {};
+  const brand = coach ? { coach, name: b.businessName, logo: b.logo, color: b.color } : null;
+
+  // Cuentas de ejemplo: con marca, solo el entrenador y sus asesorados
+  const demos = coach
+    ? [
+        { email: coach.email, password: coach.password, role: "Entrenador", what: b.businessName ? `Panel de ${b.businessName}` : "Tu panel de entrenador", id: coach.id, name: coach.name },
+        ...clientsOf(db, coach.id).filter((c) => c.active).slice(0, 2).map((c) => ({ email: c.user.email, password: c.user.password, role: "Asesorado", what: c.routine ? c.routine.name : c.goal, id: c.userId, name: c.user.name })),
+      ]
+    : DEMOS.map((d) => { const u = db.users.find((x) => x.email === d.email); return { ...d, id: u?.id, name: u?.name }; });
+  const branded = db.users.filter((u) => u.role === "coach" && u.brand?.slug && (u.brand.businessName || u.brand.logo));
 
   function submit(e) {
     e.preventDefault();
     if (!email || !password) { setError("Escribe tu correo y tu contraseña."); return; }
-    const r = login(email, password);
+    const r = login(email, password, coach?.id);
     if (r.error) setError(r.error);
   }
-  function quick(d) { const r = login(d.email, d.password); if (r.error) setError(r.error); }
+  function quick(d) { const r = login(d.email, d.password, coach?.id); if (r.error) setError(r.error); }
 
   return (
     <div className="auth-card">
-      <div className="auth-hero">
-        <PlatesLogo size={76} />
-        <h1>FitCoach Pro</h1>
-        <p>Rutinas, seguimiento y pagos de tus clientes, en un solo lugar.</p>
-      </div>
+      {coach ? (
+        <div className="auth-hero">
+          <BrandMark brand={brand} size={84} />
+          <h1>{b.businessName || coach.name}</h1>
+          {b.tagline && <p>{b.tagline}</p>}
+          <span className="coach-chip"><Avatar name={coach.name} id={coach.id} size="sm" />con {coach.name}</span>
+        </div>
+      ) : (
+        <div className="auth-hero">
+          <PlatesLogo size={76} />
+          <h1>FitCoach Pro</h1>
+          <p>Rutinas, seguimiento y pagos de tus clientes, en un solo lugar.</p>
+        </div>
+      )}
+
+      {unknownSlug && <div className="warn-box"><Icon name="alert" size={18} />El enlace “#{unknownSlug}” no corresponde a ningún entrenador. Puedes entrar desde aquí.</div>}
 
       <div className="stack gap-sm">
         <span className="small muted" style={{ paddingLeft: 16 }}>Probar con una cuenta de ejemplo</span>
         <div className="demo-accounts">
-          {DEMOS.map((d) => {
-            const u = db.users.find((x) => x.email === d.email);
-            return (
-              <button key={d.email} className="demo-account" onClick={() => quick(d)}>
-                <Avatar name={u?.name || d.role} />
-                <div className="grow">
-                  <div className="strong">{u?.name} <span className="muted" style={{ fontWeight: 400 }}>· {d.role}</span></div>
-                  <div className="small muted ellipsis">{d.what}</div>
-                </div>
-                <Icon name="right" size={18} />
-              </button>
-            );
-          })}
+          {demos.map((d) => (
+            <button key={d.email} className="demo-account" onClick={() => quick(d)}>
+              <Avatar name={d.name || d.role} id={d.id} />
+              <div className="grow">
+                <div className="strong">{d.name} <span className="muted" style={{ fontWeight: 400 }}>· {d.role}</span></div>
+                <div className="small muted ellipsis">{d.what}</div>
+              </div>
+              <Icon name="right" size={18} />
+            </button>
+          ))}
         </div>
       </div>
 
@@ -77,10 +99,36 @@ function LoginForm({ db, onActivate }) {
         <button className="btn btn-primary btn-lg btn-block" type="submit">Iniciar sesión</button>
       </form>
 
-      <p className="small muted" style={{ textAlign: "center" }}>
-        ¿Eres entrenador y tienes un código de licencia?{" "}
-        <button className="link-btn" style={{ fontSize: 13 }} onClick={onActivate}>Activa tu cuenta</button>
-      </p>
+      {coach ? (
+        <p className="small muted" style={{ textAlign: "center" }}>
+          Acceso exclusivo para {b.businessName || coach.name} y sus asesorados ·{" "}
+          <button className="link-btn" style={{ fontSize: 13 }} onClick={() => onBrand?.("")}>Ir al acceso general</button>
+        </p>
+      ) : (
+        <>
+          {branded.length > 0 && (
+            <div className="stack gap-sm">
+              <span className="small muted" style={{ paddingLeft: 16 }}>Acceso con la marca de cada entrenador</span>
+              <div className="demo-accounts">
+                {branded.map((u) => (
+                  <button key={u.id} className="demo-account" onClick={() => onBrand?.(u.brand.slug)}>
+                    <BrandMark brand={{ coach: u, name: u.brand.businessName, logo: u.brand.logo, color: u.brand.color }} size={38} />
+                    <div className="grow">
+                      <div className="strong">{u.brand.businessName || u.name}</div>
+                      <div className="small muted ellipsis">#{u.brand.slug} · {u.name}</div>
+                    </div>
+                    <Icon name="right" size={18} />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <p className="small muted" style={{ textAlign: "center" }}>
+            ¿Eres entrenador y tienes un código de licencia?{" "}
+            <button className="link-btn" style={{ fontSize: 13 }} onClick={onActivate}>Activa tu cuenta</button>
+          </p>
+        </>
+      )}
     </div>
   );
 }

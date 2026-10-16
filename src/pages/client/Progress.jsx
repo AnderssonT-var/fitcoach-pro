@@ -4,6 +4,7 @@ import { Stat } from "../../ui/kit";
 import SessionList from "../../workout/SessionList";
 import { AdherenceChart, Records, VolumeChart, WeightChart, quickStats } from "../../workout/ProgressWidgets";
 import { WeightModal } from "../coach/ClientDetail";
+import { Measurements, Photos } from "../coach/Tracking";
 import { useApp } from "../../context";
 import { useDB, weekStreak, workoutsOf } from "../../store/db";
 
@@ -33,6 +34,8 @@ export default function Progress() {
         <Records clientId={me.id} />
         <AdherenceChart clientId={me.id} />
       </div>
+      <Measurements clientId={me.id} />
+      <Photos clientId={me.id} canUpload />
       <section className="panel">
         <div className="panel-head"><h2>Historial</h2><span className="small muted">Toca una sesión para ver cada serie</span></div>
         <SessionList sessions={workoutsOf(db, me.id)} />

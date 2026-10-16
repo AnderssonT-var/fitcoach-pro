@@ -1,10 +1,32 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Icon from "./Icon";
 import { initials, sameDay, weekStart, addDays } from "../lib/format";
+import { useDB, userById } from "../store/db";
 
 /* ---------- Avatar: monograma como en Contactos ---------- */
-export function Avatar({ name, size }) {
-  return <span className={`avatar ${size || ""}`} aria-hidden="true">{initials(name)}</span>;
+export function Avatar({ name, id, size, photo }) {
+  const db = useDB();
+  const src = photo !== undefined ? photo : id ? userById(db, id)?.photo : null;
+  return (
+    <span className={`avatar ${size || ""}`} aria-hidden="true">
+      {src ? <img src={src} alt="" /> : initials(name)}
+    </span>
+  );
+}
+
+/** Logo del entrenador (o el icono de la app si no tiene). */
+export function BrandMark({ brand, size = 30 }) {
+  if (brand?.logo) {
+    return <img className="brand-logo" src={brand.logo} alt="" width={size} height={size} style={{ width: size, height: size, borderRadius: size * 0.2237 }} />;
+  }
+  if (brand?.color) {
+    return (
+      <span className="app-icon" style={{ width: size, height: size, borderRadius: size * 0.2237, background: brand.color, fontSize: size * 0.42, fontWeight: 700 }} aria-hidden="true">
+        {initials(brand.name || brand.coach?.name || "")}
+      </span>
+    );
+  }
+  return <AppIcon size={size} />;
 }
 
 export function Pill({ tone, children, plain }) {

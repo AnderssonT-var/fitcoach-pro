@@ -46,11 +46,11 @@ export default function Coaches() {
                 <Avatar name={c.name} id={c.id} />
                 <div className="grow">
                   <div className="strong ellipsis">{c.name}</div>
-                  <div className="small muted ellipsis">{c.city || "Sin ciudad"} · {last ? `último registro de un cliente ${ago(last.finishedAt)}` : "sin entrenamientos"}</div>
+                  <div className="small muted ellipsis">{c.brand?.businessName ? `${c.brand.businessName} · ` : ""}{c.city || "Sin ciudad"} · {last ? `último registro de un cliente ${ago(last.finishedAt)}` : "sin entrenamientos"}</div>
                 </div>
                 <span className="num m-hide" style={{ width: 90 }}>{clients.length}</span>
                 <span className="num m-hide" style={{ width: 130 }}>{week}</span>
-                <span style={{ width: 150 }} className="stack gap-xs">
+                <span className="stack gap-xs coach-status">
                   <Pill tone={LICENSE_TONE[st]}>{LICENSE_LABEL[st]}</Pill>
                   {l?.expiresAt && <span className="tiny muted num">{shortDate(l.expiresAt)}</span>}
                 </span>

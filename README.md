@@ -24,6 +24,24 @@ Plataforma para entrenadores personales con modelo de licencias. Funciona en PC 
 - **Entrenador:** activa su cuenta con un código de licencia. Gestiona clientes, arma rutinas por días, controla mensualidades, chatea con sus clientes y anima a su comunidad. Si la licencia vence o se revoca, el panel se bloquea hasta canjear un código nuevo (sus datos se conservan).
 - **Cliente:** ve su rutina, entrena en modo en vivo desde el celular, registra su peso, ve su progreso y sus pagos, y habla con su entrenador.
 
+## Marca propia de cada entrenador
+
+Cada entrenador personaliza su cuenta sin afectar a los demás:
+
+- **Perfil:** foto, especialidad, años de experiencia, presentación, especialidades, certificaciones y lo que incluye su plan. Sus asesorados lo ven en su app.
+- **Marca:** logo, nombre comercial, frase de bienvenida y color. La app de sus asesorados se pinta con ese color y muestra su logo.
+- **Acceso propio:** cada entrenador tiene su enlace (por ejemplo `#mendez-strength` o `#torres-fit`). Ese login muestra su logo y su nombre, y solo deja entrar a él y a sus asesorados; una cuenta de otro entrenador recibe un aviso.
+
+Los asesorados también tienen su perfil: foto, “Sobre mí” y lesiones o molestias que su entrenador debe conocer.
+
+## Seguimiento de cada asesorado
+
+En la ficha de cada cliente, el entrenador tiene:
+
+- **Medidas:** peso, % de grasa, cintura, cadera, pecho, brazo y muslo, con gráfico de evolución.
+- **Fotos de progreso:** subida de varias fotos (frente, perfil, espalda), galería por fecha y comparación antes/después. El cliente también puede subir las suyas.
+- **Notas privadas:** por categoría (técnica, lesión, nutrición, pagos), fijables arriba. El cliente no las ve.
+
 ## Funciones principales
 
 | Área | Qué hace |
@@ -56,6 +74,7 @@ Cuentas de demostración (datos ficticios):
 | Rol | Correo | Contraseña |
 |---|---|---|
 | Admin | admin@fitcoach.com | admin123 |
+| Entrenadora (otra marca) | ana@fitcoach.com | coach123 |
 | Entrenador | carlos@fitcoach.com | coach123 |
 | Cliente | sofia@fitcoach.com | user123 |
 

@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Icon from "../ui/Icon";
-import { Avatar, Confirm, Modal, PlatesLogo, toast } from "../ui/kit";
+import { Avatar, BrandMark, Confirm, Modal, toast } from "../ui/kit";
 import { NAV, ROLE_LABEL, useApp } from "../context";
-import { loginAs, logout, resetDemo, unreadFor, useDB } from "../store/db";
+import { brandOf, loginAs, resetDemo, unreadFor, useDB } from "../store/db";
 
 const DEMO = [
   { id: 1, label: "Admin" },
@@ -32,7 +32,7 @@ export function applyStoredTheme() {
 const isDark = (t) => t === "dark" || (t === "system" && window.matchMedia?.("(prefers-color-scheme: dark)").matches);
 
 export default function Shell({ children }) {
-  const { me, page, go } = useApp();
+  const { me, page, go, signOut } = useApp();
   const db = useDB();
   const [theme, setTheme] = useTheme();
   const [sheet, setSheet] = useState(false);
@@ -43,6 +43,14 @@ export default function Shell({ children }) {
   const tabs = items.length > MAX_TABS ? items.slice(0, MAX_TABS - 1) : items;
   const extra = items.length > MAX_TABS ? items.slice(MAX_TABS - 1) : [];
   const dark = isDark(theme);
+  const brand = brandOf(db, me);
+  const brandName = brand?.name || "";
+
+  useEffect(() => {
+    const full = () => toast("No queda espacio en este navegador para más fotos. Elimina algunas.", "alert");
+    window.addEventListener("fcp:storage-full", full);
+    return () => window.removeEventListener("fcp:storage-full", full);
+  }, []);
 
   function switchTo(id) {
     if (id === me.id) return;
@@ -54,7 +62,10 @@ export default function Shell({ children }) {
     <div className="shell">
       {/* ---------- Barra lateral (PC) ---------- */}
       <aside className="sidebar" aria-label="Menú principal">
-        <div className="brand"><PlatesLogo size={30} /><span className="brand-name">FitCoach <span>Pro</span></span></div>
+        <div className="brand">
+          <BrandMark brand={brand} size={32} />
+          <span className="brand-name ellipsis">{brandName || <>FitCoach <span>Pro</span></>}</span>
+        </div>
         <nav className="nav">
           {items.map((it) => (
             <button key={it.id} className="nav-item" aria-current={page === it.id ? "page" : undefined} onClick={() => go(it.id)}>
@@ -64,13 +75,15 @@ export default function Shell({ children }) {
           ))}
         </nav>
         <div className="sidebar-foot">
-          <div className="row" style={{ padding: "4px 6px" }}>
-            <Avatar name={me.name} id={me.id} size="sm" />
-            <div className="grow">
-              <div className="strong ellipsis small">{me.name}</div>
-              <div className="tiny muted">{ROLE_LABEL[me.role]}</div>
-            </div>
-            <button className="btn btn-ghost btn-icon btn-sm" onClick={() => { logout(); }} aria-label="Cerrar sesión" title="Cerrar sesión"><Icon name="logout" size={18} /></button>
+          <div className="row" style={{ padding: "2px 2px" }}>
+            <button className="nav-item grow" style={{ padding: "6px 6px" }} onClick={() => me.role !== "admin" && go("perfil")} disabled={me.role === "admin"}>
+              <Avatar name={me.name} id={me.id} size="sm" />
+              <span className="grow" style={{ minWidth: 0 }}>
+                <span className="strong ellipsis small" style={{ display: "block" }}>{me.name}</span>
+                <span className="tiny" style={{ opacity: .7 }}>{me.role === "admin" ? ROLE_LABEL[me.role] : "Ver mi perfil"}</span>
+              </span>
+            </button>
+            <button className="btn btn-ghost btn-icon btn-sm" onClick={signOut} aria-label="Cerrar sesión" title="Cerrar sesión"><Icon name="logout" size={18} /></button>
           </div>
         </div>
       </aside>
@@ -92,7 +105,7 @@ export default function Shell({ children }) {
 
         {/* ---------- Barra superior (móvil) ---------- */}
         <header className="mobile-top">
-          <div className="row gap-sm"><PlatesLogo size={28} /><span className="brand-name">FitCoach <span>Pro</span></span></div>
+          <div className="row gap-sm" style={{ minWidth: 0 }}><BrandMark brand={brand} size={28} /><span className="brand-name ellipsis">{brandName || <>FitCoach <span>Pro</span></>}</span></div>
           <button className="btn btn-ghost btn-icon" onClick={() => setSheet(true)} aria-label="Cuenta y opciones del demo" style={{ padding: 0 }}>
             <Avatar name={me.name} id={me.id} size="sm" />
           </button>
@@ -152,7 +165,7 @@ export default function Shell({ children }) {
           </div>
           <div className="row">
             <button className="btn btn-quiet grow" onClick={() => { setSheet(false); setAskReset(true); }}><Icon name="refresh" size={17} />Restablecer demo</button>
-            <button className="btn btn-danger grow" onClick={() => { setSheet(false); logout(); }}><Icon name="logout" size={17} />Cerrar sesión</button>
+            <button className="btn btn-danger grow" onClick={() => { setSheet(false); signOut(); }}><Icon name="logout" size={17} />Cerrar sesión</button>
           </div>
         </Modal>
       )}

@@ -102,10 +102,18 @@ CREATE TABLE coach_profiles (
   location       VARCHAR(120) DEFAULT NULL,
   website_url    VARCHAR(255) DEFAULT NULL,
   instagram      VARCHAR(80)  DEFAULT NULL,
+  services       TEXT         DEFAULT NULL       COMMENT 'Lo que incluye su plan (lista)',
+  -- Marca propia: cada entrenador tiene su login con logo, nombre y color
+  brand_name     VARCHAR(80)  DEFAULT NULL       COMMENT 'Nombre comercial, p. ej. Méndez Strength',
+  brand_slug     VARCHAR(40)  DEFAULT NULL       COMMENT 'Enlace de acceso: …/#mendez-strength',
+  brand_color    CHAR(7)      DEFAULT NULL       COMMENT '#RRGGBB',
+  brand_logo_url VARCHAR(512) DEFAULT NULL,
+  brand_tagline  VARCHAR(120) DEFAULT NULL,
   created_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
                                         ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
+  UNIQUE KEY uq_coach_brand_slug (brand_slug),
   CONSTRAINT fk_coach_profiles_user FOREIGN KEY (user_id)
     REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
@@ -123,6 +131,7 @@ CREATE TABLE client_profiles (
   height_cm      SMALLINT     DEFAULT NULL,
   birth_date     DATE         DEFAULT NULL,
   gender         ENUM('M','F','otro') DEFAULT NULL,
+  bio            TEXT         DEFAULT NULL,          -- "Sobre mí" escrito por el cliente
   health_notes   TEXT         DEFAULT NULL,          -- lesiones, restricciones
   streak_days    SMALLINT     NOT NULL DEFAULT 0,
   progress_pct   TINYINT      NOT NULL DEFAULT 0     COMMENT '0-100',
@@ -478,11 +487,31 @@ CREATE TABLE progress_photos (
                           DEFAULT 'front',
   taken_at   DATE         NOT NULL,
   notes      VARCHAR(255) DEFAULT NULL,
+  uploaded_by INT UNSIGNED DEFAULT NULL           COMMENT 'Entrenador o el propio cliente',
   created_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   INDEX idx_pp_client (client_id),
   CONSTRAINT fk_pp_client FOREIGN KEY (client_id)
     REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- NOTAS PRIVADAS DEL ENTRENADOR SOBRE CADA ASESORADO
+--    El cliente no tiene acceso a esta tabla.
+-- ============================================================
+CREATE TABLE coach_notes (
+  id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  coach_id   INT UNSIGNED NOT NULL,
+  client_id  INT UNSIGNED NOT NULL,
+  category   ENUM('General','Técnica','Lesión','Nutrición','Pagos') NOT NULL DEFAULT 'General',
+  body       TEXT         NOT NULL,
+  is_pinned  BOOLEAN      NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  INDEX idx_cn_client (client_id, is_pinned),
+  CONSTRAINT fk_cn_coach  FOREIGN KEY (coach_id)  REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_cn_client FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- ============================================================
