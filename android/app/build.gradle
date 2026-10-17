@@ -7,7 +7,7 @@ android {
         applicationId "com.atdev.fitcoachpro"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode (System.getenv("FCP_VERSION_CODE") ?: "1").toInteger()
+        versionCode((System.getenv("FCP_VERSION_CODE") ?: "1").toInteger())
         versionName(System.getenv("FCP_VERSION_NAME") ?: "1.0.0")
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
