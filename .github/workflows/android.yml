@@ -1,10 +1,12 @@
 # Compila la app Android (APK) y la publica en "Releases" del repositorio.
-# Se ejecuta al subir una etiqueta v* (por ejemplo v1.0.0) o a mano desde la pestaña Actions.
+# Se ejecuta al subir una etiqueta v* (por ejemplo v1.0.0), con un commit a main que diga [apk]
+# en el mensaje, o a mano desde la pestaña Actions.
 name: App Android
 
 on:
   push:
     tags: ["v*"]
+    branches: [main]
   workflow_dispatch:
     inputs:
       api_url:
@@ -16,6 +18,7 @@ permissions:
 
 jobs:
   apk:
+    if: github.event_name != 'push' || github.ref_type == 'tag' || contains(github.event.head_commit.message, '[apk]')
     runs-on: ubuntu-latest
     env:
       VITE_API_URL: ${{ inputs.api_url || vars.API_URL }}
