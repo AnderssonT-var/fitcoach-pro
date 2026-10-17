@@ -7,6 +7,7 @@ export const useApp = () => useContext(AppCtx);
 export const NAV = {
   admin: [
     { id: "inicio", icon: "home", label: "Resumen" },
+    { id: "cobros", icon: "wallet", label: "Cobros", badge: "pendingSubs" },
     { id: "licencias", icon: "key", label: "Licencias" },
     { id: "entrenadores", icon: "users", label: "Entrenadores" },
   ],
@@ -18,6 +19,7 @@ export const NAV = {
     { id: "comunidad", icon: "community", label: "Comunidad" },
     { id: "biblioteca", icon: "book", label: "Biblioteca" },
     { id: "perfil", icon: "user", label: "Perfil y marca" },
+    { id: "suscripcion", icon: "key", label: "Suscripción" },
   ],
   client: [
     { id: "inicio", icon: "home", label: "Inicio" },

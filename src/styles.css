@@ -586,3 +586,30 @@ input[type=number] { -moz-appearance: textfield; }
 .dev-credit a { color: inherit; font-weight: 600; text-decoration: none; }
 .dev-credit a:hover { color: var(--blue-ink); text-decoration: underline; }
 .dev-credit.in-sidebar { margin-top: 6px; opacity: .8; }
+
+/* ---------- producción: privacidad, seguridad y suscripción ---------- */
+.legal-points { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.legal-points li { display: flex; gap: 12px; align-items: flex-start; font-size: 14.5px; color: var(--ink-2); line-height: 1.45; }
+.legal-points li > svg { flex-shrink: 0; margin-top: 2px; color: var(--blue); }
+.legal-text { display: flex; flex-direction: column; gap: 10px; font-size: 15px; line-height: 1.55; color: var(--ink-2); }
+.legal-text h2 { font-size: 18px; color: var(--ink); margin-top: 10px; letter-spacing: -.01em; }
+.legal-text ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.legal-text a { color: var(--blue-ink); }
+.legal-page .auth-card { gap: 14px; }
+.check-row { display: flex; gap: 12px; align-items: flex-start; font-size: 14.5px; line-height: 1.45; color: var(--ink-2); cursor: pointer; }
+.check-row input { width: 20px; height: 20px; margin-top: 1px; flex-shrink: 0; accent-color: var(--blue); }
+.check-row .link-btn { font-size: inherit; padding: 0; vertical-align: baseline; }
+.pw-rules { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--muted); }
+.pw-rules li { display: inline-flex; gap: 5px; align-items: center; }
+.pw-rules li.ok { color: var(--green-ink); }
+.plan-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.plan-card { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 14px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--surface); text-align: left; cursor: pointer; color: var(--ink); min-width: 0; }
+.plan-card[aria-checked="true"] { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
+.plan-card.static { cursor: default; background: var(--surface-2); border-color: transparent; }
+@media (max-width: 640px) { .plan-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.pay-box { background: var(--surface-2); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.bank { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; font-size: 14.5px; }
+.bank dt { color: var(--muted); }
+.bank dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.receipt-thumb { width: 54px; height: 54px; border-radius: 10px; border: 0; padding: 0; background: var(--surface-3); overflow: hidden; flex-shrink: 0; display: grid; place-items: center; cursor: zoom-in; color: var(--muted); }
+.receipt-thumb img { width: 100%; height: 100%; object-fit: cover; }

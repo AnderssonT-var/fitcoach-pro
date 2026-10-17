@@ -1,77 +1,89 @@
 /* ============================================================
-   Store central del demo.
-   Persiste en localStorage (si está disponible) y notifica a la
-   interfaz. Cada función exportada equivale a un endpoint del
-   backend futuro (ver database/fitcoachpro.sql).
+   Store de la app conectado al servidor.
+   Los datos vienen de /api/state (solo lo que el usuario puede ver)
+   y cada acción llama a la API; el servidor valida permisos.
+   Las funciones de lectura (selectores) no cambian.
    ============================================================ */
 import { useSyncExternalStore } from "react";
-import { buildSeed } from "./seed";
-import { addDays, addMonths, monthName, planPrice, repsLow, startOfDay, weekStart } from "../lib/format";
-import { slugify } from "../lib/brand";
+import { EXERCISE_LIBRARY } from "./exercises";
+import { abs, api, hasSession, onLost, setTokens } from "./api";
+import { addDays, repsLow, startOfDay, weekStart } from "../lib/format";
 
-const KEY = "fcp6.db";
+const LIBRARY = EXERCISE_LIBRARY.map((e) => ({ ...e, coachId: null }));
+const blank = (status) => ({
+  status, version: 1, users: [], clients: [], licenses: [], payments: [], workouts: [], messages: [], posts: [], templates: [],
+  exercises: LIBRARY, activity: [], active: {}, subscriptions: [], settings: { pricing: null }, ranking: null, access: null, sessionUserId: null,
+});
 
-/* ---------- persistencia segura ---------- */
-function load() {
-  try {
-    const raw = window.localStorage.getItem(KEY);
-    if (!raw) return null;
-    const s = JSON.parse(raw);
-    return s?.version === 6 ? s : null;
-  } catch { return null; }
-}
-let warnedFull = false;
-function save(s) {
-  try { window.localStorage.setItem(KEY, JSON.stringify(s)); warnedFull = false; }
-  catch (e) {
-    // Sin espacio (fotos pesadas) o sin almacenamiento: el demo sigue en memoria
-    if (!warnedFull && /quota/i.test(String(e?.name || e))) {
-      warnedFull = true;
-      window.dispatchEvent(new CustomEvent("fcp:storage-full"));
-    }
-  }
-}
-
-let state = load() || buildSeed();
+let state = blank(hasSession() ? "boot" : "guest");
 const listeners = new Set();
 const emit = () => listeners.forEach((l) => l());
-
-function commit(fn) {
-  const draft = structuredClone(state);
-  const out = fn(draft);
-  state = draft;
-  save(state);
-  emit();
-  return out;
-}
-
-if (typeof window !== "undefined") {
-  window.addEventListener("storage", (e) => {
-    if (e.key === KEY) { state = load() || state; emit(); }
-  });
-}
+function setState(next) { state = next; emit(); }
+function patch(fn) { const d = structuredClone(state); fn(d); setState(d); }
 
 export function useDB() {
-  return useSyncExternalStore(
-    (l) => { listeners.add(l); return () => listeners.delete(l); },
-    () => state, () => state,
-  );
+  return useSyncExternalStore((l) => { listeners.add(l); return () => listeners.delete(l); }, () => state, () => state);
 }
 export const getDB = () => state;
 
 const uid = (p = "") => `${p}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 const nowISO = () => new Date().toISOString();
-const log = (d, kind, text) => d.activity.unshift({ id: uid("a-"), at: nowISO(), kind, text });
 
 /* ============================================================
-   Selectores
+   Carga del estado desde el servidor
+   ============================================================ */
+let pendingActive = null; // cambios del entrenamiento en curso aún no guardados
+let loading = null;
+
+function normalize(s) {
+  s.status = "ready";
+  s.exercises = [...LIBRARY, ...(s.exercises || []).map((e) => ({ ...e, photo: abs(e.photo) }))];
+  s.clients = (s.clients || []).map((c) => ({ ...c, photos: (c.photos || []).map((p) => ({ ...p, src: abs(p.src) })) }));
+  s.subscriptions = (s.subscriptions || []).map((x) => ({ ...x, receipt: abs(x.receipt) }));
+  if (pendingActive) s.active = { ...s.active, [pendingActive.clientId]: pendingActive };
+  return s;
+}
+
+/** Vuelve a pedir los datos al servidor. */
+export async function reload() {
+  if (!hasSession()) { setState(blank("guest")); return; }
+  loading ||= (async () => {
+    const s = await api("GET", "/api/state");
+    if (s.error) {
+      if (s.offline && state.status === "ready") return; // sin conexión: se mantiene lo que había
+      if (s.offline) { setState({ ...blank("offline"), error: s.error }); return; }
+      if (!hasSession()) setState(blank("guest"));
+      return;
+    }
+    setState(normalize(s));
+  })().finally(() => { loading = null; });
+  return loading;
+}
+
+onLost(() => { pendingActive = null; setTokens(null); setState(blank("guest")); });
+
+/* Sincroniza cada 20 s mientras la app está visible (mensajes, cambios del entrenador, etc.) */
+if (typeof window !== "undefined") {
+  setInterval(() => { if (state.status === "ready" && document.visibilityState === "visible") reload(); }, 20000);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && state.status === "ready") reload(); });
+  if (state.status === "boot") reload();
+}
+
+/** Llama a la API y, si sale bien, recarga los datos. Devuelve la respuesta. */
+async function act(method, path, body) {
+  const r = await api(method, path, body);
+  if (!r.error) await reload();
+  else if (r.status === 402 || r.code === "consent_required" || r.code === "password_change" || r.code === "client_inactive" || r.code === "coach_license") await reload();
+  return r;
+}
+
+/* ============================================================
+   Selectores (iguales a los de antes)
    ============================================================ */
 export const userById = (s, id) => s.users.find((u) => u.id === id);
 export const clientById = (s, id) => s.clients.find((c) => c.userId === id);
-/** Entrenador dueño de un enlace de acceso (#slug). */
-export const coachBySlug = (s, slug) => slug ? s.users.find((u) => u.role === "coach" && u.brand?.slug === slug) : null;
+export const coachBySlug = () => null; // el acceso con marca se consulta al servidor (fetchBrand)
 
-/** Marca que ve un usuario: la de su entrenador (o la suya si es entrenador). */
 export function brandOf(s, user) {
   if (!user || user.role === "admin") return null;
   const coach = user.role === "coach" ? user : userById(s, clientById(s, user.id)?.coachId);
@@ -82,7 +94,6 @@ export function brandOf(s, user) {
 
 export const exerciseById = (s, id) => s.exercises.find((e) => e.id === id) || { id, name: "Ejercicio", muscle: "", equipment: "", primary: [], secondary: [] };
 
-/** Imagen del ejercicio: foto propia del entrenador o las de la biblioteca (0 = inicio, 1 = final). */
 export function exerciseImage(ex, frame = 0) {
   if (ex?.photo) return ex.photo;
   if (!ex?.images) return null;
@@ -100,12 +111,11 @@ export function licenseStatus(l) {
 export const LICENSE_LABEL = { active: "Activa", expiring: "Por vencer", expired: "Vencida", revoked: "Revocada", available: "Sin usar" };
 export const LICENSE_TONE  = { active: "ok", expiring: "warn", expired: "bad", revoked: "muted", available: "info" };
 
-/** Licencia vigente (o la más reciente) de un entrenador. */
 export function coachLicense(s, coachId) {
   const mine = s.licenses.filter((l) => l.coachId === coachId);
   const valid = mine.filter((l) => ["active", "expiring"].includes(licenseStatus(l)));
   const pool = valid.length ? valid : mine;
-  return pool.sort((a, b) => new Date(b.expiresAt || 0) - new Date(a.expiresAt || 0))[0] || null;
+  return [...pool].sort((a, b) => new Date(b.expiresAt || 0) - new Date(a.expiresAt || 0))[0] || null;
 }
 export function coachCanWork(s, coachId) {
   const l = coachLicense(s, coachId);
@@ -120,11 +130,10 @@ export const PAY_LABEL = { paid: "Pagado", pending: "Pendiente", overdue: "Venci
 export const PAY_TONE  = { paid: "ok", pending: "warn", overdue: "bad" };
 
 export const clientsOf = (s, coachId) =>
-  s.clients.filter((c) => c.coachId === coachId).map((c) => ({ ...c, user: userById(s, c.userId) }));
+  s.clients.filter((c) => c.coachId === coachId).map((c) => ({ ...c, user: userById(s, c.userId) })).filter((c) => c.user);
 
 export const workoutsOf = (s, clientId) =>
-  s.workouts.filter((w) => clientId == null || w.clientId === clientId)
-    .sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt));
+  s.workouts.filter((w) => clientId == null || w.clientId === clientId).sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt));
 
 export const workoutsForCoach = (s, coachId) => {
   const ids = new Set(s.clients.filter((c) => c.coachId === coachId).map((c) => c.userId));
@@ -136,23 +145,16 @@ export function weekCount(s, clientId, offsetWeeks = 0) {
   const to = addDays(from, 7);
   return s.workouts.filter((w) => w.clientId === clientId && new Date(w.finishedAt) >= from && new Date(w.finishedAt) < to).length;
 }
-
 export function weekStreak(s, clientId, goal) {
   if (!goal) return 0;
   let streak = weekCount(s, clientId, 0) >= goal ? 1 : 0;
-  for (let w = 1; w < 60; w++) {
-    if (weekCount(s, clientId, w) >= goal) streak++;
-    else break;
-  }
+  for (let w = 1; w < 60; w++) { if (weekCount(s, clientId, w) >= goal) streak++; else break; }
   return streak;
 }
-
 export function sessionVolume(w) {
   return w.exercises.reduce((t, e) => t + e.sets.filter((x) => x.done).reduce((a, x) => a + (+x.weight || 0) * (+x.reps || 0), 0), 0);
 }
-export function doneSetCount(w) {
-  return w.exercises.reduce((t, e) => t + e.sets.filter((x) => x.done).length, 0);
-}
+export function doneSetCount(w) { return w.exercises.reduce((t, e) => t + e.sets.filter((x) => x.done).length, 0); }
 
 export function lastPerformance(s, clientId, exId) {
   for (const w of workoutsOf(s, clientId)) {
@@ -169,15 +171,11 @@ export function bestSet(s, clientId, exId) {
     if (!e) continue;
     for (const x of e.sets) {
       if (!x.done || !(+x.reps > 0)) continue;
-      if (!best || +x.weight > best.weight || (+x.weight === best.weight && +x.reps > best.reps)) {
-        best = { weight: +x.weight, reps: +x.reps, at: w.finishedAt };
-      }
+      if (!best || +x.weight > best.weight || (+x.weight === best.weight && +x.reps > best.reps)) best = { weight: +x.weight, reps: +x.reps, at: w.finishedAt };
     }
   }
   return best;
 }
-
-/** Día sugerido: el siguiente en la rotación después del último entrenado. */
 export function nextDay(s, clientId) {
   const c = clientById(s, clientId);
   if (!c?.routine?.days?.length) return null;
@@ -186,410 +184,289 @@ export function nextDay(s, clientId) {
   const i = c.routine.days.findIndex((d) => d.id === last.dayId);
   return c.routine.days[(i + 1) % c.routine.days.length];
 }
-
 export function thread(s, coachId, clientId) {
-  return s.messages.filter((m) => m.coachId === coachId && m.clientId === clientId)
-    .sort((a, b) => new Date(a.at) - new Date(b.at));
+  return s.messages.filter((m) => m.coachId === coachId && m.clientId === clientId).sort((a, b) => new Date(a.at) - new Date(b.at));
 }
 export function unreadFor(s, userId) {
   return s.messages.filter((m) => !m.read && m.from !== userId && (m.coachId === userId || m.clientId === userId)).length;
 }
-
-/* ============================================================
-   Sesión de usuario
-   ============================================================ */
-export function login(email, password, brandCoachId = null) {
-  const u = state.users.find((x) => x.email.toLowerCase() === email.trim().toLowerCase());
-  if (!u) return { error: "No hay ninguna cuenta con ese correo." };
-  if (u.password !== password) return { error: "La contraseña no coincide. Revísala e intenta otra vez." };
-  if (brandCoachId) {
-    // Acceso con la marca de un entrenador: solo entra él y sus asesorados
-    const owner = u.role === "coach" ? u.id : u.role === "client" ? clientById(state, u.id)?.coachId : null;
-    if (owner !== brandCoachId) {
-      const b = userById(state, brandCoachId)?.brand;
-      return { error: `Esta cuenta no pertenece a ${b?.businessName || userById(state, brandCoachId)?.name}. Entra desde el acceso de tu entrenador.` };
-    }
-  }
-  if (u.role === "client" && !clientById(state, u.id)?.active) return { error: "Tu entrenador pausó esta cuenta. Escríbele para reactivarla." };
-  commit((d) => { d.sessionUserId = u.id; });
-  return { user: u };
-}
-export function loginAs(userId) { commit((d) => { d.sessionUserId = userId; }); }
-export function logout() { commit((d) => { d.sessionUserId = null; }); }
-
-export function normalizeCode(code) {
-  const raw = code.toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/^FIT/, "").slice(0, 8);
-  return raw ? `FIT-${raw.slice(0, 4)}${raw.length > 4 ? "-" + raw.slice(4) : ""}` : "";
-}
-
-function checkCode(d, code) {
-  const l = d.licenses.find((x) => x.code === normalizeCode(code));
-  if (!l) return { error: "Ese código no existe. Revisa que esté completo (FIT-XXXX-XXXX)." };
-  if (l.revoked) return { error: "Esta licencia fue revocada. Pide un código nuevo al administrador." };
-  if (l.coachId) return { error: "Este código ya fue usado por otro entrenador." };
-  return { l };
-}
-
-/** Registro de un entrenador nuevo con su código de licencia. */
-export function activateLicense({ code, name, email, password }) {
-  if (state.users.some((u) => u.email.toLowerCase() === email.trim().toLowerCase())) {
-    return { error: "Ya existe una cuenta con ese correo. Inicia sesión y canjea el código desde tu panel." };
-  }
-  return commit((d) => {
-    const { l, error } = checkCode(d, code);
-    if (error) return { error };
-    let slug = slugify(name) || "entrenador", n = 2;
-    while (d.users.some((u) => u.brand?.slug === slug)) slug = `${slugify(name)}-${n++}`;
-    const user = { id: Math.max(...d.users.map((u) => u.id)) + 1, role: "coach", name: name.trim(), email: email.trim().toLowerCase(), password, createdAt: nowISO(), phone: "", city: "",
-      photo: null, headline: "", years: null, instagram: "", bio: "", specialties: [], certifications: [], services: [],
-      brand: { businessName: "", slug, color: "", logo: null, tagline: "" } };
-    d.users.push(user);
-    l.coachId = user.id; l.activatedAt = nowISO(); l.expiresAt = addMonths(new Date(), l.months).toISOString();
-    d.sessionUserId = user.id;
-    log(d, "coach", `${user.name} activó su licencia de ${l.months} ${l.months === 1 ? "mes" : "meses"}`);
-    return { user };
-  });
-}
-
-/** Un entrenador existente canjea un código para renovar o reactivar su acceso. */
-export function redeemCode(coachId, code) {
-  return commit((d) => {
-    const { l, error } = checkCode(d, code);
-    if (error) return { error };
-    const current = d.licenses
-      .filter((x) => x.coachId === coachId && !x.revoked && new Date(x.expiresAt) > new Date())
-      .sort((a, b) => new Date(b.expiresAt) - new Date(a.expiresAt))[0];
-    const from = current ? new Date(current.expiresAt) : new Date();
-    l.coachId = coachId; l.activatedAt = nowISO(); l.expiresAt = addMonths(from, l.months).toISOString();
-    const coach = d.users.find((u) => u.id === coachId);
-    log(d, "license", `${coach.name} canjeó ${l.code} (+${l.months} ${l.months === 1 ? "mes" : "meses"})`);
-    return { license: l };
-  });
-}
-
-/* ============================================================
-   Administrador
-   ============================================================ */
-function randomCode(d) {
-  const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let code;
-  do {
-    const part = () => Array.from({ length: 4 }, () => A[Math.floor(Math.random() * A.length)]).join("");
-    code = `FIT-${part()}-${part()}`;
-  } while (d.licenses.some((l) => l.code === code));
-  return code;
-}
-export function generateLicenses(months, qty, note = "") {
-  return commit((d) => {
-    const out = [];
-    for (let i = 0; i < qty; i++) {
-      const l = { id: uid("lic-"), code: randomCode(d), months, coachId: null, createdAt: nowISO(), activatedAt: null, expiresAt: null, revoked: false, note,
-        charges: [{ at: nowISO(), amount: planPrice(months), months, kind: "venta" }] };
-      d.licenses.unshift(l);
-      out.push(l);
-    }
-    log(d, "license", qty === 1 ? `Se generó la licencia ${out[0].code} (${months} ${months === 1 ? "mes" : "meses"})` : `Se generaron ${qty} licencias de ${months} ${months === 1 ? "mes" : "meses"}`);
-    return out;
-  });
-}
-export function renewLicense(id, months) {
-  commit((d) => {
-    const l = d.licenses.find((x) => x.id === id);
-    const base = l.expiresAt && new Date(l.expiresAt) > new Date() ? new Date(l.expiresAt) : new Date();
-    l.expiresAt = addMonths(base, months).toISOString();
-    l.revoked = false;
-    l.charges.push({ at: nowISO(), amount: planPrice(months), months, kind: "renovación" });
-    const coach = d.users.find((u) => u.id === l.coachId);
-    log(d, "license", `Renovaste la licencia de ${coach?.name ?? l.code} por ${months} ${months === 1 ? "mes" : "meses"}`);
-  });
-}
-export function revokeLicense(id) {
-  commit((d) => {
-    const l = d.licenses.find((x) => x.id === id);
-    l.revoked = true;
-    const coach = d.users.find((u) => u.id === l.coachId);
-    log(d, "expired", `Revocaste la licencia ${l.code}${coach ? ` de ${coach.name}` : ""}`);
-  });
-}
-export function restoreLicense(id) {
-  commit((d) => {
-    const l = d.licenses.find((x) => x.id === id);
-    l.revoked = false;
-    log(d, "license", `Reactivaste la licencia ${l.code}`);
-  });
-}
-export function deleteLicense(id) {
-  commit((d) => { d.licenses = d.licenses.filter((l) => l.id !== id); });
-}
-
-/* ============================================================
-   Entrenador: clientes
-   ============================================================ */
-export function addClient(coachId, data) {
-  if (state.users.some((u) => u.email.toLowerCase() === data.email.trim().toLowerCase())) {
-    return { error: "Ya existe una cuenta con ese correo." };
-  }
-  return commit((d) => {
-    const password = `fit${Math.floor(1000 + Math.random() * 9000)}`;
-    const user = { id: Math.max(...d.users.map((u) => u.id)) + 1, role: "client", name: data.name.trim(), email: data.email.trim().toLowerCase(), password, createdAt: nowISO(),
-      photo: null, bio: "", injuries: "", birthYear: null };
-    d.users.push(user);
-    const today = new Date();
-    d.clients.push({
-      userId: user.id, coachId, goal: data.goal, phone: data.phone || "", heightCm: +data.height || null,
-      fee: +data.fee || 0, billingDay: today.getDate(), active: true, routine: null, joinedAt: nowISO(),
-      weights: data.weight ? [{ date: nowISO(), kg: +data.weight }] : [],
-      measurements: data.weight ? [{ id: uid("ms-"), date: nowISO(), weight: +data.weight, note: "Medición inicial" }] : [],
-      photos: [], notes: [],
-    });
-    if (+data.fee) {
-      d.payments.push({ id: uid("pay-"), coachId, clientId: user.id, concept: `Mensualidad ${monthName()}`, amount: +data.fee, dueDate: nowISO(), paidAt: null, method: "" });
-    }
-    d.messages.push({ id: uid("m-"), coachId, clientId: user.id, from: coachId, read: false, at: nowISO(),
-      text: `¡Hola ${user.name.split(" ")[0]}! Bienvenido/a. Aquí verás tu rutina y podrás registrar cada entrenamiento.` });
-    const coach = d.users.find((u) => u.id === coachId);
-    log(d, "client", `${coach.name} agregó a ${user.name}`);
-    return { user, password };
-  });
-}
-export function updateClient(clientId, patch) {
-  commit((d) => {
-    const c = d.clients.find((x) => x.userId === clientId);
-    const u = d.users.find((x) => x.id === clientId);
-    if (patch.name != null) u.name = patch.name;
-    if (patch.email != null) u.email = patch.email;
-    ["goal", "phone", "heightCm", "fee", "billingDay", "active"].forEach((k) => { if (patch[k] !== undefined) c[k] = patch[k]; });
-  });
-}
-export function resetClientPassword(clientId) {
-  return commit((d) => {
-    const u = d.users.find((x) => x.id === clientId);
-    u.password = `fit${Math.floor(1000 + Math.random() * 9000)}`;
-    return u.password;
-  });
-}
-export function addBodyWeight(clientId, kgValue) {
-  commit((d) => {
-    const c = d.clients.find((x) => x.userId === clientId);
-    c.weights.push({ date: nowISO(), kg: +kgValue });
-  });
-}
-
-/* ---------- rutinas y plantillas ---------- */
-export function saveRoutine(clientId, routine) {
-  commit((d) => { d.clients.find((x) => x.userId === clientId).routine = routine; });
-}
-export function saveTemplate(coachId, routine, name) {
-  commit((d) => { d.templates.unshift({ ...structuredClone(routine), id: uid("t-"), coachId, name, createdAt: nowISO() }); });
-}
-export function deleteTemplate(id) { commit((d) => { d.templates = d.templates.filter((t) => t.id !== id); }); }
-export const newUid = () => uid("re-");
-
-/* ---------- biblioteca ---------- */
-export function upsertExercise(coachId, data) {
-  commit((d) => {
-    if (data.id) Object.assign(d.exercises.find((e) => e.id === data.id), data);
-    else d.exercises.push({ ...data, id: Math.max(...d.exercises.map((e) => e.id)) + 1, coachId });
-  });
-}
-export function deleteExercise(id) { commit((d) => { d.exercises = d.exercises.filter((e) => e.id !== id); }); }
 export function exerciseInUse(s, id) {
   return s.clients.some((c) => c.routine?.days.some((day) => day.exercises.some((e) => e.exId === id)));
 }
 
-/* ---------- pagos ---------- */
-export function addPayment(coachId, p) {
-  commit((d) => {
-    d.payments.push({ id: uid("pay-"), coachId, clientId: +p.clientId, concept: p.concept, amount: +p.amount,
-      dueDate: new Date(`${p.dueDate}T09:00:00`).toISOString(), paidAt: p.paid ? nowISO() : null, method: p.paid ? p.method : "" });
-  });
-}
-export function markPaid(id, method) {
-  commit((d) => { const p = d.payments.find((x) => x.id === id); p.paidAt = nowISO(); p.method = method; });
-}
-export function markUnpaid(id) {
-  commit((d) => { const p = d.payments.find((x) => x.id === id); p.paidAt = null; p.method = ""; });
-}
-export function deletePayment(id) { commit((d) => { d.payments = d.payments.filter((p) => p.id !== id); }); }
-
-/** Crea la mensualidad del mes en curso para cada cliente activo que aún no la tenga. */
-export function generateMonthly(coachId) {
-  return commit((d) => {
-    const now = new Date();
-    const concept = `Mensualidad ${monthName(now)}`;
-    let created = 0;
-    d.clients.filter((c) => c.coachId === coachId && c.active && c.fee > 0).forEach((c) => {
-      const has = d.payments.some((p) => p.clientId === c.userId && p.concept === concept);
-      if (has) return;
-      const due = new Date(now.getFullYear(), now.getMonth(), Math.min(c.billingDay || 1, 28), 9);
-      d.payments.push({ id: uid("pay-"), coachId, clientId: c.userId, concept, amount: c.fee, dueDate: due.toISOString(), paidAt: null, method: "" });
-      created++;
-    });
-    return created;
+/** Precios de los planes según lo que definió el administrador. */
+export const PLAN_MONTHS = [1, 3, 6, 12];
+export function plansOf(s) {
+  const p = s.settings?.pricing;
+  if (!p) return [];
+  return PLAN_MONTHS.map((m) => {
+    const d = p.discounts?.[m] || 0;
+    const v = p.monthly * m * (1 - d / 100);
+    return { months: m, label: `${m} ${m === 1 ? "mes" : "meses"}`, discount: d, price: d > 0 ? Math.round(v) : Math.round(v * 100) / 100 };
   });
 }
 
-/* ---------- mensajes ---------- */
-export function sendMessage(coachId, clientId, from, text) {
-  commit((d) => { d.messages.push({ id: uid("m-"), coachId, clientId, from, text: text.trim(), at: nowISO(), read: false }); });
+/* ============================================================
+   Sesión
+   ============================================================ */
+export async function login(email, password, brandSlug = null) {
+  const r = await api("POST", "/api/auth/login", { email: email.trim(), password, ...(brandSlug ? { brandSlug } : {}) });
+  if (r.error) return r;
+  setTokens(r);
+  await reload();
+  return { ok: true };
+}
+export async function logout() {
+  const rt = (() => { try { return localStorage.getItem("fcp.rt"); } catch { return null; } })();
+  pendingActive = null;
+  api("POST", "/api/auth/logout", { refreshToken: rt });
+  setTokens(null);
+  setState(blank("guest"));
+}
+export async function logoutAll() {
+  await api("POST", "/api/auth/logout-all", {});
+  setTokens(null);
+  setState(blank("guest"));
+}
+export async function changePassword(current, next) {
+  const r = await api("POST", "/api/auth/password", { current, next });
+  if (r.error) return r;
+  setTokens(r);
+  await reload();
+  return { ok: true };
+}
+export const acceptConsent = (photos) => act("POST", "/api/auth/consent", { accept: true, ...(photos !== undefined ? { photos } : {}) });
+export const setPhotoConsent = (value) => act("POST", "/api/auth/photo-consent", { value });
+export async function fetchBrand(slug) {
+  if (!slug) return null;
+  const r = await api("GET", `/api/public/brand/${encodeURIComponent(slug)}`);
+  return r.error ? null : r;
+}
+export const fetchPricing = () => api("GET", "/api/public/pricing");
+
+export function normalizeCode(code) {
+  const raw = code.toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/^FIT/, "").slice(0, 12);
+  return raw ? `FIT-${raw.match(/.{1,4}/g).join("-")}` : "";
+}
+
+/** Registro de un entrenador con su código de licencia. */
+export async function activateLicense({ code, name, email, password, acceptTerms }) {
+  const r = await api("POST", "/api/auth/activate", { code, name, email, password, acceptTerms });
+  if (r.error) return r;
+  setTokens(r);
+  await reload();
+  return { ok: true };
+}
+export const redeemCode = (_coachId, code) => act("POST", "/api/coach/redeem", { code });
+export const requestSubscription = (data) => act("POST", "/api/coach/subscriptions", data);
+
+/* ============================================================
+   Administrador
+   ============================================================ */
+export async function generateLicenses(months, qty, note = "") {
+  const r = await act("POST", "/api/admin/licenses", { months, qty, note });
+  return r.error ? r : r.licenses;
+}
+export const renewLicense = (id, months) => act("POST", `/api/admin/licenses/${id}/renew`, { months });
+export const revokeLicense = (id) => act("POST", `/api/admin/licenses/${id}/revoke`, {});
+export const restoreLicense = (id) => act("POST", `/api/admin/licenses/${id}/restore`, {});
+export const deleteLicense = (id) => act("DELETE", `/api/admin/licenses/${id}`);
+export const savePricing = (p) => act("PUT", "/api/admin/pricing", p);
+export const saveLegal = (p) => act("PUT", "/api/admin/legal", p);
+export const fetchInfo = () => api("GET", "/api/public/info");
+export const approveSubscription = (id, note) => act("POST", `/api/admin/subscriptions/${id}/approve`, { note });
+export const rejectSubscription = (id, note) => act("POST", `/api/admin/subscriptions/${id}/reject`, { note });
+export const adminResetPassword = (userId) => act("POST", `/api/admin/users/${userId}/reset-password`, {});
+
+/* ============================================================
+   Entrenador
+   ============================================================ */
+export async function addClient(_coachId, data) {
+  const r = await act("POST", "/api/coach/clients", {
+    name: data.name, email: data.email, goal: data.goal || "", phone: data.phone || "",
+    height: data.height ? +data.height : null, weight: data.weight ? +data.weight : null, fee: +data.fee || 0,
+  });
+  return r;
+}
+export const updateClient = (clientId, p) => act("PATCH", `/api/coach/clients/${clientId}`, p);
+export async function resetClientPassword(clientId) {
+  const r = await act("POST", `/api/coach/clients/${clientId}/reset-password`, {});
+  return r.error ? r : r.password;
+}
+export const deleteClient = (clientId) => act("DELETE", `/api/coach/clients/${clientId}`);
+export function addBodyWeight(clientId, kgValue) {
+  const me = userById(state, state.sessionUserId);
+  return me?.role === "client"
+    ? act("POST", "/api/client/weight", { kg: +kgValue })
+    : act("POST", `/api/coach/clients/${clientId}/weight`, { kg: +kgValue });
+}
+const cleanRoutine = (r) => r && ({
+  name: r.name || "", goal: r.goal || "", frequency: +r.frequency || 3, notes: r.notes || "",
+  days: r.days.map((d) => ({ id: d.id, name: d.name, exercises: d.exercises.map((e) => ({ uid: e.uid, exId: e.exId, sets: +e.sets || 1, reps: String(e.reps ?? ""), rest: +e.rest || 0, notes: e.notes || "" })) })),
+});
+export const saveRoutine = (clientId, routine) => act("PUT", `/api/coach/clients/${clientId}/routine`, { routine: cleanRoutine(routine) });
+export const saveTemplate = (_coachId, routine, name) => act("POST", "/api/coach/templates", { routine: cleanRoutine(routine), name });
+export const deleteTemplate = (id) => act("DELETE", `/api/coach/templates/${id}`);
+export const newUid = () => uid("re-");
+
+export function upsertExercise(_coachId, data) {
+  const { id, coachId, images, source, ...body } = data;
+  const payload = { ...body, sets: +body.sets || 3, rest: +body.rest || 60, photo: body.photo?.startsWith?.("data:") ? body.photo : body.photo ? undefined : null };
+  return id ? act("PUT", `/api/coach/exercises/${id}`, payload) : act("POST", "/api/coach/exercises", payload);
+}
+export const deleteExercise = (id) => act("DELETE", `/api/coach/exercises/${id}`);
+
+export const addPayment = (_coachId, p) => act("POST", "/api/coach/payments", { clientId: +p.clientId, concept: p.concept, amount: +p.amount, dueDate: p.dueDate, paid: !!p.paid, method: p.method || "" });
+export const markPaid = (id, method) => act("POST", `/api/coach/payments/${id}/paid`, { method });
+export const markUnpaid = (id) => act("POST", `/api/coach/payments/${id}/unpaid`, {});
+export const deletePayment = (id) => act("DELETE", `/api/coach/payments/${id}`);
+export async function generateMonthly() {
+  const r = await act("POST", "/api/coach/payments/generate-monthly", {});
+  return r.error ? 0 : r.created;
+}
+export async function updateBrand(_coachId, p) {
+  const r = await act("PUT", "/api/coach/brand", p);
+  return r.error ? r : { ok: true };
+}
+
+/* Seguimiento del asesorado */
+export const addMeasurement = (clientId, m) => act("POST", `/api/coach/clients/${clientId}/measurements`, m);
+export const deleteMeasurement = (clientId, id) => act("DELETE", `/api/coach/clients/${clientId}/measurements/${id}`);
+export function addPhotos(clientId, photos) {
+  const me = userById(state, state.sessionUserId);
+  const body = { photos: photos.map((p) => ({ src: p.src, pose: p.pose, note: p.note || "", date: p.date || null })) };
+  return me?.role === "client" ? act("POST", "/api/client/photos", body) : act("POST", `/api/coach/clients/${clientId}/photos`, body);
+}
+export function deletePhoto(clientId, id) {
+  const me = userById(state, state.sessionUserId);
+  return me?.role === "client" ? act("DELETE", `/api/client/photos/${id}`) : act("DELETE", `/api/coach/clients/${clientId}/photos/${id}`);
+}
+export const addNote = (clientId, n) => act("POST", `/api/coach/clients/${clientId}/notes`, n);
+export const updateNote = (clientId, id, p) => act("PATCH", `/api/coach/clients/${clientId}/notes/${id}`, p);
+export const deleteNote = (clientId, id) => act("DELETE", `/api/coach/clients/${clientId}/notes/${id}`);
+
+/* ============================================================
+   Compartido: perfil, mensajes, comunidad
+   ============================================================ */
+const PROFILE_KEYS = ["name", "body", "photo", "phone", "city", "headline", "years", "instagram", "bio", "specialties", "certifications", "services", "injuries", "birthYear"];
+export function updateProfile(_userId, p) {
+  const body = Object.fromEntries(PROFILE_KEYS.filter((k) => p[k] !== undefined).map((k) => [k, k === "years" || k === "birthYear" ? (p[k] === "" || p[k] == null ? null : +p[k]) : p[k]]));
+  return act("PUT", "/api/profile", body);
+}
+
+export async function sendMessage(coachId, clientId, from, text) {
+  // Se muestra al instante y luego se confirma con el servidor
+  patch((d) => { d.messages.push({ id: uid("tmp-"), coachId, clientId, from, text: text.trim(), at: nowISO(), read: false, pending: true }); });
+  const me = userById(state, state.sessionUserId);
+  return act("POST", "/api/messages", { text, ...(me?.role === "coach" ? { clientId } : {}) });
 }
 export function markThreadRead(coachId, clientId, readerId) {
   if (!state.messages.some((m) => m.coachId === coachId && m.clientId === clientId && m.from !== readerId && !m.read)) return;
-  commit((d) => {
-    d.messages.forEach((m) => { if (m.coachId === coachId && m.clientId === clientId && m.from !== readerId) m.read = true; });
-  });
+  patch((d) => { d.messages.forEach((m) => { if (m.coachId === coachId && m.clientId === clientId && m.from !== readerId) m.read = true; }); });
+  const me = userById(state, state.sessionUserId);
+  api("POST", "/api/messages/read", me?.role === "coach" ? { clientId } : {});
 }
-
-/* ---------- comunidad ---------- */
-export function addPost(coachId, authorId, text, kind = "post") {
-  commit((d) => { d.posts.unshift({ id: uid("p-"), coachId, authorId, kind, text: text.trim(), at: nowISO(), likes: [], comments: [] }); });
-}
+export const addPost = (_coachId, _authorId, text, kind = "post") => act("POST", "/api/posts", { text, kind });
 export function toggleLike(postId, userId) {
-  commit((d) => {
-    const p = d.posts.find((x) => x.id === postId);
-    p.likes = p.likes.includes(userId) ? p.likes.filter((x) => x !== userId) : [...p.likes, userId];
-  });
+  patch((d) => { const p = d.posts.find((x) => x.id === postId); if (p) p.likes = p.likes.includes(userId) ? p.likes.filter((x) => x !== userId) : [...p.likes, userId]; });
+  return act("POST", `/api/posts/${postId}/like`, {});
 }
-export function addComment(postId, authorId, text) {
-  commit((d) => { d.posts.find((x) => x.id === postId).comments.push({ id: uid("c-"), authorId, text: text.trim(), at: nowISO() }); });
-}
-export function deletePost(postId) { commit((d) => { d.posts = d.posts.filter((p) => p.id !== postId); }); }
+export const addComment = (postId, _authorId, text) => act("POST", `/api/posts/${postId}/comments`, { text });
+export const deletePost = (postId) => act("DELETE", `/api/posts/${postId}`);
 
-/* ============================================================
-   Perfiles y marca
-   ============================================================ */
-const PROFILE_KEYS = ["name", "body", "photo", "phone", "city", "headline", "years", "instagram", "bio", "specialties", "certifications", "services", "injuries", "birthYear"];
-export function updateProfile(userId, patch) {
-  commit((d) => {
-    const u = d.users.find((x) => x.id === userId);
-    PROFILE_KEYS.forEach((k) => { if (patch[k] !== undefined) u[k] = patch[k]; });
-    if (patch.phone !== undefined && u.role === "client") d.clients.find((c) => c.userId === userId).phone = patch.phone;
-  });
+/* Datos personales del asesorado */
+export async function exportMyData() {
+  const r = await api("GET", "/api/account/export");
+  if (r.error) return r;
+  const blob = new Blob([JSON.stringify(r, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "mis-datos-fitcoach.json";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  return { ok: true };
 }
-export function updateBrand(coachId, patch) {
-  const slug = patch.slug !== undefined ? slugify(patch.slug) : undefined;
-  if (slug !== undefined) {
-    if (slug.length < 3) return { error: "El enlace necesita al menos 3 letras o números." };
-    if (state.users.some((u) => u.id !== coachId && u.brand?.slug === slug)) return { error: "Ese enlace ya lo usa otro entrenador. Prueba con otro." };
-  }
-  commit((d) => {
-    const u = d.users.find((x) => x.id === coachId);
-    u.brand = { ...(u.brand || {}), ...patch, ...(slug !== undefined ? { slug } : {}) };
-  });
+export async function deleteMyAccount(password) {
+  const r = await api("DELETE", "/api/account", { password });
+  if (r.error) return r;
+  setTokens(null);
+  setState(blank("guest"));
   return { ok: true };
 }
 
 /* ============================================================
-   Seguimiento del asesorado: medidas, fotos y notas
-   (solo el entrenador del cliente puede escribirlas)
+   Entrenamiento en vivo: se edita al instante y se guarda en el
+   servidor cada pocos segundos (si se cierra la app, se retoma).
    ============================================================ */
-const MEAS_KEYS = ["weight", "fat", "waist", "hip", "chest", "arm", "thigh"];
-export function addMeasurement(clientId, m) {
-  commit((d) => {
-    const c = d.clients.find((x) => x.userId === clientId);
-    const row = { id: uid("ms-"), date: m.date ? new Date(`${m.date}T08:00:00`).toISOString() : nowISO(), note: (m.note || "").trim() };
-    MEAS_KEYS.forEach((k) => { if (m[k] !== "" && m[k] != null && !Number.isNaN(+m[k])) row[k] = +m[k]; });
-    c.measurements.push(row);
-    c.measurements.sort((a, b) => new Date(a.date) - new Date(b.date));
-    if (row.weight) { c.weights.push({ date: row.date, kg: row.weight }); c.weights.sort((a, b) => new Date(a.date) - new Date(b.date)); }
-  });
+let saveTimer = null;
+function queueActiveSave(a) {
+  pendingActive = a;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flushActive, 1200);
 }
-export function deleteMeasurement(clientId, id) {
-  commit((d) => { const c = d.clients.find((x) => x.userId === clientId); c.measurements = c.measurements.filter((m) => m.id !== id); });
+async function flushActive() {
+  const a = pendingActive;
+  if (!a) return;
+  const r = await api("PUT", "/api/client/workout/active", a);
+  if (!r.error && pendingActive === a) pendingActive = null;
 }
-export function addPhotos(clientId, photos, byUserId) {
-  commit((d) => {
-    const c = d.clients.find((x) => x.userId === clientId);
-    photos.forEach((p) => c.photos.push({ id: uid("ph-"), src: p.src, pose: p.pose, note: (p.note || "").trim(),
-      date: p.date ? new Date(`${p.date}T08:00:00`).toISOString() : nowISO(), by: byUserId, at: nowISO() }));
-    c.photos.sort((a, b) => new Date(b.date) - new Date(a.date));
-  });
-}
-export function deletePhoto(clientId, id) {
-  commit((d) => { const c = d.clients.find((x) => x.userId === clientId); c.photos = c.photos.filter((p) => p.id !== id); });
-}
-export function addNote(clientId, { text, category }) {
-  commit((d) => { d.clients.find((x) => x.userId === clientId).notes.push({ id: uid("nt-"), at: nowISO(), category, text: text.trim(), pinned: false }); });
-}
-export function updateNote(clientId, id, patch) {
-  commit((d) => { Object.assign(d.clients.find((x) => x.userId === clientId).notes.find((n) => n.id === id), patch); });
-}
-export function deleteNote(clientId, id) {
-  commit((d) => { const c = d.clients.find((x) => x.userId === clientId); c.notes = c.notes.filter((n) => n.id !== id); });
+if (typeof window !== "undefined") {
+  window.addEventListener("pagehide", () => { if (pendingActive) flushActive(); });
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && pendingActive) flushActive(); });
 }
 
-/* ============================================================
-   Entrenamiento en vivo
-   ============================================================ */
 export function startWorkout(clientId, dayId) {
-  commit((d) => {
-    if (d.active[clientId]) return;
-    const c = d.clients.find((x) => x.userId === clientId);
-    const day = c.routine.days.find((x) => x.id === dayId) || c.routine.days[0];
-    d.active[clientId] = {
-      id: uid("w-"), clientId, dayId: day.id, dayName: day.name, routineName: c.routine.name,
-      startedAt: nowISO(), restEndsAt: null, restTotal: 0,
-      exercises: day.exercises.map((e) => {
-        const last = lastPerformance(d, clientId, e.exId);
-        const nSets = Math.max(1, +e.sets || 1);
-        return {
-          exId: e.exId, notes: e.notes || "", target: { sets: nSets, reps: String(e.reps), rest: e.rest },
-          sets: Array.from({ length: nSets }, (_, i) => {
-            const prev = last?.sets[i] || last?.sets.at(-1);
-            return { weight: "", reps: "", prevWeight: prev?.weight ?? null, prevReps: prev?.reps ?? null, done: false };
-          }),
-        };
-      }),
-    };
-  });
+  if (state.active[clientId]) return;
+  const c = clientById(state, clientId);
+  if (!c?.routine) return;
+  const day = c.routine.days.find((x) => x.id === dayId) || c.routine.days[0];
+  const a = {
+    id: uid("w-"), clientId, dayId: day.id, dayName: day.name, routineName: c.routine.name || "",
+    startedAt: nowISO(), restEndsAt: null, restTotal: 0,
+    exercises: day.exercises.map((e) => {
+      const last = lastPerformance(state, clientId, e.exId);
+      const nSets = Math.max(1, +e.sets || 1);
+      return {
+        exId: e.exId, notes: e.notes || "", target: { sets: nSets, reps: String(e.reps), rest: +e.rest || 0 },
+        sets: Array.from({ length: nSets }, (_, i) => {
+          const prev = last?.sets[i] || last?.sets.at(-1);
+          return { weight: "", reps: "", prevWeight: prev?.weight ?? null, prevReps: prev?.reps ?? null, done: false };
+        }),
+      };
+    }),
+  };
+  patch((d) => { d.active[clientId] = a; });
+  pendingActive = a;
+  flushActive();
 }
 export function updateWorkout(clientId, fn) {
-  commit((d) => { if (d.active[clientId]) fn(d.active[clientId]); });
+  if (!state.active[clientId]) return;
+  patch((d) => { fn(d.active[clientId]); });
+  queueActiveSave(state.active[clientId]);
 }
-export function discardWorkout(clientId) { commit((d) => { delete d.active[clientId]; }); }
-
-export function finishWorkout(clientId, { difficulty, comment, share }) {
-  return commit((d) => {
-    const a = d.active[clientId];
-    if (!a) return null;
-    const finishedAt = nowISO();
-    const prs = [];
-    const exercises = a.exercises.map((e) => {
-      const sets = e.sets.map((x) => ({ weight: +x.weight || 0, reps: +x.reps || 0, done: !!x.done }));
-      const top = Math.max(0, ...sets.filter((x) => x.done && x.reps > 0).map((x) => x.weight));
-      const prev = bestSet(d, clientId, e.exId);
-      if (prev && top > prev.weight) prs.push({ exId: e.exId, weight: top, prev: prev.weight });
-      return { exId: e.exId, target: e.target, sets };
-    });
-    const w = {
-      id: a.id, clientId, dayId: a.dayId, dayName: a.dayName, routineName: a.routineName,
-      startedAt: a.startedAt, finishedAt, durationSec: Math.round((Date.parse(finishedAt) - Date.parse(a.startedAt)) / 1000),
-      difficulty, comment: comment.trim(), prs, exercises,
-    };
-    d.workouts.push(w);
-    delete d.active[clientId];
-    const c = d.clients.find((x) => x.userId === clientId);
-    if (w.comment) {
-      d.messages.push({ id: uid("m-"), coachId: c.coachId, clientId, from: clientId, read: false, at: finishedAt,
-        text: `Comentario del entrenamiento (${a.dayName}): ${w.comment}` });
-    }
-    if (share) {
-      const u = d.users.find((x) => x.id === clientId);
-      const pr = prs[0] ? ` Nuevo récord en ${exerciseById(d, prs[0].exId).name}: ${prs[0].weight} kg.` : "";
-      d.posts.unshift({ id: uid("p-"), coachId: c.coachId, authorId: clientId, kind: "workout", at: finishedAt, likes: [], comments: [],
-        text: `${u.name.split(" ")[0]} completó ${a.dayName} en ${Math.round(w.durationSec / 60)} min.${pr}`, workoutId: w.id });
-    }
-    return { ...w, volume: sessionVolume(w), done: doneSetCount(w) };
-  });
+export async function discardWorkout(clientId) {
+  clearTimeout(saveTimer); pendingActive = null;
+  patch((d) => { delete d.active[clientId]; });
+  await act("DELETE", "/api/client/workout/active");
 }
-
-/* ---------- utilidades del demo ---------- */
-export function resetDemo() {
-  const keepSession = state.sessionUserId;
-  state = buildSeed();
-  state.sessionUserId = state.users.some((u) => u.id === keepSession) ? keepSession : null;
-  save(state);
-  emit();
+export async function finishWorkout(clientId, { difficulty, comment, share }) {
+  const a = state.active[clientId];
+  if (!a) return null;
+  clearTimeout(saveTimer);
+  const prName = (() => {
+    // Nombre del ejercicio con récord, para el mensaje de la comunidad
+    for (const e of a.exercises) {
+      const top = Math.max(0, ...e.sets.filter((x) => x.done && +x.reps > 0).map((x) => +x.weight || 0));
+      const prev = bestSet(state, clientId, e.exId);
+      if (prev && top > prev.weight) return exerciseById(state, e.exId).name;
+    }
+    return undefined;
+  })();
+  const r = await api("POST", "/api/client/workout/finish", { session: a, difficulty, comment, share, prName });
+  if (r.error) return r;
+  pendingActive = null;
+  patch((d) => { delete d.active[clientId]; });
+  await reload();
+  return r;
 }
 
 export { repsLow };

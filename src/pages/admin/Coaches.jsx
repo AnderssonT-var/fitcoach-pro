@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import Icon from "../../ui/Icon";
-import { Avatar, Confirm, Empty, Modal, Pill, toast } from "../../ui/kit";
+import { Avatar, Confirm, CopyButton, Empty, Modal, Pill, toast } from "../../ui/kit";
 import { useApp } from "../../context";
 import {
-  LICENSE_LABEL, LICENSE_TONE, coachLicense, licenseStatus, loginAs, revokeLicense, useDB, userById, weekCount, workoutsForCoach,
+  LICENSE_LABEL, LICENSE_TONE, adminResetPassword, coachLicense, licenseStatus, revokeLicense, useDB, userById, weekCount, workoutsForCoach,
 } from "../../store/db";
 import { RenewModal } from "./Licenses";
 import { ago, daysUntil, money, shortDate } from "../../lib/format";
@@ -71,6 +71,8 @@ function CoachModal({ id, onClose }) {
   const c = userById(db, id);
   const [renew, setRenew] = useState(false);
   const [revoke, setRevoke] = useState(false);
+  const [askPw, setAskPw] = useState(false);
+  const [temp, setTemp] = useState(null);
   if (!c) return null;
   const l = coachLicense(db, id);
   const st = l ? licenseStatus(l) : "expired";
@@ -81,7 +83,7 @@ function CoachModal({ id, onClose }) {
   return (
     <>
       <Modal title={c.name} onClose={onClose} wide footer={<>
-        <button className="btn btn-quiet" onClick={() => { loginAs(c.id); toast(`Viendo el panel de ${c.name.split(" ")[0]}`, "eye"); }}><Icon name="eye" size={17} />Ver su panel</button>
+        <button className="btn btn-quiet" onClick={() => setAskPw(true)}><Icon name="lock" size={17} />Contraseña temporal</button>
         {l && st !== "revoked" && <button className="btn btn-ghost" onClick={() => setRevoke(true)}>Revocar</button>}
         {l && <button className="btn btn-primary" onClick={() => setRenew(true)}>Renovar licencia</button>}
       </>}>
@@ -136,8 +138,17 @@ function CoachModal({ id, onClose }) {
       </Modal>
       {renew && <RenewModal license={l} coach={c} onClose={() => setRenew(false)} />}
       {revoke && <Confirm title="Revocar licencia" confirmLabel="Revocar" onClose={() => setRevoke(false)}
-        onConfirm={() => { revokeLicense(l.id); toast("Licencia revocada", "lock"); }}
+        onConfirm={async () => { const r = await revokeLicense(l.id); toast(r.error || "Licencia revocada", r.error ? "alert" : "lock"); }}
         text={`${c.name} perderá el acceso de inmediato. Sus clientes y datos se conservan.`} />}
+      {askPw && <Confirm title="Generar contraseña temporal" tone="primary" confirmLabel="Generar" onClose={() => setAskPw(false)}
+        onConfirm={async () => { const r = await adminResetPassword(c.id); if (r.error) toast(r.error, "alert"); else setTemp(r.password); }}
+        text={`Se cerrarán las sesiones de ${c.name.split(" ")[0]} y deberá crear una contraseña nueva al entrar. Úsalo solo si te lo pidió.`} />}
+      {temp && (
+        <Modal title="Contraseña temporal" onClose={() => setTemp(null)} footer={<button className="btn btn-primary" onClick={() => setTemp(null)}>Listo</button>}>
+          <p className="ink2">Entrégasela a {c.name.split(" ")[0]} por un medio privado. Solo se muestra esta vez.</p>
+          <div className="row gap-sm"><code className="num strong grow" style={{ fontSize: 22, letterSpacing: ".06em" }}>{temp}</code><CopyButton text={temp} small /></div>
+        </Modal>
+      )}
     </>
   );
 }

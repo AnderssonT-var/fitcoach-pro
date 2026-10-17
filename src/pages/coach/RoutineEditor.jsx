@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import Icon from "../../ui/Icon";
-import { Confirm, Empty, Field, Modal, toast } from "../../ui/kit";
+import { Confirm, Empty, Field, Modal, toast, run } from "../../ui/kit";
 import { useApp } from "../../context";
 import { exerciseById, exerciseImage, newUid, saveRoutine, saveTemplate, useDB, userById } from "../../store/db";
 import { ExerciseDetail, ExerciseFilters, ExerciseTile, useExerciseFilters } from "../../ui/exercises";
@@ -50,8 +50,7 @@ export default function RoutineEditor({ clientId }) {
   function save() {
     if (!draft.name.trim()) return toast("Ponle un nombre a la rutina", "alert");
     if (!total) return toast("Agrega al menos un ejercicio", "alert");
-    saveRoutine(clientId, draft);
-    toast(`Rutina guardada. ${first} ya la ve en su app`);
+    run(saveRoutine(clientId, draft), `Rutina guardada. ${first} ya la ve en su app`);
   }
 
   return (
@@ -150,7 +149,7 @@ export default function RoutineEditor({ clientId }) {
       {picker && <ExercisePicker dayName={day.name} onClose={() => setPicker(false)}
         onPick={(ex) => { upDay((d) => { d.exercises.push({ uid: newUid(), exId: ex.id, sets: ex.sets || 3, reps: String(ex.reps || "10"), rest: RESTS.includes(+ex.rest) ? +ex.rest : 90, notes: "" }); }); toast(`${ex.name} agregado`); }} />}
       {templates && <TemplatePicker onClose={() => setTemplates(false)} onPick={(t) => { setDraft({ ...cloneWithIds(t), name: draft.name || t.name }); setDayIdx(0); setTemplates(false); toast("Plantilla aplicada. Revisa y guarda"); }} />}
-      {asTemplate && <TemplateNameModal initial={draft.name} onClose={() => setAsTemplate(false)} onSave={(name) => { saveTemplate(me.id, draft, name); toast("Plantilla guardada en tu biblioteca", "layers"); setAsTemplate(false); }} />}
+      {asTemplate && <TemplateNameModal initial={draft.name} onClose={() => setAsTemplate(false)} onSave={(name) => { run(saveTemplate(me.id, draft, name), "Plantilla guardada en tu biblioteca", "layers"); setAsTemplate(false); }} />}
       {view && <ExerciseDetail ex={view} onClose={() => setView(null)} />}
       {askDiscard && <Confirm title="Descartar cambios" confirmLabel="Descartar" onClose={() => setAskDiscard(false)} onConfirm={() => { setDraft(structuredClone(client.routine)); setDayIdx(0); }} text="Vuelves a la última versión guardada de la rutina." />}
       {askDelDay && <Confirm title={`Quitar ${day.name}`} confirmLabel="Quitar día" onClose={() => setAskDelDay(false)} onConfirm={() => { up((n) => { n.days.splice(dayIdx, 1); }); setDayIdx(0); }} text={`Se quitan sus ${day.exercises.length} ejercicios. El cambio se aplica cuando guardes la rutina.`} />}

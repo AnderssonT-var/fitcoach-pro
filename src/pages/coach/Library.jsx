@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Icon from "../../ui/Icon";
-import { Confirm, Empty, Field, Modal, toast } from "../../ui/kit";
+import { Confirm, Empty, Field, Modal, toast, run } from "../../ui/kit";
 import { ImageDrop } from "../../ui/inputs";
 import { ExerciseDetail, ExerciseFilters, ExerciseTile, GROUPS, LEVELS, MUSCLE_KEYS, useExerciseFilters } from "../../ui/exercises";
 import MuscleMap, { MuscleLegend, muscleName } from "../../ui/MuscleMap";
@@ -58,10 +58,10 @@ function Exercises() {
             <button className="btn btn-primary" onClick={() => { setEdit(exerciseById(db, open.id)); setOpen(null); }}><Icon name="pencil" size={16} />Editar</button>
           </> : null} />
       )}
-      {edit && <ExerciseModal ex={edit} onClose={() => setEdit(null)} onSave={(d) => { upsertExercise(me.id, d); toast(d.id ? "Ejercicio actualizado" : "Ejercicio creado"); setEdit(null); }} />}
+      {edit && <ExerciseModal ex={edit} onClose={() => setEdit(null)} onSave={(d) => { run(upsertExercise(me.id, d), d.id ? "Ejercicio actualizado" : "Ejercicio creado"); setEdit(null); }} />}
       {del && (exerciseInUse(db, del.id)
         ? <Confirm title="No se puede eliminar" tone="primary" confirmLabel="Entendido" onConfirm={() => {}} onClose={() => setDel(null)} text={`${del.name} está en la rutina de al menos un cliente. Quítalo de esas rutinas primero.`} />
-        : <Confirm title="Eliminar ejercicio" confirmLabel="Eliminar" onClose={() => setDel(null)} onConfirm={() => { deleteExercise(del.id); toast("Ejercicio eliminado", "trash"); }} text={`${del.name} se quitará de tu biblioteca.`} />)}
+        : <Confirm title="Eliminar ejercicio" confirmLabel="Eliminar" onClose={() => setDel(null)} onConfirm={() => { run(deleteExercise(del.id), "Ejercicio eliminado", "trash"); }} text={`${del.name} se quitará de tu biblioteca.`} />)}
     </>
   );
 }
@@ -166,7 +166,7 @@ function Templates() {
           </div>
         </Modal>
       )}
-      {del && <Confirm title="Eliminar plantilla" confirmLabel="Eliminar" onClose={() => setDel(null)} onConfirm={() => { deleteTemplate(del.id); toast("Plantilla eliminada", "trash"); }} text={`Se elimina “${del.name}”. Las rutinas que ya creaste con ella no cambian.`} />}
+      {del && <Confirm title="Eliminar plantilla" confirmLabel="Eliminar" onClose={() => setDel(null)} onConfirm={() => { run(deleteTemplate(del.id), "Plantilla eliminada", "trash"); }} text={`Se elimina “${del.name}”. Las rutinas que ya creaste con ella no cambian.`} />}
     </section>
   );
 }

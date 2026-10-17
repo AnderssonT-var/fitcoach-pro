@@ -1,0 +1,177 @@
+/* Base de datos: Knex sobre MySQL (producción) o SQLite (local). */
+import knexFactory from "knex";
+import { config } from "./config.js";
+
+export const knex = knexFactory(config.db);
+
+export const J = (v, fallback = null) => {
+  if (v == null || v === "") return fallback;
+  if (typeof v === "object") return v;
+  try { return JSON.parse(v); } catch { return fallback; }
+};
+export const S = (v) => JSON.stringify(v ?? null);
+export const bool = (v) => v === true || v === 1 || v === "1";
+
+/* Migraciones versionadas: cada una se aplica una sola vez. */
+const MIGRATIONS = [
+  ["001_inicial", async (k) => {
+    const long = (t, name) => (config.db.client === "mysql2" ? t.text(name, "longtext") : t.text(name));
+    await k.schema.createTable("users", (t) => {
+      t.increments("id").primary();
+      t.string("role", 10).notNullable();
+      t.string("email", 190).notNullable().unique();
+      t.string("password_hash", 100).notNullable();
+      t.string("name", 120).notNullable();
+      long(t, "profile");
+      long(t, "brand");
+      t.string("brand_slug", 80).nullable().unique();
+      t.boolean("must_change_password").notNullable().defaultTo(false);
+      t.integer("failed_logins").notNullable().defaultTo(0);
+      t.bigInteger("locked_until").nullable();
+      t.integer("token_version").notNullable().defaultTo(0);
+      t.string("consent_version", 20).nullable();
+      t.string("consent_at", 30).nullable();
+      t.boolean("photo_consent").notNullable().defaultTo(false);
+      t.string("created_at", 30).notNullable();
+      t.string("last_login_at", 30).nullable();
+    });
+    await k.schema.createTable("clients", (t) => {
+      t.integer("user_id").unsigned().primary();
+      t.integer("coach_id").unsigned().notNullable().index();
+      t.boolean("active").notNullable().defaultTo(true);
+      long(t, "data");
+    });
+    await k.schema.createTable("licenses", (t) => {
+      t.string("id", 40).primary();
+      t.string("code", 24).notNullable().unique();
+      t.integer("months").notNullable();
+      t.integer("coach_id").unsigned().nullable().index();
+      t.string("created_at", 30).notNullable();
+      t.string("activated_at", 30).nullable();
+      t.string("expires_at", 30).nullable();
+      t.boolean("revoked").notNullable().defaultTo(false);
+      t.string("note", 200).nullable();
+      long(t, "charges");
+    });
+    await k.schema.createTable("settings", (t) => { t.string("key", 60).primary(); long(t, "value"); });
+    await k.schema.createTable("subscriptions", (t) => {
+      t.string("id", 40).primary();
+      t.integer("coach_id").unsigned().notNullable().index();
+      t.integer("months").notNullable();
+      t.decimal("amount", 10, 2).notNullable();
+      t.string("status", 12).notNullable();
+      t.string("method", 40).nullable();
+      t.string("reference", 120).nullable();
+      t.string("receipt_file", 40).nullable();
+      t.string("created_at", 30).notNullable();
+      t.string("reviewed_at", 30).nullable();
+      t.integer("reviewed_by").nullable();
+      t.string("admin_note", 300).nullable();
+      t.string("license_id", 40).nullable();
+    });
+    await k.schema.createTable("payments", (t) => {
+      t.string("id", 40).primary();
+      t.integer("coach_id").unsigned().notNullable().index();
+      t.integer("client_id").unsigned().notNullable().index();
+      t.string("concept", 120).notNullable();
+      t.decimal("amount", 10, 2).notNullable();
+      t.string("due_date", 30).notNullable();
+      t.string("paid_at", 30).nullable();
+      t.string("method", 40).nullable();
+    });
+    await k.schema.createTable("workouts", (t) => {
+      t.string("id", 40).primary();
+      t.integer("client_id").unsigned().notNullable().index();
+      t.integer("coach_id").unsigned().notNullable().index();
+      t.string("finished_at", 30).notNullable();
+      long(t, "data");
+    });
+    await k.schema.createTable("active_workouts", (t) => {
+      t.integer("client_id").unsigned().primary();
+      long(t, "data");
+      t.string("updated_at", 30).notNullable();
+    });
+    await k.schema.createTable("messages", (t) => {
+      t.string("id", 40).primary();
+      t.integer("coach_id").unsigned().notNullable();
+      t.integer("client_id").unsigned().notNullable();
+      t.integer("from_id").unsigned().notNullable();
+      t.text("text").notNullable();
+      t.string("at", 30).notNullable();
+      t.boolean("read").notNullable().defaultTo(false);
+      t.index(["coach_id", "client_id"]);
+    });
+    await k.schema.createTable("posts", (t) => {
+      t.string("id", 40).primary();
+      t.integer("coach_id").unsigned().notNullable().index();
+      t.integer("author_id").unsigned().notNullable();
+      t.string("kind", 20).notNullable();
+      t.text("text").notNullable();
+      t.string("at", 30).notNullable();
+      long(t, "likes");
+      long(t, "comments");
+      t.string("workout_id", 40).nullable();
+    });
+    await k.schema.createTable("templates", (t) => {
+      t.string("id", 40).primary();
+      t.integer("coach_id").unsigned().notNullable().index();
+      t.string("created_at", 30).notNullable();
+      long(t, "data");
+    });
+    await k.schema.createTable("exercises", (t) => {
+      t.integer("id").unsigned().primary();
+      t.integer("coach_id").unsigned().notNullable().index();
+      long(t, "data");
+    });
+    await k.schema.createTable("photos", (t) => {
+      t.string("id", 40).primary();
+      t.integer("client_id").unsigned().notNullable().index();
+      t.string("file_id", 40).notNullable();
+      t.string("pose", 20).nullable();
+      t.string("note", 300).nullable();
+      t.string("date", 30).notNullable();
+      t.integer("by_id").unsigned().notNullable();
+      t.string("at", 30).notNullable();
+    });
+    await k.schema.createTable("files", (t) => {
+      t.string("id", 40).primary();
+      t.string("kind", 20).notNullable();
+      t.integer("owner_id").unsigned().notNullable();
+      t.string("path", 200).notNullable();
+      t.string("mime", 40).notNullable();
+      t.integer("size").notNullable();
+      t.string("created_at", 30).notNullable();
+    });
+    await k.schema.createTable("activity", (t) => {
+      t.string("id", 40).primary();
+      t.string("at", 30).notNullable().index();
+      t.string("kind", 20).notNullable();
+      t.string("text", 300).notNullable();
+    });
+    await k.schema.createTable("refresh_tokens", (t) => {
+      t.string("id", 40).primary();
+      t.integer("user_id").unsigned().notNullable().index();
+      t.string("token_hash", 64).notNullable().unique();
+      t.string("expires_at", 30).notNullable();
+      t.boolean("revoked").notNullable().defaultTo(false);
+      t.string("replaced_by", 40).nullable();
+      t.string("created_at", 30).notNullable();
+      t.string("user_agent", 200).nullable();
+    });
+  }],
+];
+
+export async function migrate() {
+  if (!(await knex.schema.hasTable("_migrations"))) {
+    await knex.schema.createTable("_migrations", (t) => { t.string("name", 60).primary(); t.string("at", 30); });
+  }
+  const done = new Set((await knex("_migrations").select("name")).map((r) => r.name));
+  for (const [name, fn] of MIGRATIONS) {
+    if (done.has(name)) continue;
+    await knex.transaction(async (trx) => {
+      await fn(trx);
+      await trx("_migrations").insert({ name, at: new Date().toISOString() });
+    });
+    console.log(`[db] migración aplicada: ${name}`);
+  }
+}

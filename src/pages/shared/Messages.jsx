@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Icon from "../../ui/Icon";
-import { Avatar, Empty } from "../../ui/kit";
+import { Avatar, Empty, toast } from "../../ui/kit";
 import { useApp } from "../../context";
 import { clientById, clientsOf, markThreadRead, sendMessage, thread, useDB, userById } from "../../store/db";
 import { ago, date, sameDay, time } from "../../lib/format";
@@ -80,7 +80,7 @@ function Thread({ coachId, clientId, other, onBack }) {
   function send(e) {
     e.preventDefault();
     if (!text.trim()) return;
-    sendMessage(coachId, clientId, me.id, text);
+    sendMessage(coachId, clientId, me.id, text).then((r) => { if (r?.error) toast(r.error, "alert"); });
     setText("");
   }
   return (

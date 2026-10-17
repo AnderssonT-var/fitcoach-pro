@@ -1,8 +1,8 @@
 # FitCoach Pro
 
-Plataforma para entrenadores personales con modelo de licencias. Funciona en PC y en el celular (se puede instalar como app).
+Plataforma para entrenadores personales con modelo de licencias. Funciona en PC, en el navegador del celular y como app Android.
 
-**Demo interactiva:** [anderssont-var.github.io/AnderssonT-var.github/demos/fitcoach/](https://anderssont-var.github.io/AnderssonT-var.github/demos/fitcoach/)
+**Demo de la interfaz (datos ficticios, sin servidor):** [anderssont-var.github.io/AnderssonT-var.github/demos/fitcoach/](https://anderssont-var.github.io/AnderssonT-var.github/demos/fitcoach/)
 
 ## Capturas
 
@@ -21,7 +21,7 @@ Plataforma para entrenadores personales con modelo de licencias. Funciona en PC 
 ## Roles
 
 - **Administrador:** genera códigos de licencia (1, 3, 6 o 12 meses), los renueva o revoca, y ve a cada entrenador con sus clientes e ingresos por licencias.
-- **Entrenador:** activa su cuenta con un código de licencia. Gestiona clientes, arma rutinas por días, controla mensualidades, chatea con sus clientes y anima a su comunidad. Si la licencia vence o se revoca, el panel se bloquea hasta canjear un código nuevo (sus datos se conservan).
+- **Entrenador:** activa su cuenta con un código de licencia. Gestiona clientes, arma rutinas por días, controla mensualidades, chatea con sus clientes y anima a su comunidad. Si la licencia vence o se revoca, el panel se bloquea hasta pagar o canjear un código (sus datos se conservan).
 - **Cliente:** ve su rutina, entrena en modo en vivo desde el celular, registra su peso, ve su progreso y sus pagos, y habla con su entrenador.
 
 ## Biblioteca de ejercicios
@@ -83,43 +83,84 @@ En la ficha de cada cliente, el entrenador tiene:
 
 Lenguaje visual estilo Apple: tipografía del sistema (SF Pro en Mac y iPhone, Inter en el resto), fondos agrupados, listas con separadores finos, controles segmentados, barras translúcidas y colores de sistema de iOS. Tema claro y oscuro.
 
+## Seguridad
+
+- **Contraseñas** cifradas con bcrypt (costo 12). Reglas mínimas: 8 caracteres con letras y números.
+- **Sesiones:** token de acceso de 15 minutos y token de renovación de 30 días que cambia en cada uso. Si alguien reusa uno viejo (posible robo), se cierran todas las sesiones de esa cuenta. Cambiar la contraseña también cierra las demás sesiones.
+- **Intentos de acceso:** bloqueo de 15 minutos tras 5 contraseñas incorrectas y límite de peticiones por IP. El mensaje de error no revela si el correo existe.
+- **Contraseñas temporales:** cuando el entrenador crea un asesorado (o el admin ayuda a un entrenador), la persona debe crear su propia contraseña al entrar.
+- **Permisos en el servidor:** cada acción revisa el rol y que el dato pertenezca a ese entrenador. Un entrenador no puede ver ni tocar asesorados de otro; el asesorado no recibe las notas privadas de su entrenador; el administrador no recibe medidas, entrenamientos ni fotos.
+- **Licencias:** códigos `FIT-XXXX-XXXX-XXXX` aleatorios de 60 bits, de un solo uso (el canje es atómico, aunque dos personas lo intenten a la vez) y con límite de intentos. La vigencia se verifica en el servidor en cada petición.
+- **Archivos privados:** fotos y comprobantes fuera de la carpeta pública; se abren solo con enlaces firmados que vencen. Se valida el tipo real de cada imagen.
+- **Cabeceras:** CSP estricta, HSTS, sin `X-Powered-By`, CORS solo para orígenes conocidos.
+
+Las pruebas automáticas de seguridad (52 casos) cubren todo lo anterior.
+
+## Privacidad (datos sensibles)
+
+- Al primer ingreso, el asesorado acepta el **aviso de privacidad**, que explica que sus medidas, lesiones y **fotos del cuerpo son datos sensibles**.
+- Las fotos requieren un **permiso aparte**, que se puede dar o retirar desde «Mi perfil». Sin él, ni el entrenador ni el asesorado pueden subir fotos.
+- El asesorado puede **descargar sus datos** y **eliminar su cuenta**; el entrenador puede eliminar a un asesorado con todos sus datos.
+- Política de privacidad y términos en `#privacidad` y `#terminos`. El responsable y el correo de contacto los configura el administrador en *Cobros → Datos legales*.
+
+## Cobros de licencias
+
+El administrador fija el **precio por mes** y los descuentos de 3, 6 y 12 meses, y publica sus datos bancarios. El entrenador elige un plan, paga y sube el comprobante desde *Suscripción*; el administrador lo aprueba en *Cobros* y la licencia se extiende sola. El monto siempre lo calcula el servidor. También se pueden generar códigos para venta directa.
+
 ## Tecnologías
 
-React 18 · Vite · JavaScript · SQL (esquema en `database/fitcoachpro.sql`)
+- **App:** React 18 · Vite 5 · JavaScript · CSS · SVG interactivo
+- **Servidor:** Node.js · Express · Knex · MySQL (SQLite para desarrollo) · bcrypt · JWT · Zod · Helmet
+- **Android:** Capacitor 7, compilado en GitHub Actions
 
-## Ejecutar en local
+## Publicar en producción (Hostinger u otro hosting con Node.js)
+
+1. Crea una base de datos **MySQL** y un sitio con **Node.js** (versión 20 o superior).
+2. Sube el repositorio (o conéctalo desde GitHub) y crea el archivo `.env` a partir de `.env.example` con tus secretos, la base de datos y `ADMIN_EMAIL` / `ADMIN_PASSWORD`.
+3. Comandos del sitio:
+   - Instalar: `npm install`
+   - Compilar: `npm run build`
+   - Iniciar: `npm start`
+4. Activa **HTTPS** en el dominio. Al arrancar, el servidor crea las tablas y el administrador.
+5. Entra con el administrador, ve a **Cobros** y define el precio, tus datos bancarios y los datos legales. Luego genera la primera licencia en **Licencias**.
+
+También se puede crear o cambiar el administrador con `npm run create-admin -- correo@dominio.com "Contraseña-segura-1" "Nombre"`.
+
+## App Android
+
+El APK se compila en GitHub Actions (`.github/workflows/android.yml`) y se publica en **Releases**:
+
+- Automático al subir una etiqueta: `git tag v1.0.0 && git push origin v1.0.0`
+- O desde la pestaña **Actions → App Android → Run workflow**, escribiendo la dirección del servidor.
+
+Configura la variable del repositorio `API_URL` (Settings → Secrets and variables → Actions → Variables) con la dirección del servidor, por ejemplo `https://app.tudominio.com`. Si no está definida, la app la pregunta la primera vez.
+
+Para publicar en Google Play, agrega estos secretos y el flujo firmará con tu clave y generará también el `.aab`: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`.
+
+## Desarrollo local
 
 ```bash
 npm install
-npm run dev
+npm run dev:seed      # SOLO desarrollo: base SQLite con datos de prueba
+npm run dev:server    # API en http://localhost:3000
+npm run dev           # app en http://localhost:5173
 ```
 
-Cuentas de demostración (datos ficticios):
-
-| Rol | Correo | Contraseña |
-|---|---|---|
-| Admin | admin@fitcoach.com | admin123 |
-| Entrenadora (otra marca) | ana@fitcoach.com | coach123 |
-| Entrenador | carlos@fitcoach.com | coach123 |
-| Cliente | sofia@fitcoach.com | user123 |
-
-En la pantalla de inicio también hay acceso con un toque y, dentro de la app, un selector para cambiar de rol y otro para restablecer los datos.
+Contraseñas de los datos de prueba: `Admin2026` (admin@fitcoach.com), `Coach2026` (entrenadores), `Cliente2026` (asesorados).
 
 ## Estructura
 
 ```
+server/       API: autenticación, permisos, licencias, cobros, archivos privados
+  routes/     auth · admin · coach · client (y compartidas)
+  scripts/    create-admin · dev-seed
 src/
-  store/      datos del demo (seed.js) y todas las operaciones (db.js)
-  lib/        formatos de fecha, dinero y pesos
-  ui/         iconos, componentes base y gráficos
-  layout/     barra lateral (PC) y pestañas (móvil)
-  pages/      auth · admin · coach · client · shared
-  workout/    entrenamiento en vivo, historial y gráficos de progreso
+  store/      conexión con la API (api.js) y datos de la app (db.js)
+  pages/      auth · admin · coach · client · shared · legal
+  workout/    entrenamiento en vivo, historial y progreso
+  ui/         componentes, mapa muscular y gráficos
+android/      proyecto Android (Capacitor)
 ```
 
-## Estado
-
-Prototipo funcional completo del frontend. Los datos se guardan en el navegador (`localStorage`). Cada función de `src/store/db.js` corresponde a un endpoint del backend que falta conectar (autenticación, base de datos y almacenamiento).
-
 ---
-Desarrollado por [Andersson Toapanta](https://anderssont-var.github.io/AnderssonT-var.github/)
+Desarrollado por [Andersson Toapanta (A.T.)](https://anderssont-var.github.io/AnderssonT-var.github/)

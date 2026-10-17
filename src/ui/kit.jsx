@@ -191,3 +191,11 @@ export function DevCredit({ className = "" }) {
     </p>
   );
 }
+
+/** Espera una acción del servidor: muestra su error o el mensaje de éxito. */
+export async function run(p, ok, icon = "check") {
+  const r = await p;
+  if (r && r.error) { toast(r.error, "alert"); return r; }
+  if (ok) toast(ok, icon);
+  return r;
+}

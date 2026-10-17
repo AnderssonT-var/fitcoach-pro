@@ -4,3 +4,8 @@ dist/
 .env.*
 .DS_Store
 *.log
+data/
+uploads/
+android/app/release/
+*.keystore
+*.jks

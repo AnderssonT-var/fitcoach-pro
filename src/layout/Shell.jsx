@@ -1,14 +1,9 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Icon from "../ui/Icon";
-import { Avatar, BrandMark, Confirm, Modal, toast, DevCredit } from "../ui/kit";
+import { Avatar, BrandMark, Modal, DevCredit } from "../ui/kit";
 import { NAV, ROLE_LABEL, useApp } from "../context";
-import { brandOf, loginAs, resetDemo, unreadFor, useDB } from "../store/db";
+import { brandOf, reload, unreadFor, useDB } from "../store/db";
 
-const DEMO = [
-  { id: 1, label: "Admin" },
-  { id: 2, label: "Entrenador" },
-  { id: 10, label: "Cliente" },
-];
 const MAX_TABS = 5;
 
 export function useTheme() {
@@ -36,27 +31,18 @@ export default function Shell({ children }) {
   const db = useDB();
   const [theme, setTheme] = useTheme();
   const [sheet, setSheet] = useState(false);
-  const [askReset, setAskReset] = useState(false);
   const items = NAV[me.role];
   const unread = unreadFor(db, me.id);
-  const badge = (it) => (it.badge === "unread" && unread ? unread : 0);
+  const pendingSubs = me.role === "admin" ? db.subscriptions.filter((x) => x.status === "pending").length : 0;
+  const badge = (it) => (it.badge === "unread" ? unread : it.badge === "pendingSubs" ? pendingSubs : 0);
   const tabs = items.length > MAX_TABS ? items.slice(0, MAX_TABS - 1) : items;
   const extra = items.length > MAX_TABS ? items.slice(MAX_TABS - 1) : [];
   const dark = isDark(theme);
   const brand = brandOf(db, me);
   const brandName = brand?.name || "";
 
-  useEffect(() => {
-    const full = () => toast("No queda espacio en este navegador para más fotos. Elimina algunas.", "alert");
-    window.addEventListener("fcp:storage-full", full);
-    return () => window.removeEventListener("fcp:storage-full", full);
-  }, []);
-
-  function switchTo(id) {
-    if (id === me.id) return;
-    loginAs(id); go("inicio"); setSheet(false);
-  }
-  const doReset = () => { resetDemo(); go("inicio"); toast("Datos del demo restablecidos", "refresh"); };
+  const [syncing, setSyncing] = useState(false);
+  async function sync() { setSyncing(true); await reload(); setSyncing(false); }
 
   return (
     <div className="shell">
@@ -92,22 +78,17 @@ export default function Shell({ children }) {
       <div className="main">
         {/* ---------- Barra superior (PC) ---------- */}
         <header className="topbar">
-          <span className="small muted grow">Demo con datos de ejemplo · los cambios se guardan en este navegador</span>
-          <div className="demo-switch" role="group" aria-label="Ver el demo como">
-            {DEMO.map((d) => (
-              <button key={d.id} aria-pressed={me.role === { 1: "admin", 2: "coach", 10: "client" }[d.id]} onClick={() => switchTo(d.id)}>{d.label}</button>
-            ))}
-          </div>
+          <span className="small muted grow">{ROLE_LABEL[me.role]} · {me.name}</span>
           <button className="btn btn-ghost btn-icon" onClick={() => setTheme(dark ? "light" : "dark")} aria-label={dark ? "Usar tema claro" : "Usar tema oscuro"} title="Cambiar tema">
             <Icon name={dark ? "sun" : "moon"} />
           </button>
-          <button className="btn btn-ghost btn-icon" onClick={() => setAskReset(true)} aria-label="Restablecer datos del demo" title="Restablecer datos del demo"><Icon name="refresh" /></button>
+          <button className="btn btn-ghost btn-icon" onClick={sync} disabled={syncing} aria-label="Actualizar datos" title="Actualizar"><Icon name="refresh" /></button>
         </header>
 
         {/* ---------- Barra superior (móvil) ---------- */}
         <header className="mobile-top">
           <div className="row gap-sm" style={{ minWidth: 0 }}><BrandMark brand={brand} size={28} /><span className="brand-name ellipsis">{brandName || <>FitCoach <span>Pro</span></>}</span></div>
-          <button className="btn btn-ghost btn-icon" onClick={() => setSheet(true)} aria-label="Cuenta y opciones del demo" style={{ padding: 0 }}>
+          <button className="btn btn-ghost btn-icon" onClick={() => setSheet(true)} aria-label="Cuenta y opciones" style={{ padding: 0 }}>
             <Avatar name={me.name} id={me.id} size="sm" />
           </button>
         </header>
@@ -149,14 +130,6 @@ export default function Shell({ children }) {
             </div>
           )}
           <div className="field">
-            <span className="label">Ver el demo como</span>
-            <div className="seg" role="group" aria-label="Ver el demo como" style={{ display: "flex" }}>
-              {DEMO.map((d) => (
-                <button key={d.id} style={{ flex: 1 }} aria-pressed={me.role === { 1: "admin", 2: "coach", 10: "client" }[d.id]} onClick={() => switchTo(d.id)}>{d.label}</button>
-              ))}
-            </div>
-          </div>
-          <div className="field">
             <span className="label">Tema</span>
             <div className="seg" role="group" aria-label="Tema" style={{ display: "flex" }}>
               {[["system", "Sistema"], ["light", "Claro"], ["dark", "Oscuro"]].map(([v, l]) => (
@@ -165,17 +138,13 @@ export default function Shell({ children }) {
             </div>
           </div>
           <div className="row">
-            <button className="btn btn-quiet grow" onClick={() => { setSheet(false); setAskReset(true); }}><Icon name="refresh" size={17} />Restablecer demo</button>
+            <button className="btn btn-quiet grow" onClick={() => { setSheet(false); sync(); }}><Icon name="refresh" size={17} />Actualizar</button>
             <button className="btn btn-danger grow" onClick={() => { setSheet(false); signOut(); }}><Icon name="logout" size={17} />Cerrar sesión</button>
           </div>
           <DevCredit />
         </Modal>
       )}
 
-      {askReset && (
-        <Confirm title="Restablecer el demo" confirmLabel="Restablecer" onConfirm={doReset} onClose={() => setAskReset(false)}
-          text="Se borran los cambios que hiciste (clientes, pagos, entrenamientos, licencias) y vuelven los datos de ejemplo." />
-      )}
     </div>
   );
 }

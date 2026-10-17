@@ -2,7 +2,7 @@ import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
 import Icon from "../ui/Icon";
 import { PlateLoader } from "../ui/charts";
-import { Confirm } from "../ui/kit";
+import { Confirm, run, toast } from "../ui/kit";
 import { DIFFICULTY } from "./SessionList";
 import { ExerciseDetail } from "../ui/exercises";
 import {
@@ -96,8 +96,13 @@ export default function WorkoutSession({ clientId, onClose }) {
   const removeSet = (ei) => upd((a) => { const ss = a.exercises[ei].sets; if (ss.length > 1 && !ss.at(-1).done) ss.pop(); });
   const adjust = (d) => upd((a) => { if (a.restEndsAt) { a.restEndsAt = Math.max(Date.now() + 1000, a.restEndsAt + d * 1000); a.restTotal = Math.max(1, a.restTotal + d); } });
 
-  function save() {
-    const r = finishWorkout(clientId, { difficulty, comment, share });
+  const [saving, setSaving] = useState(false);
+  async function save() {
+    if (saving) return;
+    setSaving(true);
+    const r = await finishWorkout(clientId, { difficulty, comment, share });
+    setSaving(false);
+    if (r?.error) return toast(`${r.error} Tus series no se perdieron: vuelve a tocar Guardar.`, "alert");
     setResult(r); setStage("done");
   }
 
@@ -188,13 +193,13 @@ export default function WorkoutSession({ clientId, onClose }) {
           {stage === "train" && !(restLeft > 0) && (flash
             ? <div className="display" style={{ textAlign: "center", fontSize: 24, color: "var(--blue-ink)", padding: "8px 0", animation: "pop .35s ease-out" }}>A por la siguiente serie</div>
             : <button className={`btn btn-lg btn-block ${pct === 100 ? "btn-success" : "btn-quiet"}`} onClick={() => setStage("finish")}>{pct === 100 ? "Terminar entrenamiento" : `Terminar entrenamiento · ${pct}%`}</button>)}
-          {stage === "finish" && <button className="btn btn-primary btn-lg btn-block" onClick={save}>Guardar entrenamiento</button>}
+          {stage === "finish" && <button className="btn btn-primary btn-lg btn-block" onClick={save} disabled={saving}>{saving ? "Guardando…" : "Guardar entrenamiento"}</button>}
           {stage === "done" && <button className="btn btn-primary btn-lg btn-block" onClick={onClose}>Listo</button>}
         </div>
       </footer>
 
       {exit && (
-        <ExitSheet onClose={() => setExit(false)} onLeave={onClose} onDiscard={() => { discardWorkout(clientId); onClose(); }} />
+        <ExitSheet onClose={() => setExit(false)} onLeave={onClose} onDiscard={() => { run(discardWorkout(clientId)); onClose(); }} />
       )}
     </div>
   );

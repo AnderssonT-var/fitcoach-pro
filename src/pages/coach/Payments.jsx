@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import Icon from "../../ui/Icon";
-import { Avatar, Confirm, Empty, Field, Modal, Pill, Stat, toast } from "../../ui/kit";
+import { Avatar, Confirm, Empty, Field, Modal, Pill, Stat, toast, run } from "../../ui/kit";
 import { useApp } from "../../context";
 import {
   PAY_LABEL, PAY_TONE, addPayment, clientsOf, deletePayment, generateMonthly, markPaid, markUnpaid, paymentStatus, useDB, userById,
@@ -32,8 +32,7 @@ export default function Payments() {
   const month = capitalize(monthName());
 
   function runMonthly() {
-    const n = generateMonthly(me.id);
-    toast(n ? `Se crearon ${n} ${n === 1 ? "mensualidad" : "mensualidades"} de ${month.toLowerCase()}` : `Todos tus clientes ya tienen la mensualidad de ${month.toLowerCase()}`, "wallet");
+    generateMonthly(me.id).then((n) => toast(n ? `Se crearon ${n} ${n === 1 ? "mensualidad" : "mensualidades"} de ${month.toLowerCase()}` : `Todos tus clientes ya tienen la mensualidad de ${month.toLowerCase()}`, "wallet"));
   }
 
   return (
@@ -95,11 +94,11 @@ export function PayRow({ p, showClient }) {
       </div>
       <div className="row gap-xs">
         {st !== "paid" ? <button className="btn btn-success btn-sm" onClick={() => setPay(true)}><Icon name="check" size={16} />Marcar pagado</button>
-          : <button className="btn btn-ghost btn-sm" onClick={() => { markUnpaid(p.id); toast("Pago desmarcado", "refresh"); }}>Deshacer</button>}
+          : <button className="btn btn-ghost btn-sm" onClick={() => { run(markUnpaid(p.id), "Pago desmarcado", "refresh"); }}>Deshacer</button>}
         <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDel(true)} aria-label={`Eliminar ${p.concept}`}><Icon name="trash" size={16} /></button>
       </div>
       {pay && <MarkPaidModal p={p} onClose={() => setPay(false)} />}
-      {del && <Confirm title="Eliminar cobro" confirmLabel="Eliminar" onClose={() => setDel(false)} onConfirm={() => { deletePayment(p.id); toast("Cobro eliminado", "trash"); }}
+      {del && <Confirm title="Eliminar cobro" confirmLabel="Eliminar" onClose={() => setDel(false)} onConfirm={() => { run(deletePayment(p.id), "Cobro eliminado", "trash"); }}
         text={`Se elimina “${p.concept}” por ${money(p.amount)}${p.client ? ` de ${p.client.name}` : ""}.`} />}
     </div>
   );
@@ -110,7 +109,7 @@ function MarkPaidModal({ p, onClose }) {
   return (
     <Modal title="Registrar pago" onClose={onClose} footer={<>
       <button className="btn btn-quiet" onClick={onClose}>Cancelar</button>
-      <button className="btn btn-success" onClick={() => { markPaid(p.id, method); toast(`${money(p.amount)} cobrados`, "wallet"); onClose(); }}>Confirmar {money(p.amount)}</button>
+      <button className="btn btn-success" onClick={() => { run(markPaid(p.id, method), `${money(p.amount)} cobrados`, "wallet"); onClose(); }}>Confirmar {money(p.amount)}</button>
     </>}>
       <p className="ink2">{p.client?.name ? `${p.client.name} · ` : ""}{p.concept}</p>
       <div className="field"><span className="label">Método de pago</span>
@@ -132,7 +131,7 @@ export function PaymentModal({ onClose, clientId }) {
   return (
     <Modal title="Registrar cobro" onClose={onClose} footer={<>
       <button className="btn btn-quiet" onClick={onClose}>Cancelar</button>
-      <button className="btn btn-primary" disabled={!ok} onClick={() => { addPayment(me.id, f); toast(f.paid ? "Pago registrado" : "Cobro pendiente registrado", "wallet"); onClose(); }}>Registrar</button>
+      <button className="btn btn-primary" disabled={!ok} onClick={() => { run(addPayment(me.id, f), f.paid ? "Pago registrado" : "Cobro pendiente registrado", "wallet"); onClose(); }}>Registrar</button>
     </>}>
       <div className="form-grid">
         {!clientId && (

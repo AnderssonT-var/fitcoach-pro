@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Icon from "../../ui/Icon";
-import { Avatar, Confirm, Empty, toast } from "../../ui/kit";
+import { Avatar, Confirm, Empty, toast, run } from "../../ui/kit";
 import { useApp } from "../../context";
 import { addComment, addPost, clientById, deletePost, toggleLike, useDB, userById } from "../../store/db";
 import { ago } from "../../lib/format";
@@ -11,14 +11,15 @@ export default function Community() {
   const coachId = me.role === "coach" ? me.id : clientById(db, me.id)?.coachId;
   const coach = userById(db, coachId);
   const posts = db.posts.filter((p) => p.coachId === coachId).sort((a, b) => new Date(b.at) - new Date(a.at));
-  const members = db.clients.filter((c) => c.coachId === coachId && c.active);
-
   // Tabla del mes: entrenamientos registrados por cada miembro
+  // (el asesorado recibe del servidor solo el conteo de sus compañeros)
   const now = new Date();
-  const board = members.map((c) => ({
-    u: userById(db, c.userId),
-    n: db.workouts.filter((w) => w.clientId === c.userId && new Date(w.finishedAt).getMonth() === now.getMonth() && new Date(w.finishedAt).getFullYear() === now.getFullYear()).length,
-  })).sort((a, b) => b.n - a.n);
+  const board = (db.ranking
+    ? db.ranking.map((r) => ({ u: userById(db, r.userId), n: r.n }))
+    : db.clients.filter((c) => c.coachId === coachId && c.active).map((c) => ({
+      u: userById(db, c.userId),
+      n: db.workouts.filter((w) => w.clientId === c.userId && new Date(w.finishedAt).getMonth() === now.getMonth() && new Date(w.finishedAt).getFullYear() === now.getFullYear()).length,
+    }))).filter((x) => x.u).sort((a, b) => b.n - a.n);
 
   return (
     <div className="page">
@@ -54,11 +55,10 @@ function Composer({ coachId }) {
   const { me } = useApp();
   const [text, setText] = useState("");
   const [kind, setKind] = useState("post");
-  function send() {
+  async function send() {
     if (!text.trim()) return;
-    addPost(coachId, me.id, text, kind);
-    setText(""); setKind("post");
-    toast(kind === "challenge" ? "Reto publicado" : "Publicado", "community");
+    const r = await run(addPost(coachId, me.id, text, kind), kind === "challenge" ? "Reto publicado" : "Publicado", "community");
+    if (!r?.error) { setText(""); setKind("post"); }
   }
   return (
     <section className="panel panel-pad stack">
@@ -123,14 +123,14 @@ function Post({ p, board }) {
               </div>
             );
           })}
-          <form className="row" onSubmit={(e) => { e.preventDefault(); if (reply.trim()) { addComment(p.id, me.id, reply); setReply(""); } }}>
+          <form className="row" onSubmit={(e) => { e.preventDefault(); if (reply.trim()) { run(addComment(p.id, me.id, reply)); setReply(""); } }}>
             <label className="sr-only" htmlFor={`rep-${p.id}`}>Escribe un comentario</label>
             <input id={`rep-${p.id}`} className="input grow" placeholder="Escribe un comentario" value={reply} onChange={(e) => setReply(e.target.value)} />
             <button className="btn btn-quiet" type="submit" disabled={!reply.trim()} aria-label="Enviar comentario"><Icon name="send" size={17} /></button>
           </form>
         </div>
       )}
-      {del && <Confirm title="Eliminar publicación" confirmLabel="Eliminar" onClose={() => setDel(false)} onConfirm={() => { deletePost(p.id); toast("Publicación eliminada", "trash"); }} text="La publicación y sus comentarios desaparecen del grupo." />}
+      {del && <Confirm title="Eliminar publicación" confirmLabel="Eliminar" onClose={() => setDel(false)} onConfirm={() => { run(deletePost(p.id), "Publicación eliminada", "trash"); }} text="La publicación y sus comentarios desaparecen del grupo." />}
     </article>
   );
 }

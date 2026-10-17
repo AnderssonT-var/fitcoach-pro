@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Icon from "../../ui/Icon";
-import { Confirm, Empty, Field, Modal, toast } from "../../ui/kit";
+import { Confirm, Empty, Field, Modal, toast, run } from "../../ui/kit";
 import { ImageDrop } from "../../ui/inputs";
 import { LineChart } from "../../ui/charts";
 import { useApp } from "../../context";
@@ -81,7 +81,7 @@ export function Measurements({ clientId, canEdit }) {
         </>
       )}
       {add && <MeasureModal clientId={clientId} last={rows.at(-1)} onClose={() => setAdd(false)} />}
-      {del && <Confirm title="Eliminar registro" confirmLabel="Eliminar" onClose={() => setDel(null)} onConfirm={() => { deleteMeasurement(clientId, del.id); toast("Registro eliminado", "trash"); }}
+      {del && <Confirm title="Eliminar registro" confirmLabel="Eliminar" onClose={() => setDel(null)} onConfirm={() => { run(deleteMeasurement(clientId, del.id), "Registro eliminado", "trash"); }}
         text={`Se eliminan las medidas del ${date(del.date)}.`} />}
     </section>
   );
@@ -94,7 +94,7 @@ function MeasureModal({ clientId, last, onClose }) {
   return (
     <Modal title="Registrar medidas" onClose={onClose} footer={<>
       <button className="btn btn-quiet" onClick={onClose}>Cancelar</button>
-      <button className="btn btn-primary" disabled={!any} onClick={() => { addMeasurement(clientId, f); toast("Medidas registradas", "scale"); onClose(); }}>Guardar</button>
+      <button className="btn btn-primary" disabled={!any} onClick={() => { run(addMeasurement(clientId, f), "Medidas registradas", "scale"); onClose(); }}>Guardar</button>
     </>}>
       <Field label="Fecha" id="ms-date"><input id="ms-date" className="input num" type="date" max={today} value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></Field>
       <div className="form-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))" }}>
@@ -123,6 +123,9 @@ export function Photos({ clientId, canUpload, canDelete }) {
   const [upload, setUpload] = useState(false);
   const [view, setView] = useState(null);
   const [compare, setCompare] = useState(false);
+  const allowed = !!c.photoConsent;
+  const first = (userById(db, clientId)?.name || "").split(" ")[0];
+  canUpload = canUpload && allowed;
   const groups = useMemo(() => {
     const g = {};
     photos.forEach((p) => { const k = p.date.slice(0, 10); (g[k] ||= []).push(p); });
@@ -139,6 +142,13 @@ export function Photos({ clientId, canUpload, canDelete }) {
         </div>
       </div>
       <div className="panel-body stack">
+        {!allowed && (
+          <div className="note-box small"><Icon name="lock" size={16} /><span>
+            {me.role === "client"
+              ? <>Las fotos de tu cuerpo son información sensible. Para guardarlas activa el permiso en <strong>Mi perfil → Privacidad</strong>; puedes retirarlo cuando quieras.</>
+              : <>{first} no ha dado permiso para guardar fotos de su cuerpo. Puede activarlo desde «Mi perfil» en su app.</>}
+          </span></div>
+        )}
         {photos.length === 0 ? (
           <Empty icon="eye" title="Todavía no hay fotos" text={canUpload ? "Sube fotos de frente, perfil y espalda para comparar el antes y el después." : "Aquí aparecerán tus fotos de progreso."}
             action={canUpload && <button className="btn btn-primary" onClick={() => setUpload(true)}>Subir fotos</button>} />
@@ -183,8 +193,7 @@ function UploadModal({ clientId, onClose }) {
     setBusy(false);
   }
   function save() {
-    addPhotos(clientId, items.map((p) => ({ ...p, date: day, note })), me.id);
-    toast(items.length === 1 ? "Foto guardada" : `${items.length} fotos guardadas`, "check");
+    run(addPhotos(clientId, items.map((p) => ({ ...p, date: day, note })), me.id), items.length === 1 ? "Foto guardada" : `${items.length} fotos guardadas`, "check");
     onClose();
   }
   return (
@@ -243,7 +252,7 @@ function Lightbox({ photos, start, canDelete, clientId, onClose }) {
         <button className="btn btn-quiet btn-sm" onClick={onClose}>Cerrar</button>
       </div>
       {ask && <Confirm title="Eliminar foto" confirmLabel="Eliminar" onClose={() => setAsk(false)}
-        onConfirm={() => { deletePhoto(clientId, p.id); toast("Foto eliminada", "trash"); if (photos.length <= 1) onClose(); else setI(Math.max(0, i - 1)); }}
+        onConfirm={() => { run(deletePhoto(clientId, p.id), "Foto eliminada", "trash"); if (photos.length <= 1) onClose(); else setI(Math.max(0, i - 1)); }}
         text="La foto se elimina para el entrenador y el asesorado." />}
     </div>
   );
@@ -297,7 +306,7 @@ export function Notes({ clientId }) {
 
   function save() {
     if (!text.trim()) return;
-    addNote(clientId, { text, category: cat });
+    run(addNote(clientId, { text, category: cat }));
     setText(""); toast("Nota guardada", "note");
   }
 
@@ -331,7 +340,7 @@ export function Notes({ clientId }) {
               <span className={`pill ${CAT_TONE[n.category] || ""}`}>{n.category}</span>
               {n.pinned && <span className="tiny strong" style={{ color: "var(--yellow-ink)" }}>Fijada</span>}
               <span className="tiny muted grow">{ago(n.at)}</span>
-              <button className="btn btn-ghost btn-icon btn-sm" onClick={() => updateNote(clientId, n.id, { pinned: !n.pinned })} aria-pressed={n.pinned} aria-label={n.pinned ? "Desfijar nota" : "Fijar nota"} title={n.pinned ? "Desfijar" : "Fijar arriba"}><Icon name="target" size={16} /></button>
+              <button className="btn btn-ghost btn-icon btn-sm" onClick={() => run(updateNote(clientId, n.id, { pinned: !n.pinned }))} aria-pressed={n.pinned} aria-label={n.pinned ? "Desfijar nota" : "Fijar nota"} title={n.pinned ? "Desfijar" : "Fijar arriba"}><Icon name="target" size={16} /></button>
               <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setEdit({ id: n.id, text: n.text, category: n.category })} aria-label="Editar nota"><Icon name="pencil" size={15} /></button>
               <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDel(n)} aria-label="Eliminar nota"><Icon name="trash" size={15} /></button>
             </div>
@@ -343,7 +352,7 @@ export function Notes({ clientId }) {
                   <div className="chips">{NOTE_CATS.map((x) => <button key={x} className="chip" aria-pressed={edit.category === x} onClick={() => setEdit({ ...edit, category: x })}>{x}</button>)}</div>
                   <div className="row gap-sm">
                     <button className="btn btn-ghost btn-sm" onClick={() => setEdit(null)}>Cancelar</button>
-                    <button className="btn btn-primary btn-sm" disabled={!edit.text.trim()} onClick={() => { updateNote(clientId, n.id, { text: edit.text.trim(), category: edit.category }); setEdit(null); toast("Nota actualizada"); }}>Guardar</button>
+                    <button className="btn btn-primary btn-sm" disabled={!edit.text.trim()} onClick={() => { run(updateNote(clientId, n.id, { text: edit.text.trim(), category: edit.category }), "Nota actualizada"); setEdit(null); }}>Guardar</button>
                   </div>
                 </div>
               </div>
@@ -351,7 +360,7 @@ export function Notes({ clientId }) {
           </article>
         ))}
       </div>
-      {del && <Confirm title="Eliminar nota" confirmLabel="Eliminar" onClose={() => setDel(null)} onConfirm={() => { deleteNote(clientId, del.id); toast("Nota eliminada", "trash"); }} text="La nota se elimina definitivamente." />}
+      {del && <Confirm title="Eliminar nota" confirmLabel="Eliminar" onClose={() => setDel(null)} onConfirm={() => { run(deleteNote(clientId, del.id), "Nota eliminada", "trash"); }} text="La nota se elimina definitivamente." />}
     </section>
   );
 }

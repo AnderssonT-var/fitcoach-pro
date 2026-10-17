@@ -1,17 +1,15 @@
-import { useState } from "react";
 import Icon from "../../ui/Icon";
-import { Avatar, Dots, Field, Modal, Pill, Stat, toast } from "../../ui/kit";
+import { Avatar, Dots, Pill, Stat } from "../../ui/kit";
 import SessionList from "../../workout/SessionList";
 import { useApp } from "../../context";
 import {
-  clientsOf, coachLicense, licenseStatus, normalizeCode, paymentStatus, redeemCode, thread, useDB, weekCount, workoutsForCoach, workoutsOf,
+  clientsOf, coachLicense, licenseStatus, paymentStatus, thread, useDB, weekCount, workoutsForCoach, workoutsOf,
 } from "../../store/db";
 import { capitalize, daysSince, daysUntil, money, shortDate } from "../../lib/format";
 
 export default function CoachHome() {
   const db = useDB();
   const { me, go } = useApp();
-  const [redeem, setRedeem] = useState(false);
 
   const lic = coachLicense(db, me.id);
   const licDays = daysUntil(lic.expiresAt);
@@ -56,7 +54,7 @@ export default function CoachHome() {
         <div className="warn-box">
           <Icon name="key" size={18} />
           <span className="grow">Tu licencia vence en <strong>{licDays} {licDays === 1 ? "día" : "días"}</strong> ({shortDate(lic.expiresAt)}). Renuévala para que tus clientes no pierdan el seguimiento.</span>
-          <button className="btn btn-quiet btn-sm" onClick={() => setRedeem(true)}>Ingresar código</button>
+          <button className="btn btn-quiet btn-sm" onClick={() => go("suscripcion")}>Renovar</button>
         </div>
       )}
 
@@ -110,34 +108,6 @@ export default function CoachHome() {
         <SessionList sessions={workoutsForCoach(db, me.id)} showClient limit={6} onReply={(clientId) => go("mensajes", { clientId })} />
       </section>
 
-      {redeem && <RedeemModal onClose={() => setRedeem(false)} />}
     </div>
-  );
-}
-
-export function RedeemModal({ onClose }) {
-  const db = useDB();
-  const { me } = useApp();
-  const [code, setCode] = useState("");
-  const [error, setError] = useState("");
-  const free = db.licenses.find((x) => !x.coachId && !x.revoked);
-  function submit() {
-    const r = redeemCode(me.id, code);
-    if (r.error) return setError(r.error);
-    toast(`Licencia extendida hasta el ${shortDate(r.license.expiresAt)}`, "key");
-    onClose();
-  }
-  return (
-    <Modal title="Renovar licencia" onClose={onClose} footer={<>
-      <button className="btn btn-quiet" onClick={onClose}>Cancelar</button>
-      <button className="btn btn-primary" disabled={code.length < 13} onClick={submit}>Canjear código</button>
-    </>}>
-      <p className="ink2">El tiempo del código nuevo se suma a los días que te quedan.</p>
-      <Field label="Código de licencia" id="redeem-code" hint={free ? `Para probar el demo puedes usar ${free.code}` : "Pide un código al administrador."}>
-        <input id="redeem-code" className="input num" style={{ letterSpacing: ".08em", fontWeight: 600 }} placeholder="FIT-XXXX-XXXX"
-          value={code} onChange={(e) => { setCode(normalizeCode(e.target.value)); setError(""); }} />
-      </Field>
-      {error && <div className="error-box" role="alert"><Icon name="alert" size={18} />{error}</div>}
-    </Modal>
   );
 }

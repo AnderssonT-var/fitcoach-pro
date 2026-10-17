@@ -1,11 +1,12 @@
 import { useState } from "react";
 import Icon from "../../ui/Icon";
-import { Avatar, BrandMark, Field, toast } from "../../ui/kit";
+import { Avatar, BrandMark, Field, toast, run } from "../../ui/kit";
 import { ImageDrop } from "../../ui/inputs";
 import { useApp } from "../../context";
 import { brandOf, clientById, updateProfile, useDB, userById } from "../../store/db";
 import { avatarImage } from "../../lib/image";
 import { shortDate } from "../../lib/format";
+import { PrivacyPanel, SecurityPanel } from "../shared/Account";
 
 export default function ClientProfile() {
   const db = useDB();
@@ -18,7 +19,11 @@ export default function ClientProfile() {
     <div className="page" style={{ maxWidth: 980 }}>
       <div className="page-head"><div><h1>Mi perfil</h1><p>Tu foto y lo que tu entrenador necesita saber de ti.</p></div></div>
       <div className="split">
-        <ProfileForm u={u} c={c} coachName={coach.name.split(" ")[0]} />
+        <div className="stack-lg">
+          <ProfileForm u={u} c={c} coachName={coach.name.split(" ")[0]} />
+          <PrivacyPanel />
+          <SecurityPanel />
+        </div>
         <CoachCard coach={coach} brand={brand} />
       </div>
     </div>
@@ -33,15 +38,14 @@ function ProfileForm({ u, c, coachName }) {
   const year = new Date().getFullYear();
 
   async function photo(files) {
-    try { updateProfile(u.id, { photo: await avatarImage(files[0]) }); toast("Foto de perfil actualizada", "user"); }
+    try { run(updateProfile(u.id, { photo: await avatarImage(files[0]) }), "Foto de perfil actualizada", "user"); }
     catch (e) { toast(e.message, "alert"); }
   }
   function save() {
     if (!f.name.trim()) return toast("Escribe tu nombre", "alert");
     const by = f.birthYear === "" ? null : +f.birthYear;
     if (by && (by < 1920 || by > year - 10)) return toast("Revisa el año de nacimiento", "alert");
-    updateProfile(u.id, { ...f, name: f.name.trim(), birthYear: by });
-    toast("Perfil guardado");
+    run(updateProfile(u.id, { ...f, name: f.name.trim(), birthYear: by }), "Perfil guardado");
   }
 
   return (
@@ -52,7 +56,7 @@ function ProfileForm({ u, c, coachName }) {
           <Avatar name={u.name} id={u.id} size="lg" />
           <div className="row wrap gap-sm">
             <ImageDrop compact onFiles={photo} label={u.photo ? "Cambiar foto" : "Subir foto"} />
-            {u.photo && <button className="btn btn-ghost btn-sm" onClick={() => { updateProfile(u.id, { photo: null }); toast("Foto quitada", "trash"); }}>Quitar</button>}
+            {u.photo && <button className="btn btn-ghost btn-sm" onClick={() => { run(updateProfile(u.id, { photo: null }), "Foto quitada", "trash"); }}>Quitar</button>}
           </div>
         </div>
         <div className="form-grid">

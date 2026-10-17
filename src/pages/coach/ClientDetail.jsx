@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import Icon from "../../ui/Icon";
-import { Avatar, Confirm, CopyButton, Field, Modal, Pill, Stat, toast } from "../../ui/kit";
+import { Avatar, Confirm, CopyButton, Field, Modal, Pill, Stat, toast, run } from "../../ui/kit";
 import SessionList from "../../workout/SessionList";
 import { AdherenceChart, Records, VolumeChart, WeightChart, quickStats } from "../../workout/ProgressWidgets";
 import RoutineEditor from "./RoutineEditor";
@@ -9,7 +9,7 @@ import { PayRow, PaymentModal } from "./Payments";
 import { GOALS } from "./Clients";
 import { useApp } from "../../context";
 import {
-  addBodyWeight, clientById, paymentStatus, resetClientPassword, updateClient, useDB, userById, weekStreak, workoutsOf,
+  addBodyWeight, clientById, deleteClient, paymentStatus, resetClientPassword, updateClient, useDB, userById, weekStreak, workoutsOf,
 } from "../../store/db";
 import { MuscleLoadPanel } from "../../workout/MuscleLoad";
 import { ago, kg, money, shortDate } from "../../lib/format";
@@ -126,8 +126,10 @@ function ClientPayments({ clientId }) {
 
 function ClientData({ clientId }) {
   const db = useDB();
+  const { go } = useApp();
   const c = clientById(db, clientId);
   const u = userById(db, clientId);
+  const [remove, setRemove] = useState(false);
   const [f, setF] = useState({ name: u.name, email: u.email, phone: c.phone || "", goal: c.goal, heightCm: c.heightCm || "", fee: c.fee, billingDay: c.billingDay });
   const [weightOpen, setWeightOpen] = useState(false);
   const [pause, setPause] = useState(false);
@@ -137,9 +139,7 @@ function ClientData({ clientId }) {
 
   function save() {
     if (!f.name.trim() || !/^\S+@\S+\.\S+$/.test(f.email)) return toast("Revisa el nombre y el correo", "alert");
-    if (db.users.some((x) => x.id !== clientId && x.email.toLowerCase() === f.email.trim().toLowerCase())) return toast("Ese correo ya lo usa otra cuenta", "alert");
-    updateClient(clientId, { name: f.name.trim(), email: f.email.trim().toLowerCase(), phone: f.phone, goal: f.goal, heightCm: +f.heightCm || null, fee: +f.fee || 0, billingDay: Math.min(28, Math.max(1, +f.billingDay || 1)) });
-    toast("Datos guardados");
+    run(updateClient(clientId, { name: f.name.trim(), email: f.email.trim().toLowerCase(), phone: f.phone, goal: f.goal, heightCm: +f.heightCm || null, fee: +f.fee || 0, billingDay: Math.min(28, Math.max(1, +f.billingDay || 1)) }), "Datos guardados");
   }
 
   return (
@@ -165,8 +165,8 @@ function ClientData({ clientId }) {
           <div className="panel-head"><h2>Acceso a la app</h2></div>
           <div className="panel-body stack">
             <div className="row"><span className="grow"><span className="tiny muted">Correo</span><br /><strong>{u.email}</strong></span><CopyButton text={u.email} small /></div>
-            {newPass && <div className="row"><span className="grow"><span className="tiny muted">Contraseña nueva</span><br /><strong className="num">{newPass}</strong></span><CopyButton text={newPass} small /></div>}
-            <button className="btn btn-quiet" onClick={() => { setNewPass(resetClientPassword(clientId)); toast("Contraseña restablecida", "key"); }}><Icon name="key" size={17} />Restablecer contraseña</button>
+            {newPass && <div className="row"><span className="grow"><span className="tiny muted">Contraseña temporal (deberá cambiarla al entrar)</span><br /><strong className="num">{newPass}</strong></span><CopyButton text={newPass} small /></div>}
+            <button className="btn btn-quiet" onClick={async () => { const r = await resetClientPassword(clientId); if (r?.error) return toast(r.error, "alert"); setNewPass(r); toast("Contraseña temporal creada. Entrégasela por un medio privado.", "key"); }}><Icon name="key" size={17} />Contraseña temporal</button>
           </div>
         </section>
         <section className="panel">
@@ -179,14 +179,22 @@ function ClientData({ clientId }) {
         <section className="panel panel-pad stack">
           <div><div className="strong">{c.active ? "Pausar cliente" : "Reactivar cliente"}</div>
             <p className="small muted">{c.active ? "No podrá entrar a la app ni se le generarán mensualidades. Su historial se conserva." : "Vuelve a tener acceso con su misma rutina e historial."}</p></div>
-          <button className={`btn ${c.active ? "btn-danger" : "btn-primary"}`} onClick={() => (c.active ? setPause(true) : (updateClient(clientId, { active: true }), toast("Cliente reactivado")))}>
+          <button className={`btn ${c.active ? "btn-danger" : "btn-primary"}`} onClick={() => (c.active ? setPause(true) : run(updateClient(clientId, { active: true }), "Cliente reactivado"))}>
             {c.active ? "Pausar cliente" : "Reactivar cliente"}
           </button>
+        </section>
+        <section className="panel panel-pad stack">
+          <div><div className="strong">Eliminar cliente y sus datos</div>
+            <p className="small muted">Borra su cuenta, rutina, entrenamientos, medidas, fotos, notas, mensajes y pagos. Úsalo si deja la asesoría o te pide eliminar sus datos.</p></div>
+          <button className="btn btn-ghost" style={{ color: "var(--red-ink)", alignSelf: "flex-start" }} onClick={() => setRemove(true)}><Icon name="trash" size={17} />Eliminar definitivamente</button>
         </section>
       </div>
 
       {weightOpen && <WeightModal clientId={clientId} onClose={() => setWeightOpen(false)} />}
-      {pause && <Confirm title="Pausar cliente" confirmLabel="Pausar" onClose={() => setPause(false)} onConfirm={() => { updateClient(clientId, { active: false }); toast("Cliente en pausa", "pause"); }}
+      {remove && <Confirm title="Eliminar cliente" confirmLabel="Eliminar todo" onClose={() => setRemove(false)}
+        onConfirm={async () => { const r = await run(deleteClient(clientId), `${u.name.split(" ")[0]} y sus datos fueron eliminados`, "trash"); if (!r?.error) go("clientes"); }}
+        text={`Se borrará todo lo de ${u.name}. Esta acción no se puede deshacer.`} />}
+      {pause && <Confirm title="Pausar cliente" confirmLabel="Pausar" onClose={() => setPause(false)} onConfirm={() => { run(updateClient(clientId, { active: false }), "Cliente en pausa", "pause"); }}
         text={`${u.name} no podrá entrar a la app hasta que lo reactives.`} />}
     </div>
   );
@@ -200,7 +208,7 @@ export function WeightModal({ clientId, onClose }) {
   return (
     <Modal title="Registrar peso" onClose={onClose} footer={<>
       <button className="btn btn-quiet" onClick={onClose}>Cancelar</button>
-      <button className="btn btn-primary" disabled={!ok} onClick={() => { addBodyWeight(clientId, +v); toast(`${kg(+v)} kg registrados`, "scale"); onClose(); }}>Guardar</button>
+      <button className="btn btn-primary" disabled={!ok} onClick={() => { run(addBodyWeight(clientId, +v), `${kg(+v)} kg registrados`, "scale"); onClose(); }}>Guardar</button>
     </>}>
       <Field label="Peso de hoy (kg)" id="bw" hint={last ? `Último: ${kg(last.kg)} kg, ${shortDate(last.date)}` : undefined}>
         <input id="bw" className="input num" type="number" inputMode="decimal" step="0.1" value={v} onChange={(e) => setV(e.target.value)} style={{ fontSize: 22, fontWeight: 700 }} />

@@ -1,14 +1,19 @@
 import { useState } from "react";
 import Icon from "../../ui/Icon";
-import { Avatar, BrandMark, CopyButton, Field, toast } from "../../ui/kit";
+import { Avatar, BrandMark, CopyButton, Field, toast, run } from "../../ui/kit";
 import { ImageDrop, TagInput } from "../../ui/inputs";
 import { useApp } from "../../context";
 import { clientsOf, updateBrand, updateProfile, useDB, userById } from "../../store/db";
 import { avatarImage, logoImage } from "../../lib/image";
 import { BRAND_COLORS } from "../../lib/brand";
+import { apiBase, isNative } from "../../store/api";
+import { SecurityPanel } from "../shared/Account";
 
 /** Enlace público de acceso con la marca del entrenador. */
 export function brandUrl(slug) {
+  const pub = (import.meta.env.VITE_PUBLIC_URL || "").replace(/\/+$/, "");
+  if (pub) return `${pub}/#${slug}`;
+  if (isNative()) return `${apiBase()}/#${slug}`;
   try { return `${window.location.origin}${window.location.pathname}#${slug}`; } catch { return `#${slug}`; }
 }
 
@@ -26,6 +31,7 @@ export default function CoachProfile() {
         <div className="stack-lg">
           <ProfileForm u={u} />
           <BrandForm u={u} />
+          <SecurityPanel />
         </div>
         <div className="stack-lg sticky-col">
           <LoginPreview u={u} />
@@ -46,14 +52,13 @@ function ProfileForm({ u }) {
 
   async function photo(files) {
     setBusy(true);
-    try { updateProfile(u.id, { photo: await avatarImage(files[0]) }); toast("Foto de perfil actualizada", "user"); }
+    try { run(updateProfile(u.id, { photo: await avatarImage(files[0]) }), "Foto de perfil actualizada", "user"); }
     catch (e) { toast(e.message, "alert"); }
     setBusy(false);
   }
   function save() {
     if (!f.name.trim()) return toast("Escribe tu nombre", "alert");
-    updateProfile(u.id, { ...f, name: f.name.trim(), years: f.years === "" ? null : Math.max(0, Math.min(60, +f.years)) });
-    toast("Perfil guardado");
+    run(updateProfile(u.id, { ...f, name: f.name.trim(), years: f.years === "" ? null : Math.max(0, Math.min(60, +f.years)) }), "Perfil guardado");
   }
 
   return (
@@ -65,7 +70,7 @@ function ProfileForm({ u }) {
           <div className="stack gap-sm">
             <div className="row wrap gap-sm">
               <ImageDrop compact onFiles={photo} label={u.photo ? "Cambiar foto" : "Subir foto"} />
-              {u.photo && <button className="btn btn-ghost btn-sm" onClick={() => { updateProfile(u.id, { photo: null }); toast("Foto quitada", "trash"); }}>Quitar</button>}
+              {u.photo && <button className="btn btn-ghost btn-sm" onClick={() => { run(updateProfile(u.id, { photo: null }), "Foto quitada", "trash"); }}>Quitar</button>}
             </div>
             <span className="hint">{busy ? "Procesando…" : "Cuadrada, se recorta al centro. JPG o PNG."}</span>
           </div>
@@ -104,11 +109,11 @@ function BrandForm({ u }) {
   const dirty = JSON.stringify(f) !== JSON.stringify(init);
 
   async function logo(files) {
-    try { updateBrand(u.id, { logo: await logoImage(files[0]) }); toast("Logo actualizado", "sparkle"); }
+    try { run(updateBrand(u.id, { logo: await logoImage(files[0]) }), "Logo actualizado", "sparkle"); }
     catch (e) { toast(e.message, "alert"); }
   }
-  function save() {
-    const r = updateBrand(u.id, { ...f, businessName: f.businessName.trim(), tagline: f.tagline.trim() });
+  async function save() {
+    const r = await updateBrand(u.id, { ...f, businessName: f.businessName.trim(), tagline: f.tagline.trim() });
     if (r.error) return setError(r.error);
     toast("Marca guardada. Tus asesorados ya la ven");
   }
@@ -122,7 +127,7 @@ function BrandForm({ u }) {
           <div className="stack gap-sm">
             <div className="row wrap gap-sm">
               <ImageDrop compact onFiles={logo} label={b.logo ? "Cambiar logo" : "Subir logo"} />
-              {b.logo && <button className="btn btn-ghost btn-sm" onClick={() => { updateBrand(u.id, { logo: null }); toast("Logo quitado", "trash"); }}>Quitar</button>}
+              {b.logo && <button className="btn btn-ghost btn-sm" onClick={() => { run(updateBrand(u.id, { logo: null }), "Logo quitado", "trash"); }}>Quitar</button>}
             </div>
             <span className="hint">PNG con fondo transparente o SVG. Se muestra cuadrado.</span>
           </div>

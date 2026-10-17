@@ -87,10 +87,13 @@ function NewClientModal({ onClose }) {
   const [created, setCreated] = useState(null);
   const set = (k) => (e) => { setF({ ...f, [k]: e.target.value }); setError(""); };
 
-  function save() {
+  const [busy, setBusy] = useState(false);
+  async function save() {
     if (!f.name.trim()) return setError("Escribe el nombre del cliente.");
     if (!/^\S+@\S+\.\S+$/.test(f.email)) return setError("Escribe un correo válido: lo usará para entrar.");
-    const r = addClient(me.id, f);
+    setBusy(true);
+    const r = await addClient(me.id, f);
+    setBusy(false);
     if (r.error) return setError(r.error);
     setCreated(r);
     toast(`${f.name.split(" ")[0]} agregado`, "users");
@@ -102,7 +105,7 @@ function NewClientModal({ onClose }) {
         <button className="btn btn-quiet" onClick={onClose}>Cerrar</button>
         <button className="btn btn-primary" onClick={() => { onClose(); go("clientes", { id: created.user.id, tab: "rutina" }); }}>Crear su rutina</button>
       </>}>
-        <p className="ink2">Comparte estos datos con {created.user.name.split(" ")[0]} para que entre a la app. Podrá cambiar la contraseña después.</p>
+        <p className="ink2">Comparte estos datos con {created.user.name.split(" ")[0]} por un medio privado (la contraseña solo se muestra ahora). Al entrar deberá aceptar el aviso de privacidad y crear su propia contraseña.</p>
         <div className="panel list">
           <div className="list-row"><span className="grow"><span className="tiny muted">Correo</span><br /><strong>{created.user.email}</strong></span><CopyButton text={created.user.email} small /></div>
           <div className="list-row"><span className="grow"><span className="tiny muted">Contraseña temporal</span><br /><strong className="num">{created.password}</strong></span><CopyButton text={created.password} small /></div>
@@ -115,7 +118,7 @@ function NewClientModal({ onClose }) {
   return (
     <Modal title="Nuevo cliente" onClose={onClose} footer={<>
       <button className="btn btn-quiet" onClick={onClose}>Cancelar</button>
-      <button className="btn btn-primary" onClick={save}>Agregar cliente</button>
+      <button className="btn btn-primary" onClick={save} disabled={busy}>{busy ? "Agregando…" : "Agregar cliente"}</button>
     </>}>
       <div className="form-grid">
         <div className="full"><Field label="Nombre completo" id="nc-name"><input id="nc-name" className="input" value={f.name} onChange={set("name")} autoComplete="off" /></Field></div>
