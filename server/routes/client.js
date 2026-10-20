@@ -8,7 +8,7 @@ import { bad, forbidden, h, notFound, nowISO, parse, uid } from "../util.js";
 import { checkInlineImage, deleteFile, saveFile } from "../files.js";
 import { buildState, userOut } from "../state.js";
 import { groupOf } from "./common.js";
-import { deleteClientData, photosSchema, profileSchema, sessionSchema } from "./schemas.js";
+import { deleteClientData, MESSAGE_TAGS, photosSchema, profileSchema, sessionSchema } from "./schemas.js";
 
 /* ============================================================
    Cuenta del asesorado: exportar y eliminar (siempre disponibles)
@@ -102,7 +102,12 @@ clientRouter.post("/workout/finish", h(async (req, res) => {
     .flatMap((e) => e.sets.filter((x) => x.done && x.reps > 0).map((x) => +x.weight || 0))));
   const prs = [];
   const exercises = a.exercises.map((e) => {
-    const sets = e.sets.map((x) => ({ weight: Math.max(0, Math.min(1000, +x.weight || 0)), reps: Math.max(0, Math.min(500, Math.round(+x.reps || 0))), done: !!x.done }));
+    const clean = (x) => ({ weight: Math.max(0, Math.min(1000, +x.weight || 0)), reps: Math.max(0, Math.min(500, Math.round(+x.reps || 0))), done: !!x.done });
+    const sets = e.sets.map((x) => {
+      const out = clean(x);
+      const drops = (x.drops || []).map(clean).filter((d) => d.done && d.reps > 0);
+      return drops.length ? { ...out, drops } : out;
+    });
     const top = Math.max(0, ...sets.filter((x) => x.done && x.reps > 0).map((x) => x.weight));
     const prev = best(e.exId);
     if (prev > 0 && top > prev) prs.push({ exId: e.exId, weight: top, prev });
@@ -125,7 +130,7 @@ clientRouter.post("/workout/finish", h(async (req, res) => {
         text: `${req.user.name.split(" ")[0]} completó ${a.dayName} en ${Math.round(durationSec / 60)} min.${pr}`, workout_id: id });
     }
   });
-  const volume = exercises.reduce((t, e) => t + e.sets.filter((x) => x.done).reduce((s, x) => s + x.weight * x.reps, 0), 0);
+  const volume = exercises.reduce((t, e) => t + e.sets.filter((x) => x.done).reduce((s, x) => s + x.weight * x.reps + (x.drops || []).reduce((v, d) => v + d.weight * d.reps, 0), 0), 0);
   const done = exercises.reduce((t, e) => t + e.sets.filter((x) => x.done).length, 0);
   res.status(201).json({ ...w, id, clientId: req.user.id, finishedAt, volume, done });
 }));
@@ -168,9 +173,15 @@ async function pair(req, clientId) {
 }
 
 sharedRouter.post("/messages", h(async (req, res) => {
-  const body = parse(z.object({ clientId: z.number().int().optional(), text: z.string().trim().min(1, "Escribe un mensaje.").max(2000) }), req.body);
+  const body = parse(z.object({
+    clientId: z.number().int().optional(), text: z.string().trim().min(1, "Escribe un mensaje.").max(2000),
+    exId: z.number().int().positive().optional(), tag: z.enum(MESSAGE_TAGS).optional(),
+  }), req.body);
   const p = await pair(req, body.clientId);
-  const m = { id: uid("m-"), coach_id: p.coachId, client_id: p.clientId, from_id: req.user.id, text: body.text, at: nowISO(), read: false };
+  // Solo se puede etiquetar un ejercicio de la biblioteca general o de este entrenador
+  if (body.exId && body.exId >= 100000 && !(await knex("exercises").where({ id: body.exId, coach_id: p.coachId }).first())) throw notFound("No encontramos ese ejercicio.");
+  const m = { id: uid("m-"), coach_id: p.coachId, client_id: p.clientId, from_id: req.user.id, text: body.text, at: nowISO(), read: false,
+    ...(body.exId ? { ex_id: body.exId, tag: body.tag || "comentario" } : {}) };
   await knex("messages").insert(m);
   res.status(201).json({ id: m.id });
 }));

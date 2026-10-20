@@ -59,7 +59,7 @@ export const licenseOut = (l) => ({
 });
 const paymentOut = (p) => ({ id: p.id, coachId: p.coach_id, clientId: p.client_id, concept: p.concept, amount: +p.amount, dueDate: p.due_date, paidAt: p.paid_at, method: p.method || "" });
 const workoutOut = (w) => ({ ...J(w.data, {}), id: w.id, clientId: w.client_id, finishedAt: w.finished_at });
-const messageOut = (m) => ({ id: m.id, coachId: m.coach_id, clientId: m.client_id, from: m.from_id, text: m.text, at: m.at, read: bool(m.read) });
+const messageOut = (m) => ({ id: m.id, coachId: m.coach_id, clientId: m.client_id, from: m.from_id, text: m.text, at: m.at, read: bool(m.read), exId: m.ex_id || null, tag: m.tag || null });
 const postOut = (p) => ({ id: p.id, coachId: p.coach_id, authorId: p.author_id, kind: p.kind, text: p.text, at: p.at, likes: J(p.likes, []), comments: J(p.comments, []), workoutId: p.workout_id });
 const templateOut = (t) => ({ ...J(t.data, {}), id: t.id, coachId: t.coach_id, createdAt: t.created_at });
 const exerciseOut = (e) => {

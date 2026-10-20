@@ -152,7 +152,8 @@ export function weekStreak(s, clientId, goal) {
   return streak;
 }
 export function sessionVolume(w) {
-  return w.exercises.reduce((t, e) => t + e.sets.filter((x) => x.done).reduce((a, x) => a + (+x.weight || 0) * (+x.reps || 0), 0), 0);
+  return w.exercises.reduce((t, e) => t + e.sets.filter((x) => x.done).reduce((a, x) => a + (+x.weight || 0) * (+x.reps || 0)
+    + (x.drops || []).reduce((v, d) => v + (+d.weight || 0) * (+d.reps || 0), 0), 0), 0);
 }
 export function doneSetCount(w) { return w.exercises.reduce((t, e) => t + e.sets.filter((x) => x.done).length, 0); }
 
@@ -186,6 +187,10 @@ export function nextDay(s, clientId) {
 }
 export function thread(s, coachId, clientId) {
   return s.messages.filter((m) => m.coachId === coachId && m.clientId === clientId).sort((a, b) => new Date(a.at) - new Date(b.at));
+}
+/** Último mensaje del entrenador que etiqueta este ejercicio (para verlo al entrenar). */
+export function lastExerciseNote(s, coachId, clientId, exId) {
+  return thread(s, coachId, clientId).filter((m) => m.exId === exId && m.from === coachId).at(-1) || null;
 }
 export function unreadFor(s, userId) {
   return s.messages.filter((m) => !m.read && m.from !== userId && (m.coachId === userId || m.clientId === userId)).length;
@@ -302,7 +307,8 @@ export function addBodyWeight(clientId, kgValue) {
 }
 const cleanRoutine = (r) => r && ({
   name: r.name || "", goal: r.goal || "", frequency: +r.frequency || 3, notes: r.notes || "",
-  days: r.days.map((d) => ({ id: d.id, name: d.name, exercises: d.exercises.map((e) => ({ uid: e.uid, exId: e.exId, sets: +e.sets || 1, reps: String(e.reps ?? ""), rest: +e.rest || 0, notes: e.notes || "" })) })),
+  days: r.days.map((d) => ({ id: d.id, name: d.name, exercises: d.exercises.map((e) => ({ uid: e.uid, exId: e.exId, sets: +e.sets || 1, reps: String(e.reps ?? ""), rest: +e.rest || 0, notes: e.notes || "",
+    technique: e.technique === "dropset" ? "dropset" : "normal", ...(e.technique === "dropset" && e.drops ? { drops: { count: +e.drops.count, pct: +e.drops.pct, on: e.drops.on === "all" ? "all" : "last" } } : {}) })) })),
 });
 export const saveRoutine = (clientId, routine) => act("PUT", `/api/coach/clients/${clientId}/routine`, { routine: cleanRoutine(routine) });
 export const saveTemplate = (_coachId, routine, name) => act("POST", "/api/coach/templates", { routine: cleanRoutine(routine), name });
@@ -354,11 +360,12 @@ export function updateProfile(_userId, p) {
   return act("PUT", "/api/profile", body);
 }
 
-export async function sendMessage(coachId, clientId, from, text) {
+export async function sendMessage(coachId, clientId, from, text, ref = null) {
   // Se muestra al instante y luego se confirma con el servidor
-  patch((d) => { d.messages.push({ id: uid("tmp-"), coachId, clientId, from, text: text.trim(), at: nowISO(), read: false, pending: true }); });
+  const tagged = ref?.exId ? { exId: ref.exId, tag: ref.tag || "comentario" } : {};
+  patch((d) => { d.messages.push({ id: uid("tmp-"), coachId, clientId, from, text: text.trim(), at: nowISO(), read: false, pending: true, exId: null, tag: null, ...tagged }); });
   const me = userById(state, state.sessionUserId);
-  return act("POST", "/api/messages", { text, ...(me?.role === "coach" ? { clientId } : {}) });
+  return act("POST", "/api/messages", { text, ...tagged, ...(me?.role === "coach" ? { clientId } : {}) });
 }
 export function markThreadRead(coachId, clientId, readerId) {
   if (!state.messages.some((m) => m.coachId === coachId && m.clientId === clientId && m.from !== readerId && !m.read)) return;
@@ -425,11 +432,15 @@ export function startWorkout(clientId, dayId) {
     exercises: day.exercises.map((e) => {
       const last = lastPerformance(state, clientId, e.exId);
       const nSets = Math.max(1, +e.sets || 1);
+      const drop = e.technique === "dropset" && e.drops?.count > 0 ? { count: +e.drops.count, pct: +e.drops.pct || 20, on: e.drops.on === "all" ? "all" : "last" } : null;
       return {
-        exId: e.exId, notes: e.notes || "", target: { sets: nSets, reps: String(e.reps), rest: +e.rest || 0 },
+        exId: e.exId, notes: e.notes || "",
+        target: { sets: nSets, reps: String(e.reps), rest: +e.rest || 0, ...(drop ? { drop } : {}) },
         sets: Array.from({ length: nSets }, (_, i) => {
           const prev = last?.sets[i] || last?.sets.at(-1);
-          return { weight: "", reps: "", prevWeight: prev?.weight ?? null, prevReps: prev?.reps ?? null, done: false };
+          const st = { weight: "", reps: "", prevWeight: prev?.weight ?? null, prevReps: prev?.reps ?? null, done: false };
+          if (drop && (drop.on === "all" || i === nSets - 1)) st.drops = Array.from({ length: drop.count }, (_, k) => ({ weight: "", reps: "", prevReps: prev?.drops?.[k]?.reps ?? null, done: false }));
+          return st;
         }),
       };
     }),

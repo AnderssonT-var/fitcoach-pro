@@ -6,10 +6,13 @@ import { Confirm, run, toast } from "../ui/kit";
 import { DIFFICULTY } from "./SessionList";
 import { ExerciseDetail } from "../ui/exercises";
 import {
-  bestSet, clientById, discardWorkout, exerciseById, exerciseImage, finishWorkout, updateWorkout, useDB, userById,
+  bestSet, clientById, discardWorkout, exerciseById, exerciseImage, finishWorkout, lastExerciseNote, updateWorkout, useDB, userById,
 } from "../store/db";
 import { SessionMuscles } from "./MuscleLoad";
 import { clock, kg, parseRest, repsLow, tons } from "../lib/format";
+import { dropLabel, dropWeight } from "./dropset";
+
+const setVolume = (x) => (x.done ? (+x.weight || 0) * (+x.reps || 0) : 0) + (x.drops || []).reduce((t, d) => t + (d.done ? (+d.weight || 0) * (+d.reps || 0) : 0), 0);
 
 /**
  * Entrenamiento en vivo: pantalla completa en móvil y PC.
@@ -63,7 +66,7 @@ export default function WorkoutSession({ clientId, onClose }) {
   if (!s) return null;
   const all = s.exercises.flatMap((e) => e.sets);
   const done = all.filter((x) => x.done).length;
-  const volume = s.exercises.reduce((t, e) => t + e.sets.filter((x) => x.done).reduce((a, x) => a + (+x.weight || 0) * (+x.reps || 0), 0), 0);
+  const volume = s.exercises.reduce((t, e) => t + e.sets.reduce((a, x) => a + setVolume(x), 0), 0);
   const pct = all.length ? Math.round((done / all.length) * 100) : 0;
   const elapsed = (now - Date.parse(s.startedAt)) / 1000;
   const restLeft = live?.restEndsAt ? Math.ceil((live.restEndsAt - now) / 1000) : null;
@@ -83,16 +86,42 @@ export default function WorkoutSession({ clientId, onClose }) {
       if (st.weight === "" && st.prevWeight != null) st.weight = String(st.prevWeight);
       if (st.reps === "") st.reps = String(st.prevReps ?? repsLow(ex.target.reps) ?? "");
       st.done = true;
+      // Drop set: se sigue sin descanso; el descanso arranca al terminar la última bajada
+      if (st.drops?.some((d) => !d.done)) { a.restEndsAt = null; return; }
       completedExercise = ex.sets.every((x) => x.done);
-      const left = a.exercises.some((e) => e.sets.some((x) => !x.done));
-      a.restTotal = parseRest(ex.target.rest);
-      a.restEndsAt = left ? Date.now() + a.restTotal * 1000 : null;
+      startRest(a, ex);
     });
     try { navigator.vibrate?.(25); } catch { /* nada */ }
     if (completedExercise) setTimeout(() => cards.current[ei + 1]?.scrollIntoView({ behavior: "smooth", block: "start" }), 250);
   }
+  function startRest(a, ex) {
+    const left = a.exercises.some((e) => e.sets.some((x) => !x.done || x.drops?.some((d) => !d.done)));
+    a.restTotal = parseRest(ex.target.rest);
+    a.restEndsAt = left ? Date.now() + a.restTotal * 1000 : null;
+  }
+  function toggleDrop(ei, si, di) {
+    ensureAudio();
+    let completedExercise = false;
+    upd((a) => {
+      const ex = a.exercises[ei], st = ex.sets[si], d = st.drops[di];
+      if (d.done) { d.done = false; return; }
+      const pct = ex.target.drop?.pct || 20;
+      if (d.weight === "") d.weight = String(dropWeight(st.weight || st.prevWeight || 0, pct, di + 1) || "");
+      if (d.reps === "") d.reps = String(d.prevReps ?? "");
+      if (!st.done) st.done = true;
+      d.done = true;
+      if (st.drops.some((x) => !x.done)) return;
+      completedExercise = ex.sets.every((x) => x.done);
+      startRest(a, ex);
+    });
+    try { navigator.vibrate?.(25); } catch { /* nada */ }
+    if (completedExercise) setTimeout(() => cards.current[ei + 1]?.scrollIntoView({ behavior: "smooth", block: "start" }), 250);
+  }
+  const editDrop = (ei, si, di, k, v) => upd((a) => { a.exercises[ei].sets[si].drops[di][k] = v.replace(",", "."); });
   const edit = (ei, si, k, v) => upd((a) => { a.exercises[ei].sets[si][k] = v.replace(",", "."); });
-  const addSet = (ei) => upd((a) => { const ss = a.exercises[ei].sets; const l = ss.at(-1); ss.push({ weight: l?.weight || "", reps: "", prevWeight: l?.prevWeight ?? null, prevReps: l?.prevReps ?? null, done: false }); });
+  const addSet = (ei) => upd((a) => { const ss = a.exercises[ei].sets; const l = ss.at(-1); const ex = a.exercises[ei];
+    const drops = ex.target.drop?.on === "all" ? Array.from({ length: ex.target.drop.count }, () => ({ weight: "", reps: "", done: false })) : undefined;
+    ss.push({ weight: l?.weight || "", reps: "", prevWeight: l?.prevWeight ?? null, prevReps: l?.prevReps ?? null, done: false, ...(drops ? { drops } : {}) }); });
   const removeSet = (ei) => upd((a) => { const ss = a.exercises[ei].sets; if (ss.length > 1 && !ss.at(-1).done) ss.pop(); });
   const adjust = (d) => upd((a) => { if (a.restEndsAt) { a.restEndsAt = Math.max(Date.now() + 1000, a.restEndsAt + d * 1000); a.restTotal = Math.max(1, a.restTotal + d); } });
 
@@ -129,8 +158,9 @@ export default function WorkoutSession({ clientId, onClose }) {
         <div className="workout-inner stack" style={{ padding: 16 }}>
           {stage === "train" && s.exercises.map((ex, ei) => (
             <ExerciseCard key={ei} refEl={(el) => (cards.current[ei] = el)} ex={ex} isCurrent={ei === current}
-              info={exerciseById(db, ex.exId)} best={bestSet(db, clientId, ex.exId)} coachFirst={coachFirst}
-              onToggle={(si) => toggle(ei, si)} onEdit={(si, k, v) => edit(ei, si, k, v)} onAdd={() => addSet(ei)} onRemove={() => removeSet(ei)} />
+              info={exerciseById(db, ex.exId)} best={bestSet(db, clientId, ex.exId)} coachFirst={coachFirst} chatNote={lastExerciseNote(db, client.coachId, clientId, ex.exId)}
+              onToggle={(si) => toggle(ei, si)} onEdit={(si, k, v) => edit(ei, si, k, v)}
+              onToggleDrop={(si, di) => toggleDrop(ei, si, di)} onEditDrop={(si, di, k, v) => editDrop(ei, si, di, k, v)} onAdd={() => addSet(ei)} onRemove={() => removeSet(ei)} />
           ))}
 
           {stage === "finish" && (
@@ -205,9 +235,12 @@ export default function WorkoutSession({ clientId, onClose }) {
   );
 }
 
-function ExerciseCard({ ex, info, best, isCurrent, coachFirst, onToggle, onEdit, onAdd, onRemove, refEl }) {
-  const complete = ex.sets.every((x) => x.done);
+function ExerciseCard({ ex, info, best, isCurrent, coachFirst, chatNote, onToggle, onEdit, onToggleDrop, onEditDrop, onAdd, onRemove, refEl }) {
+  const complete = ex.sets.every((x) => x.done && !x.drops?.some((d) => !d.done));
   const next = ex.sets.findIndex((x) => !x.done);
+  // Bajada pendiente de una serie ya hecha: va antes que la siguiente serie
+  const dropNext = (() => { for (let i = 0; i < ex.sets.length; i++) { const st = ex.sets[i]; if (st.done && st.drops) { const k = st.drops.findIndex((d) => !d.done); if (k >= 0) return { si: i, di: k }; } } return null; })();
+  const pct = ex.target.drop?.pct || 20;
   const barbell = info.equipment === "Barra";
   const [how, setHow] = useState(false);
   const thumb = exerciseImage(info);
@@ -229,10 +262,12 @@ function ExerciseCard({ ex, info, best, isCurrent, coachFirst, onToggle, onEdit,
           <div className="section-title" style={{ fontSize: 22 }}>{info.name}</div>
           <button className="link-btn" style={{ fontSize: 13 }} onClick={() => setHow(true)}>Ver técnica</button>
           <div className="small muted">Objetivo {ex.target.sets} × {ex.target.reps} · descanso {clock(parseRest(ex.target.rest))}</div>
+          {ex.target.drop && <span className="drop-badge" style={{ marginTop: 6 }} title={dropLabel(ex.target.drop)}><Icon name="trend" size={13} />{dropLabel(ex.target.drop)}</span>}
         </div>
         {best && best.weight > 0 && <div style={{ textAlign: "right" }}><div className="tiny muted">Récord</div><div className="display num" style={{ fontSize: 20, color: "var(--yellow-ink)" }}>{kg(best.weight)} kg</div></div>}
       </div>
       {ex.notes && <div className="note-box small" style={{ marginBottom: 10 }}><Icon name="note" size={16} /><span><strong>{coachFirst}:</strong> {ex.notes}</span></div>}
+      {chatNote && chatNote.text !== ex.notes && <div className="note-box small chat-note" style={{ marginBottom: 10 }}><Icon name="chat" size={16} /><span><strong>{coachFirst} en el chat:</strong> {chatNote.text}</span></div>}
       {how && <ExerciseDetail ex={info} coachName={coachFirst} onClose={() => setHow(false)} />}
       {barbell && shownWeight > 20 && !complete && <div style={{ marginBottom: 8 }}><PlateLoader weight={shownWeight} /></div>}
 
@@ -240,9 +275,10 @@ function ExerciseCard({ ex, info, best, isCurrent, coachFirst, onToggle, onEdit,
         <span style={{ textAlign: "center" }}>Serie</span><span>Anterior</span><span style={{ textAlign: "center" }}>Kg</span><span style={{ textAlign: "center" }}>Reps</span><span />
       </div>
       {ex.sets.map((st, si) => {
-        const isNext = isCurrent && si === next;
+        const isNext = isCurrent && !dropNext && si === next;
         return (
-          <div key={si} className={`set-grid set-row ${st.done ? "done" : isNext ? "next" : ""}`}>
+          <div key={si} className="set-block">
+          <div className={`set-grid set-row ${st.done ? "done" : isNext ? "next" : ""}`}>
             <span className="display num" style={{ textAlign: "center", fontSize: 19 }}>{si + 1}</span>
             <span className="small muted ellipsis num">{st.prevWeight != null ? `${kg(st.prevWeight)} × ${st.prevReps}` : "—"}</span>
             <input className="set-input" inputMode="decimal" aria-label={`Peso serie ${si + 1}`} value={st.weight}
@@ -253,6 +289,24 @@ function ExerciseCard({ ex, info, best, isCurrent, coachFirst, onToggle, onEdit,
               onChange={(e) => /^\d{0,3}$/.test(e.target.value) && onEdit(si, "reps", e.target.value)} />
             <button className={`set-check ${st.done ? "on" : isNext ? "next" : ""}`} onClick={() => onToggle(si)} aria-pressed={st.done}
               aria-label={st.done ? `Desmarcar serie ${si + 1}` : `Completar serie ${si + 1}`}><Icon name="check" size={20} stroke={3} /></button>
+          </div>
+          {st.drops?.map((d, di) => {
+            const sug = dropWeight(st.weight || st.prevWeight || 0, pct, di + 1);
+            const isN = isCurrent && dropNext?.si === si && dropNext?.di === di;
+            const lbl = `bajada ${di + 1} de la serie ${si + 1}`;
+            return (
+              <div key={di} className={`set-grid set-row drop-row ${d.done ? "done" : isN ? "next" : ""}`}>
+                <span className="drop-tag" aria-hidden="true">↓{di + 1}</span>
+                <span className="small muted ellipsis num">{sug ? `≈ ${kg(sug)} kg` : `−${pct}%`}</span>
+                <input className="set-input" inputMode="decimal" aria-label={`Peso ${lbl}`} value={d.weight} placeholder={sug ? String(sug) : "kg"}
+                  onFocus={(e) => e.target.select()} onChange={(e) => /^\d{0,4}([.,]\d{0,2})?$/.test(e.target.value) && onEditDrop(si, di, "weight", e.target.value)} />
+                <input className="set-input" inputMode="numeric" aria-label={`Repeticiones ${lbl}`} value={d.reps} placeholder="reps"
+                  onFocus={(e) => e.target.select()} onChange={(e) => /^\d{0,3}$/.test(e.target.value) && onEditDrop(si, di, "reps", e.target.value)} />
+                <button className={`set-check ${d.done ? "on" : isN ? "next" : ""}`} onClick={() => onToggleDrop(si, di)} aria-pressed={d.done}
+                  aria-label={d.done ? `Desmarcar ${lbl}` : `Completar ${lbl}`}><Icon name="check" size={18} stroke={3} /></button>
+              </div>
+            );
+          })}
           </div>
         );
       })}

@@ -159,6 +159,13 @@ const MIGRATIONS = [
       t.string("user_agent", 200).nullable();
     });
   }],
+  // Mensajes que etiquetan un ejercicio (comentario, nota, técnica, molestia)
+  ["002_mensajes_ejercicio", async (k) => {
+    await k.schema.alterTable("messages", (t) => {
+      t.integer("ex_id").unsigned().nullable();
+      t.string("tag", 20).nullable();
+    });
+  }],
 ];
 
 export async function migrate() {

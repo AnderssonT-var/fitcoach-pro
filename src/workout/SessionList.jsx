@@ -3,6 +3,7 @@ import Icon from "../ui/Icon";
 import { Avatar } from "../ui/kit";
 import { doneSetCount, exerciseById, sessionVolume, useDB, userById } from "../store/db";
 import { ago, clock, kg, tons, weekdayDate } from "../lib/format";
+import { setText } from "./dropset";
 
 export const DIFFICULTY = [
   { v: 1, l: "Muy fácil" }, { v: 2, l: "Fácil" }, { v: 3, l: "Justo" }, { v: 4, l: "Duro" }, { v: 5, l: "Al límite" },
@@ -58,11 +59,11 @@ export default function SessionList({ sessions, showClient, limit, onReply }) {
                 <span className="d-hide"><DiffBar v={w.difficulty} /></span>
                 {w.exercises.map((e, i) => (
                   <div key={i}>
-                    <div className="small strong">{exerciseById(db, e.exId).name}</div>
+                    <div className="small strong">{exerciseById(db, e.exId).name}{e.target?.drop && <span className="drop-badge sm" style={{ marginLeft: 6 }}>Drop set</span>}</div>
                     <div className="row wrap gap-xs" style={{ marginTop: 4 }}>
                       {e.sets.map((x, j) => (
                         <span key={j} className="tag num" style={x.done ? null : { textDecoration: "line-through", opacity: .6 }}>
-                          {kg(x.weight)} × {x.reps}
+                          {x.drops?.length ? setText(x) : `${kg(x.weight)} × ${x.reps}`}
                         </span>
                       ))}
                       {w.prs?.some((p) => p.exId === e.exId) && <span className="tag" style={{ background: "var(--yellow-soft)", color: "var(--yellow-ink)" }}><Icon name="trophy" size={13} />Récord</span>}

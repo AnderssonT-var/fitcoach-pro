@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import Icon from "../../ui/Icon";
 import { Avatar, Empty, toast } from "../../ui/kit";
 import { useApp } from "../../context";
-import { clientById, clientsOf, markThreadRead, sendMessage, thread, useDB, userById } from "../../store/db";
+import { clientById, clientsOf, exerciseById, markThreadRead, sendMessage, thread, useDB, userById } from "../../store/db";
+import { ExerciseDetail } from "../../ui/exercises";
+import { ExerciseChip, ExercisePicker, tagInfo } from "./ExerciseTag";
 import { ago, date, sameDay, time } from "../../lib/format";
 
 export default function Messages() {
@@ -20,7 +22,7 @@ export default function Messages() {
       <div className="page">
         <div className="page-head"><div><h1>Tu entrenador</h1><p>Escríbele a {coach.name.split(" ")[0]} tus dudas, molestias o cómo te sientes.</p></div></div>
         <section className="panel chat has-thread" style={{ gridTemplateColumns: "minmax(0,1fr)" }}>
-          <div className="chat-thread"><Thread coachId={c.coachId} clientId={me.id} other={coach} /></div>
+          <div className="chat-thread"><Thread coachId={c.coachId} clientId={me.id} other={coach} initialRef={params.exId ? { exId: params.exId, tag: params.tag } : null} /></div>
         </section>
       </div>
     );
@@ -52,7 +54,7 @@ export default function Messages() {
                 <Avatar name={c.user.name} id={c.userId} size="sm" />
                 <div className="grow">
                   <div className="row spread gap-sm"><span className={`ellipsis ${unread ? "strong" : ""}`}>{c.user.name}</span>{last && <span className="tiny muted" style={{ whiteSpace: "nowrap" }}>{ago(last.at)}</span>}</div>
-                  <div className={`small ellipsis ${unread ? "" : "muted"}`}>{last ? `${last.from === me.id ? "Tú: " : ""}${last.text}` : "Sin mensajes"}</div>
+                  <div className={`small ellipsis ${unread ? "" : "muted"}`}>{last ? `${last.from === me.id ? "Tú: " : ""}${last.exId ? `[${exerciseById(db, last.exId).name}] ` : ""}${last.text}` : "Sin mensajes"}</div>
                 </div>
                 {unread > 0 && <span className="nav-count" style={{ marginLeft: 0 }}>{unread}</span>}
               </button>
@@ -60,7 +62,7 @@ export default function Messages() {
           </div>
         </div>
         <div className="chat-thread">
-          {other ? <Thread coachId={me.id} clientId={sel} other={other} onBack={() => setSel(null)} />
+          {other ? <Thread key={sel} coachId={me.id} clientId={sel} other={other} onBack={() => setSel(null)} initialRef={params.exId && params.clientId === sel ? { exId: params.exId, tag: params.tag } : null} />
             : <Empty icon="chat" title="Elige una conversación" text="Selecciona un cliente para ver sus mensajes." />}
         </div>
       </section>
@@ -68,10 +70,15 @@ export default function Messages() {
   );
 }
 
-function Thread({ coachId, clientId, other, onBack }) {
+function Thread({ coachId, clientId, other, onBack, initialRef }) {
   const db = useDB();
   const { me } = useApp();
   const [text, setText] = useState("");
+  const [ref, setRef] = useState(initialRef || null);
+  const [picking, setPicking] = useState(false);
+  const [view, setView] = useState(null);
+  const input = useRef(null);
+  useEffect(() => { if (initialRef?.exId) { setRef(initialRef); input.current?.focus(); } }, [initialRef?.exId, initialRef?.tag]);
   const msgs = thread(db, coachId, clientId);
   const box = useRef(null);
   useEffect(() => { markThreadRead(coachId, clientId, me.id); }, [coachId, clientId, me.id, msgs.length]);
@@ -80,8 +87,8 @@ function Thread({ coachId, clientId, other, onBack }) {
   function send(e) {
     e.preventDefault();
     if (!text.trim()) return;
-    sendMessage(coachId, clientId, me.id, text).then((r) => { if (r?.error) toast(r.error, "alert"); });
-    setText("");
+    sendMessage(coachId, clientId, me.id, text, ref).then((r) => { if (r?.error) toast(r.error, "alert"); });
+    setText(""); setRef(null);
   }
   return (
     <>
@@ -95,15 +102,22 @@ function Thread({ coachId, clientId, other, onBack }) {
         {msgs.map((m, i) => (
           <div key={m.id} style={{ display: "contents" }}>
             {(i === 0 || !sameDay(msgs[i - 1].at, m.at)) && <div className="chat-day">{sameDay(m.at, new Date()) ? "Hoy" : date(m.at, { weekday: "long", day: "numeric", month: "short" })}</div>}
-            <div className={`bubble ${m.from === me.id ? "me" : ""}`}>{m.text}<time dateTime={m.at}>{time(m.at)}{m.from === me.id && m.read ? " · Visto" : ""}</time></div>
+            <div className={`bubble ${m.from === me.id ? "me" : ""} ${m.exId ? "tagged" : ""}`}>
+              {m.exId && <ExerciseChip exId={m.exId} tag={m.tag} mine={m.from === me.id} onOpen={() => setView(exerciseById(db, m.exId))} />}
+              {m.text}<time dateTime={m.at}>{time(m.at)}{m.from === me.id && m.read ? " · Visto" : ""}</time></div>
           </div>
         ))}
       </div>
+      {ref && <div className="chat-ref"><ExerciseChip exId={ref.exId} tag={ref.tag} onOpen={() => setPicking(true)} onRemove={() => setRef(null)} /></div>}
       <form className="chat-input" onSubmit={send}>
+        <button type="button" className="btn btn-ghost chat-tag-btn" onClick={() => setPicking(true)} aria-label="Etiquetar un ejercicio" title="Etiquetar un ejercicio"><Icon name="dumbbell" size={19} /></button>
         <label className="sr-only" htmlFor="chat-text">Mensaje</label>
-        <input id="chat-text" className="input grow" placeholder={`Escribe a ${other.name.split(" ")[0]}`} value={text} onChange={(e) => setText(e.target.value)} autoComplete="off" />
+        <input id="chat-text" ref={input} className="input grow" placeholder={ref ? `${tagInfo(ref.tag).l} sobre ${exerciseById(db, ref.exId).name}` : `Escribe a ${other.name.split(" ")[0]}`} value={text} onChange={(e) => setText(e.target.value)} autoComplete="off" />
         <button className="btn btn-primary" type="submit" disabled={!text.trim()} aria-label="Enviar"><Icon name="send" size={18} /></button>
       </form>
+      {picking && <ExercisePicker coachId={coachId} clientId={clientId} initial={ref} onClose={() => setPicking(false)}
+        onPick={(r) => { setRef(r); setPicking(false); setTimeout(() => input.current?.focus(), 50); }} />}
+      {view && <ExerciseDetail ex={view} coachName={userById(db, coachId)?.name.split(" ")[0]} onClose={() => setView(null)} />}
     </>
   );
 }

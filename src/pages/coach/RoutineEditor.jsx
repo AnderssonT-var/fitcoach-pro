@@ -6,6 +6,7 @@ import { exerciseById, exerciseImage, newUid, saveRoutine, saveTemplate, useDB, 
 import { ExerciseDetail, ExerciseFilters, ExerciseTile, useExerciseFilters } from "../../ui/exercises";
 import { clock } from "../../lib/format";
 import { GOALS } from "./Clients";
+import { DROP_DEFAULT, DROP_PCTS, dropLabel, isDrop } from "../../workout/dropset";
 import { RoutineBalance } from "../../workout/MuscleLoad";
 
 const RESTS = [30, 45, 60, 75, 90, 120, 150, 180, 240];
@@ -123,9 +124,29 @@ export default function RoutineEditor({ clientId }) {
                           <input className="input num" value={e.reps} onChange={(ev) => set("reps", ev.target.value.slice(0, 7))} placeholder="8-10" /></label>
                         <label className="field" style={{ width: 110 }}><span className="tiny muted strong">Descanso</span>
                           <select className="select num" value={e.rest} onChange={(ev) => set("rest", +ev.target.value)}>{RESTS.map((r) => <option key={r} value={r}>{clock(r)}</option>)}</select></label>
+                        <label className="field" style={{ width: 130 }}><span className="tiny muted strong">Técnica</span>
+                          <select className="select" value={e.technique || "normal"} aria-label={`Técnica de ${info.name}`}
+                            onChange={(ev) => upDay((d) => { const x = d.exercises[i]; x.technique = ev.target.value; if (x.technique === "dropset" && !x.drops) x.drops = { ...DROP_DEFAULT }; })}>
+                            <option value="normal">Normal</option><option value="dropset">Drop set</option>
+                          </select></label>
                         <label className="field grow" style={{ minWidth: 180 }}><span className="tiny muted strong">Nota para {first}</span>
                           <input className="input" value={e.notes} onChange={(ev) => set("notes", ev.target.value)} placeholder="Opcional" /></label>
                       </div>
+                      {isDrop(e) && (
+                        <div className="drop-config">
+                          <span className="drop-badge"><Icon name="trend" size={14} />Drop set</span>
+                          <label className="field"><span className="tiny muted strong">Bajadas</span>
+                            <select className="select num" value={e.drops.count} onChange={(ev) => upDay((d) => { d.exercises[i].drops.count = +ev.target.value; })}>
+                              {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}</select></label>
+                          <label className="field"><span className="tiny muted strong">Bajar el peso</span>
+                            <select className="select num" value={e.drops.pct} onChange={(ev) => upDay((d) => { d.exercises[i].drops.pct = +ev.target.value; })}>
+                              {DROP_PCTS.map((p) => <option key={p} value={p}>−{p}%</option>)}</select></label>
+                          <label className="field"><span className="tiny muted strong">Aplicar en</span>
+                            <select className="select" value={e.drops.on} onChange={(ev) => upDay((d) => { d.exercises[i].drops.on = ev.target.value; })}>
+                              <option value="last">La última serie</option><option value="all">Todas las series</option></select></label>
+                          <span className="tiny muted grow" style={{ minWidth: 160 }}>{dropLabel(e.drops)}. Sin descanso entre bajadas.</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </li>

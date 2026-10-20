@@ -6,10 +6,11 @@ import { bestSet, clientById, exerciseById, exerciseImage, lastPerformance, next
 import { ExerciseDetail } from "../../ui/exercises";
 import { clock, kg, parseRest } from "../../lib/format";
 import { estimateMin } from "./ClientHome";
+import { dropLabel, isDrop, setText } from "../../workout/dropset";
 
 export default function MyRoutine() {
   const db = useDB();
-  const { me, openWorkout } = useApp();
+  const { me, openWorkout, go } = useApp();
   const c = clientById(db, me.id);
   const coach = userById(db, c.coachId);
   const [dayId, setDayId] = useState(() => nextDay(db, me.id)?.id);
@@ -61,14 +62,17 @@ export default function MyRoutine() {
                   <div className="tiny muted num">descanso {clock(parseRest(e.rest))}</div>
                 </div>
               </div>
+              {isDrop(e) && <span className="drop-badge" style={{ alignSelf: "flex-start" }}><Icon name="trend" size={13} />{dropLabel(e.drops)}</span>}
               {info.cues && <p className="small ink2">{info.cues}</p>}
               {e.notes && <div className="note-box small"><Icon name="note" size={16} /><span><strong>{coach.name.split(" ")[0]}:</strong> {e.notes}</span></div>}
               {(last || best) && (
                 <div className="row wrap small muted gap-sm">
-                  {last && <span>Última vez: <span className="num ink2">{last.sets.map((s) => `${kg(s.weight)}×${s.reps}`).join(" · ")}</span></span>}
+                  {last && <span>Última vez: <span className="num ink2">{last.sets.map((s) => setText(s)).join(" · ")}</span></span>}
                   {best && best.weight > 0 && <span className="tag" style={{ background: "var(--yellow-soft)", color: "var(--yellow-ink)" }}><Icon name="trophy" size={13} />{kg(best.weight)} kg</span>}
                 </div>
               )}
+              <button className="link-btn small" style={{ alignSelf: "flex-start", fontSize: 13 }} onClick={() => go("mensajes", { exId: e.exId, tag: "comentario" })}>
+                <Icon name="chat" size={14} /> Comentar a {coach.name.split(" ")[0]} sobre este ejercicio</button>
             </li>
           );
         })}
