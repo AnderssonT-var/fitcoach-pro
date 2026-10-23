@@ -132,7 +132,7 @@ export default function App() {
     if (page === "perfil") view = <CoachProfile />;
     else if (page === "suscripcion") view = <Subscription />;
     else if (!coachCanWork(db, me.id)) view = <LicenseLock />;
-    else if (page === "clientes" && params.id) view = <ClientDetail clientId={params.id} tab={params.tab} />;
+    else if (page === "clientes" && params.id) view = <ClientDetail clientId={params.id} tab={params.tab} slot={params.slot} />;
     else view = {
       clientes: <Clients />, pagos: <Payments />, biblioteca: <Library />,
       comunidad: <Community />, mensajes: <Messages />,

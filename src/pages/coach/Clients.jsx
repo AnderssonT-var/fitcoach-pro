@@ -4,6 +4,8 @@ import { Avatar, CopyButton, Dots, Empty, Field, Modal, Pill, toast } from "../.
 import { useApp } from "../../context";
 import { addClient, clientsOf, paymentStatus, useDB, weekCount, workoutsOf } from "../../store/db";
 import { ago, daysSince, money } from "../../lib/format";
+import { TrialFields, TrialPill } from "./Trial";
+import { trialInfo, trialName } from "../../lib/trial";
 
 export const GOALS = ["Hipertrofia", "Fuerza", "Pérdida de grasa", "Tonificación", "Recomposición", "Rendimiento", "Salud general"];
 
@@ -23,10 +25,10 @@ export default function Clients() {
     return { ...c, last, pay, idle, week: weekCount(db, c.userId) };
   });
   const F = {
-    all: (r) => true, active: (r) => r.active, noroutine: (r) => r.active && !r.routine,
+    all: (r) => true, active: (r) => r.active, trial: (r) => r.active && !!trialInfo(r), noroutine: (r) => r.active && !r.routine,
     overdue: (r) => r.pay === "overdue", idle: (r) => r.active && r.idle, paused: (r) => !r.active,
   };
-  const LABELS = [["all", "Todos"], ["active", "Activos"], ["noroutine", "Sin rutina"], ["overdue", "Pago vencido"], ["idle", "Inactivos"], ["paused", "En pausa"]];
+  const LABELS = [["all", "Todos"], ["active", "Activos"], ["trial", "En prueba"], ["noroutine", "Sin rutina"], ["overdue", "Pago vencido"], ["idle", "Inactivos"], ["paused", "En pausa"]];
   const shown = rows.filter(F[filter]).filter((r) => !q || `${r.user.name} ${r.user.email} ${r.goal}`.toLowerCase().includes(q.toLowerCase()))
     .sort((a, b) => a.user.name.localeCompare(b.user.name));
 
@@ -65,7 +67,8 @@ export default function Clients() {
                 <span className="m-hide row gap-sm" style={{ width: 150 }}>
                   {r.routine ? <><Dots done={r.week} goal={r.routine.frequency} /><span className="small muted num">{r.week}/{r.routine.frequency}</span></> : <Pill tone="warn">Sin rutina</Pill>}
                 </span>
-                <span style={{ width: 104, textAlign: "right" }}>
+                <span className="stack" style={{ width: 118, alignItems: "flex-end", gap: 4 }}>
+                  {r.active && <TrialPill c={r} short />}
                   {!r.active ? <Pill>En pausa</Pill> : r.pay === "overdue" ? <Pill tone="bad">Vencido</Pill> : r.pay === "pending" ? <Pill tone="warn">Pendiente</Pill> : <Pill tone="ok">Al día</Pill>}
                 </span>
                 <Icon name="right" size={18} />
@@ -83,6 +86,7 @@ export default function Clients() {
 function NewClientModal({ onClose }) {
   const { me, go } = useApp();
   const [f, setF] = useState({ name: "", email: "", phone: "", goal: "Hipertrofia", weight: "", height: "", fee: "50" });
+  const [trial, setTrial] = useState(null); // { days, fee } si empieza con plan de prueba
   const [error, setError] = useState("");
   const [created, setCreated] = useState(null);
   const set = (k) => (e) => { setF({ ...f, [k]: e.target.value }); setError(""); };
@@ -92,7 +96,7 @@ function NewClientModal({ onClose }) {
     if (!f.name.trim()) return setError("Escribe el nombre del cliente.");
     if (!/^\S+@\S+\.\S+$/.test(f.email)) return setError("Escribe un correo válido: lo usará para entrar.");
     setBusy(true);
-    const r = await addClient(me.id, f);
+    const r = await addClient(me.id, { ...f, trial });
     setBusy(false);
     if (r.error) return setError(r.error);
     setCreated(r);
@@ -103,14 +107,15 @@ function NewClientModal({ onClose }) {
     return (
       <Modal title="Cliente agregado" onClose={onClose} footer={<>
         <button className="btn btn-quiet" onClick={onClose}>Cerrar</button>
-        <button className="btn btn-primary" onClick={() => { onClose(); go("clientes", { id: created.user.id, tab: "rutina" }); }}>Crear su rutina</button>
+        <button className="btn btn-primary" onClick={() => { onClose(); go("clientes", { id: created.user.id, tab: "rutina" }); }}>{trial ? "Crear su rutina de prueba" : "Crear su rutina"}</button>
       </>}>
         <p className="ink2">Comparte estos datos con {created.user.name.split(" ")[0]} por un medio privado (la contraseña solo se muestra ahora). Al entrar deberá aceptar el aviso de privacidad y crear su propia contraseña.</p>
         <div className="panel list">
           <div className="list-row"><span className="grow"><span className="tiny muted">Correo</span><br /><strong>{created.user.email}</strong></span><CopyButton text={created.user.email} small /></div>
           <div className="list-row"><span className="grow"><span className="tiny muted">Contraseña temporal</span><br /><strong className="num">{created.password}</strong></span><CopyButton text={created.password} small /></div>
         </div>
-        {+f.fee > 0 && <div className="note-box"><Icon name="wallet" size={18} />Se registró la primera mensualidad de {money(+f.fee)} como pendiente.</div>}
+        {trial ? <div className="note-box"><Icon name="clock" size={18} /><span>Empieza con {trialName(+trial.days).toLowerCase()}{+trial.fee > 0 ? ` (cobro de ${money(+trial.fee)} registrado)` : " gratis"}. Crea su rutina de prueba y deja listo el plan completo: se activa solo al terminar{+f.fee > 0 ? `, con mensualidad de ${money(+f.fee)}` : ""}.</span></div>
+          : +f.fee > 0 && <div className="note-box"><Icon name="wallet" size={18} />Se registró la primera mensualidad de {money(+f.fee)} como pendiente.</div>}
       </Modal>
     );
   }
@@ -125,9 +130,14 @@ function NewClientModal({ onClose }) {
         <Field label="Correo" id="nc-email"><input id="nc-email" className="input" type="email" value={f.email} onChange={set("email")} autoComplete="off" /></Field>
         <Field label="Teléfono" id="nc-phone"><input id="nc-phone" className="input" type="tel" value={f.phone} onChange={set("phone")} /></Field>
         <Field label="Objetivo" id="nc-goal"><select id="nc-goal" className="select" value={f.goal} onChange={set("goal")}>{GOALS.map((g) => <option key={g}>{g}</option>)}</select></Field>
-        <Field label="Mensualidad" id="nc-fee"><input id="nc-fee" className="input num" type="number" inputMode="decimal" value={f.fee} onChange={set("fee")} /></Field>
+        <Field label={trial ? "Mensualidad del plan completo" : "Mensualidad"} id="nc-fee"><input id="nc-fee" className="input num" type="number" inputMode="decimal" value={f.fee} onChange={set("fee")} /></Field>
         <Field label="Peso actual (kg)" id="nc-w"><input id="nc-w" className="input num" type="number" inputMode="decimal" value={f.weight} onChange={set("weight")} /></Field>
         <Field label="Estatura (cm)" id="nc-h"><input id="nc-h" className="input num" type="number" inputMode="numeric" value={f.height} onChange={set("height")} /></Field>
+      </div>
+      <div className={`trial-box ${trial ? "on" : ""}`}>
+        <label className="toggle"><input type="checkbox" checked={!!trial} onChange={(e) => setTrial(e.target.checked ? { days: 30, fee: "0" } : null)} />
+          <span><strong>Empezar con plan de prueba</strong><br /><span className="small muted">Rutina y precio de prueba; al terminar pasa al plan completo.</span></span></label>
+        {trial && <div className="form-grid" style={{ marginTop: 12 }}><TrialFields value={trial} onChange={setTrial} idp="nc-tr" /></div>}
       </div>
       {error && <div className="error-box" role="alert"><Icon name="alert" size={18} />{error}</div>}
     </Modal>

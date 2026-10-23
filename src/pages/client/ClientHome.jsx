@@ -6,6 +6,7 @@ import {
   clientById, doneSetCount, exerciseById, nextDay, sessionVolume, thread, useDB, userById, weekCount, weekStreak, workoutsOf,
 } from "../../store/db";
 import { ago, capitalize, clock, parseRest, sameDay, tons } from "../../lib/format";
+import { trialInfo, trialName } from "../../lib/trial";
 
 export function estimateMin(day) {
   const sec = day.exercises.reduce((t, e) => t + e.sets * (40 + parseRest(e.rest)), 0);
@@ -38,6 +39,15 @@ export default function ClientHome() {
         <div><h1>Hola, {me.name.split(" ")[0]}</h1><p>{today}</p></div>
       </div>
 
+      {trialInfo(c)?.running && (() => { const t = trialInfo(c); return (
+        <section className="panel panel-pad stack trial-client" style={{ gap: 10 }}>
+          <div className="row spread wrap gap-sm">
+            <span className="pill info"><Icon name="clock" size={12} />Plan de prueba</span>
+            <span className="small strong num">{t.daysLeft <= 1 ? "Termina hoy" : `Te quedan ${t.daysLeft} días`}</span>
+          </div>
+          <div className="progress"><i style={{ width: `${t.pct}%` }} /></div>
+          <div className="small ink2">Estás en tu {trialName(t.days).toLowerCase()} con {coach.name.split(" ")[0]}. Al terminar pasas a tu plan completo, armado para tus objetivos.</div>
+        </section>); })()}
       {active && (
         <section className="panel panel-pad row wrap spread" style={{ borderColor: "var(--blue)", background: "var(--blue-soft)" }}>
           <div>

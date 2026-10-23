@@ -3,7 +3,7 @@ import Icon from "../../ui/Icon";
 import { Avatar, Confirm, CopyButton, Field, Modal, Pill, Stat, toast, run } from "../../ui/kit";
 import SessionList from "../../workout/SessionList";
 import { AdherenceChart, Records, VolumeChart, WeightChart, quickStats } from "../../workout/ProgressWidgets";
-import RoutineEditor from "./RoutineEditor";
+import { OfferTrial, TrialPanel, TrialPill, TrialRoutines } from "./Trial";
 import { Measurements, Notes, Photos } from "./Tracking";
 import { PayRow, PaymentModal } from "./Payments";
 import { GOALS } from "./Clients";
@@ -16,11 +16,13 @@ import { ago, kg, money, shortDate } from "../../lib/format";
 
 const TABS = [["resumen", "Resumen"], ["rutina", "Rutina"], ["historial", "Entrenamientos"], ["medidas", "Medidas"], ["fotos", "Fotos"], ["notas", "Notas"], ["pagos", "Pagos"], ["datos", "Datos"]];
 
-export default function ClientDetail({ clientId, tab: initialTab }) {
+export default function ClientDetail({ clientId, tab: initialTab, slot: initialSlot }) {
   const db = useDB();
   const { go } = useApp();
   const [tab, setTab] = useState(initialTab || "resumen");
-  useEffect(() => { setTab(initialTab || "resumen"); }, [clientId, initialTab]);
+  const [slot, setSlot] = useState(initialSlot || "current");
+  useEffect(() => { setTab(initialTab || "resumen"); setSlot(initialSlot || "current"); }, [clientId, initialTab, initialSlot]);
+  const openTab = (t, s) => { setTab(t); if (s) setSlot(s); };
   const c = clientById(db, clientId);
   const u = userById(db, clientId);
   if (!c || !u) return <div className="page"><p>Cliente no encontrado.</p></div>;
@@ -40,6 +42,7 @@ export default function ClientDetail({ clientId, tab: initialTab }) {
             <div className="row wrap gap-sm small muted" style={{ marginTop: 4 }}>
               <span>{c.goal}</span><span>·</span><span>cliente desde {shortDate(c.joinedAt)}</span>
               {!c.active && <Pill>En pausa</Pill>}
+              <TrialPill c={c} />
               {overdue.length > 0 && <Pill tone="bad">Pago vencido</Pill>}
             </div>
           </div>
@@ -51,8 +54,8 @@ export default function ClientDetail({ clientId, tab: initialTab }) {
         {TABS.map(([k, l]) => <button key={k} role="tab" className="tab" aria-selected={tab === k} onClick={() => setTab(k)}>{l}{k === "pagos" && overdue.length > 0 && <span className="nav-count" style={{ marginLeft: 2 }}>{overdue.length}</span>}</button>)}
       </div>
 
-      {tab === "resumen" && <Summary clientId={clientId} onTab={setTab} />}
-      {tab === "rutina" && <RoutineEditor key={clientId} clientId={clientId} />}
+      {tab === "resumen" && <Summary clientId={clientId} onTab={openTab} />}
+      {tab === "rutina" && <TrialRoutines clientId={clientId} slot={slot} onSlot={setSlot} />}
       {tab === "historial" && <section className="panel"><SessionList sessions={ws} /></section>}
       {tab === "medidas" && <Measurements clientId={clientId} canEdit />}
       {tab === "fotos" && <Photos clientId={clientId} canUpload canDelete />}
@@ -73,6 +76,7 @@ function Summary({ clientId, onTab }) {
   const w = c.weights.at(-1);
   return (
     <>
+      <TrialPanel clientId={clientId} onTab={onTab} />
       <div className="stats">
         <Stat label="Esta semana" value={s.goal ? `${s.week}/${s.goal}` : s.week} sub="entrenamientos" tone={s.goal && s.week >= s.goal ? "ok" : ""} icon="calendar" />
         <Stat label="Semanas cumpliendo" value={streak} sub="seguidas" icon="flame" />
@@ -176,6 +180,7 @@ function ClientData({ clientId }) {
             {!c.weights.length && <div className="list-row muted small">Sin registros.</div>}
           </div>
         </section>
+        {c.active && <OfferTrial clientId={clientId} />}
         <section className="panel panel-pad stack">
           <div><div className="strong">{c.active ? "Pausar cliente" : "Reactivar cliente"}</div>
             <p className="small muted">{c.active ? "No podrá entrar a la app ni se le generarán mensualidades. Su historial se conserva." : "Vuelve a tener acceso con su misma rutina e historial."}</p></div>

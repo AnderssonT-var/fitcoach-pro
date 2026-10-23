@@ -6,6 +6,7 @@ import {
   clientsOf, coachLicense, licenseStatus, paymentStatus, thread, useDB, weekCount, workoutsForCoach, workoutsOf,
 } from "../../store/db";
 import { capitalize, daysSince, daysUntil, money, shortDate } from "../../lib/format";
+import { trialInfo } from "../../lib/trial";
 
 export default function CoachHome() {
   const db = useDB();
@@ -29,6 +30,12 @@ export default function CoachHome() {
   overdue.forEach((p) => {
     const c = clients.find((x) => x.userId === p.clientId);
     todo.push({ key: p.id, tone: "bad", icon: "wallet", who: c?.user, text: `${p.concept} vencida (${money(p.amount)})`, action: "Cobrar", run: () => go("pagos", { filter: "overdue" }) });
+  });
+  active.forEach((c) => {
+    const t = trialInfo(c);
+    if (!t) return;
+    if (!t.running) todo.push({ key: `t${c.userId}`, tone: "bad", icon: "clock", who: c.user, text: "Terminó su prueba y falta el plan completo", action: "Decidir", run: () => go("clientes", { id: c.userId }) });
+    else if (!c.planRoutine && t.daysLeft <= 5) todo.push({ key: `t${c.userId}`, tone: "warn", icon: "clock", who: c.user, text: `Su prueba termina en ${t.daysLeft} ${t.daysLeft === 1 ? "día" : "días"}: prepara el plan completo`, action: "Preparar", run: () => go("clientes", { id: c.userId, tab: "rutina", slot: "plan" }) });
   });
   active.filter((c) => !c.routine).forEach((c) => todo.push({ key: `r${c.userId}`, tone: "warn", icon: "dumbbell", who: c.user, text: "No tiene rutina asignada", action: "Crear rutina", run: () => go("clientes", { id: c.userId, tab: "rutina" }) }));
   active.filter((c) => c.routine).forEach((c) => {

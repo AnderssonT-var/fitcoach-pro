@@ -8,6 +8,7 @@ import { bad, h, notFound, nowISO, parse, uid, addMonths, monthName, round2 } fr
 import { checkInlineImage, deleteFile, saveFile } from "../files.js";
 import { PLAN_MONTHS, getPricing, planPrice } from "../state.js";
 import { codeLimiter } from "./auth.js";
+import { convertTrial } from "../trial.js";
 import { RESERVED_SLUGS, log, normalizeCode, ownClient, slugify } from "./common.js";
 import { routineSchema, measurementSchema, photosSchema, exerciseSchema, deleteClientData } from "./schemas.js";
 
@@ -80,6 +81,12 @@ router.put("/brand", h(async (req, res) => {
 router.use(requireLicense, requireConsent);
 
 /* ---------- asesorados ---------- */
+const trialSchema = z.object({ days: z.number().int().min(1).max(60), fee: z.number().min(0).max(100000).optional().default(0) });
+const trialConcept = (days) => (days === 30 ? "Mes de prueba" : `Plan de prueba (${days} días)`);
+function newTrial({ days, fee }) {
+  const start = new Date();
+  return { start: start.toISOString(), end: new Date(start.getTime() + days * 864e5).toISOString(), days, fee: fee || 0, status: "active", convertedAt: null };
+}
 const clientFields = {
   goal: z.string().trim().max(60), phone: z.string().trim().max(30), heightCm: z.number().min(50).max(260).nullable(),
   fee: z.number().min(0).max(100000), billingDay: z.number().int().min(1).max(28), active: z.boolean(),
@@ -89,6 +96,7 @@ router.post("/clients", h(async (req, res) => {
     name: z.string().trim().min(2, "Escribe el nombre.").max(120), email: z.string().trim().toLowerCase().email("Escribe un correo válido.").max(190),
     goal: clientFields.goal, phone: clientFields.phone.optional().default(""), height: z.number().min(0).max(260).optional().nullable(),
     weight: z.number().min(0).max(400).optional().nullable(), fee: z.number().min(0).max(100000).optional().default(0),
+    trial: trialSchema.optional().nullable(),
   }), req.body);
   if (await knex("users").where({ email: body.email }).first()) throw bad("Ya existe una cuenta con ese correo.");
   const password = tempPassword();
@@ -99,10 +107,14 @@ router.post("/clients", h(async (req, res) => {
     const now = nowISO();
     await trx("clients").insert({ user_id: userId, coach_id: req.user.id, active: true, data: S({
       goal: body.goal, phone: body.phone, heightCm: body.height || null, fee: body.fee, billingDay: Math.min(new Date().getDate(), 28),
-      routine: null, joinedAt: now, weights: body.weight ? [{ date: now, kg: body.weight }] : [],
+      routine: null, planRoutine: null, joinedAt: now, weights: body.weight ? [{ date: now, kg: body.weight }] : [],
+      ...(body.trial ? { trial: newTrial(body.trial) } : {}),
       measurements: body.weight ? [{ id: uid("ms-"), date: now, weight: body.weight, note: "Medición inicial" }] : [], notes: [],
     }) });
-    if (body.fee > 0) {
+    // Con prueba se cobra la prueba; la mensualidad empieza al pasar al plan completo
+    if (body.trial) {
+      if (body.trial.fee > 0) await trx("payments").insert({ id: uid("pay-"), coach_id: req.user.id, client_id: userId, concept: trialConcept(body.trial.days), amount: body.trial.fee, due_date: now, paid_at: null, method: "" });
+    } else if (body.fee > 0) {
       await trx("payments").insert({ id: uid("pay-"), coach_id: req.user.id, client_id: userId, concept: `Mensualidad ${monthName()}`, amount: body.fee, due_date: now, paid_at: null, method: "" });
     }
     await trx("messages").insert({ id: uid("m-"), coach_id: req.user.id, client_id: userId, from_id: req.user.id, read: false, at: now,
@@ -166,8 +178,58 @@ router.post("/clients/:id/weight", h(async (req, res) => {
 }));
 
 router.put("/clients/:id/routine", h(async (req, res) => {
-  const { routine } = parse(z.object({ routine: routineSchema.nullable() }), req.body);
-  await editClient(req.user.id, req.params.id, (d) => { d.routine = routine; });
+  const { routine, slot } = parse(z.object({ routine: routineSchema.nullable(), slot: z.enum(["current", "plan"]).optional().default("current") }), req.body);
+  await editClient(req.user.id, req.params.id, (d) => {
+    if (slot === "plan") {
+      if (!d.trial || !["active", "ended"].includes(d.trial.status)) throw bad("Este cliente no está en plan de prueba.");
+      d.planRoutine = routine;
+    } else d.routine = routine;
+  });
+  res.json({ ok: true });
+}));
+
+/* ---------- plan de prueba ---------- */
+router.post("/clients/:id/trial", h(async (req, res) => {
+  const body = parse(trialSchema, req.body);
+  const c = await ownClient(req.user.id, req.params.id);
+  const d = J(c.data, {});
+  if (d.trial && ["active", "ended"].includes(d.trial.status)) throw bad("Este cliente ya está en plan de prueba.");
+  await knex.transaction(async (trx) => {
+    d.trial = newTrial(body);
+    d.planRoutine = null;
+    await trx("clients").where({ user_id: c.user_id }).update({ data: S(d) });
+    if (body.fee > 0) await trx("payments").insert({ id: uid("pay-"), coach_id: req.user.id, client_id: c.user_id, concept: trialConcept(body.days), amount: body.fee, due_date: nowISO(), paid_at: null, method: "" });
+  });
+  res.status(201).json({ ok: true });
+}));
+router.post("/clients/:id/trial/extend", h(async (req, res) => {
+  const { days } = parse(z.object({ days: z.number().int().min(1).max(60) }), req.body);
+  await editClient(req.user.id, req.params.id, (d) => {
+    if (!d.trial || !["active", "ended"].includes(d.trial.status)) throw bad("Este cliente no está en plan de prueba.");
+    const from = Math.max(Date.now(), Date.parse(d.trial.end));
+    d.trial = { ...d.trial, status: "active", end: new Date(from + days * 864e5).toISOString(), days: d.trial.days + days };
+  });
+  res.json({ ok: true });
+}));
+router.post("/clients/:id/trial/convert", h(async (req, res) => {
+  const c = await ownClient(req.user.id, req.params.id);
+  const d = J(c.data, {});
+  if (!d.trial || !["active", "ended"].includes(d.trial.status)) throw bad("Este cliente no está en plan de prueba.");
+  if (!d.planRoutine && !d.routine) throw bad("Prepara primero la rutina del plan completo.");
+  await knex.transaction((trx) => convertTrial(trx, c));
+  res.json({ ok: true });
+}));
+router.post("/clients/:id/trial/cancel", h(async (req, res) => {
+  const { pause } = parse(z.object({ pause: z.boolean().optional().default(true) }), req.body);
+  const c = await ownClient(req.user.id, req.params.id);
+  const d = J(c.data, {});
+  if (!d.trial || !["active", "ended"].includes(d.trial.status)) throw bad("Este cliente no está en plan de prueba.");
+  await knex.transaction(async (trx) => {
+    d.trial = { ...d.trial, status: "cancelled", end: Date.parse(d.trial.end) > Date.now() ? nowISO() : d.trial.end };
+    d.planRoutine = null;
+    await trx("clients").where({ user_id: c.user_id }).update({ data: S(d), ...(pause ? { active: false } : {}) });
+    if (pause) await revokeAll(c.user_id, trx);
+  });
   res.json({ ok: true });
 }));
 
@@ -314,6 +376,7 @@ router.post("/payments/generate-monthly", h(async (req, res) => {
     for (const c of clients) {
       const d = J(c.data, {});
       if (!(d.fee > 0)) continue;
+      if (d.trial && ["active", "ended"].includes(d.trial.status)) continue; // en prueba aún no paga mensualidad
       if (await trx("payments").where({ client_id: c.user_id, concept }).first()) continue;
       const due = new Date(now.getFullYear(), now.getMonth(), Math.min(d.billingDay || 1, 28), 9);
       await trx("payments").insert({ id: uid("pay-"), coach_id: req.user.id, client_id: c.user_id, concept, amount: d.fee, due_date: due.toISOString(), paid_at: null, method: "" });

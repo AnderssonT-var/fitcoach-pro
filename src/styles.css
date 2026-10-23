@@ -645,3 +645,21 @@ input[type=number] { -moz-appearance: textfield; }
 .bubble.me .ex-chip { background: rgba(255,255,255,.96); }
 .chip[aria-checked="true"] { background: var(--ink); color: var(--bg); box-shadow: none; }
 .chat-note { background: var(--surface-3); }
+
+/* ---------- Plan de prueba ---------- */
+.trial-box { border-radius: 12px; padding: 12px 14px; background: var(--surface-2); border: 1px solid var(--line); }
+.trial-box.on { background: var(--blue-soft); border-color: transparent; }
+.trial-panel { border: 1px solid var(--blue-soft); }
+.trial-panel .panel-head { background: var(--blue-soft); }
+.trial-panel.ended { border-color: var(--yellow); }
+.trial-panel.ended .panel-head { background: var(--yellow-soft); }
+.progress.warn > i { background: var(--yellow); }
+.trial-steps { display: grid; gap: 10px; }
+.trial-step { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); }
+.trial-dot { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-3); color: var(--ink-2); flex-shrink: 0; }
+.trial-dot.ok { background: var(--green); color: #fff; }
+.trial-seg { display: grid; grid-template-columns: 1fr 1fr; width: 100%; max-width: 560px; border-radius: 12px; padding: 3px; }
+.trial-seg button { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 8px 14px; border-radius: 10px; text-align: left; }
+.trial-seg button .strong { display: inline-flex; align-items: center; gap: 4px; }
+.trial-seg button[aria-selected="true"] { background: var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.trial-client { border: 1px solid var(--blue-soft); }

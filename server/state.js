@@ -4,6 +4,7 @@ import { knex, J, bool } from "./db.js";
 import { signedUrl } from "./files.js";
 import { config } from "./config.js";
 import { round2 } from "./util.js";
+import { settleTrials } from "./trial.js";
 
 /* ---------- precios ---------- */
 export const PLAN_MONTHS = [1, 3, 6, 12];
@@ -71,10 +72,10 @@ export const subscriptionOut = (s) => ({
   receipt: signedUrl(s.receipt_file), createdAt: s.created_at, reviewedAt: s.reviewed_at, adminNote: s.admin_note || "", licenseId: s.license_id,
 });
 
-const CLIENT_DEFAULTS = { goal: "", phone: "", heightCm: null, fee: 0, billingDay: 1, routine: null, weights: [], measurements: [], notes: [], joinedAt: null };
+const CLIENT_DEFAULTS = { trial: null, planRoutine: null, goal: "", phone: "", heightCm: null, fee: 0, billingDay: 1, routine: null, weights: [], measurements: [], notes: [], joinedAt: null };
 export function clientOut(c, photos = [], user = null, { withNotes = true } = {}) {
   const data = { ...CLIENT_DEFAULTS, ...J(c.data, {}) };
-  if (!withNotes) delete data.notes;
+  if (!withNotes) { delete data.notes; delete data.planRoutine; } // el plan completo es sorpresa hasta que se activa
   return {
     ...data, userId: c.user_id, coachId: c.coach_id, active: bool(c.active),
     photoConsent: user ? bool(user.photo_consent) : false,
@@ -105,7 +106,8 @@ export async function buildState(me) {
   }
 
   if (me.role === "coach") {
-    const clientRows = await knex("clients").where({ coach_id: me.id });
+    let clientRows = await knex("clients").where({ coach_id: me.id });
+    if (await settleTrials(clientRows)) clientRows = await knex("clients").where({ coach_id: me.id });
     const ids = clientRows.map((c) => c.user_id);
     const clientUsers = ids.length ? await knex("users").whereIn("id", ids) : [];
     const photos = ids.length ? await knex("photos").whereIn("client_id", ids).orderBy("date", "desc") : [];
@@ -124,8 +126,9 @@ export async function buildState(me) {
   }
 
   // Asesorado
-  const c = await knex("clients").where({ user_id: me.id }).first();
+  let c = await knex("clients").where({ user_id: me.id }).first();
   if (!c) return s;
+  if (await settleTrials([c])) c = await knex("clients").where({ user_id: me.id }).first();
   const coach = await knex("users").where({ id: c.coach_id }).first();
   const photos = await knex("photos").where({ client_id: me.id }).orderBy("date", "desc");
   s.clients = [clientOut(c, photos, me, { withNotes: false })]; // las notas del entrenador son privadas

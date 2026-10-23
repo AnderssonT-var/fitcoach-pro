@@ -290,6 +290,7 @@ export async function addClient(_coachId, data) {
   const r = await act("POST", "/api/coach/clients", {
     name: data.name, email: data.email, goal: data.goal || "", phone: data.phone || "",
     height: data.height ? +data.height : null, weight: data.weight ? +data.weight : null, fee: +data.fee || 0,
+    ...(data.trial ? { trial: { days: +data.trial.days, fee: +data.trial.fee || 0 } } : {}),
   });
   return r;
 }
@@ -310,7 +311,12 @@ const cleanRoutine = (r) => r && ({
   days: r.days.map((d) => ({ id: d.id, name: d.name, exercises: d.exercises.map((e) => ({ uid: e.uid, exId: e.exId, sets: +e.sets || 1, reps: String(e.reps ?? ""), rest: +e.rest || 0, notes: e.notes || "",
     technique: e.technique === "dropset" ? "dropset" : "normal", ...(e.technique === "dropset" && e.drops ? { drops: { count: +e.drops.count, pct: +e.drops.pct, on: e.drops.on === "all" ? "all" : "last" } } : {}) })) })),
 });
-export const saveRoutine = (clientId, routine) => act("PUT", `/api/coach/clients/${clientId}/routine`, { routine: cleanRoutine(routine) });
+export const saveRoutine = (clientId, routine, slot = "current") => act("PUT", `/api/coach/clients/${clientId}/routine`, { routine: routine ? cleanRoutine(routine) : null, slot });
+/* Plan de prueba */
+export const startTrial = (clientId, days, fee) => act("POST", `/api/coach/clients/${clientId}/trial`, { days: +days, fee: +fee || 0 });
+export const extendTrial = (clientId, days) => act("POST", `/api/coach/clients/${clientId}/trial/extend`, { days: +days });
+export const convertTrial = (clientId) => act("POST", `/api/coach/clients/${clientId}/trial/convert`, {});
+export const cancelTrial = (clientId, pause = true) => act("POST", `/api/coach/clients/${clientId}/trial/cancel`, { pause });
 export const saveTemplate = (_coachId, routine, name) => act("POST", "/api/coach/templates", { routine: cleanRoutine(routine), name });
 export const deleteTemplate = (id) => act("DELETE", `/api/coach/templates/${id}`);
 export const newUid = () => uid("re-");

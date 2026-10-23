@@ -7,6 +7,7 @@ import { ExerciseDetail } from "../../ui/exercises";
 import { clock, kg, parseRest } from "../../lib/format";
 import { estimateMin } from "./ClientHome";
 import { dropLabel, isDrop, setText } from "../../workout/dropset";
+import { trialInfo } from "../../lib/trial";
 
 export default function MyRoutine() {
   const db = useDB();
@@ -27,6 +28,7 @@ export default function MyRoutine() {
       <div className="page-head">
         <div>
           <h1>{c.routine.name}</h1>
+          {trialInfo(c)?.running && <span className="pill info" style={{ marginTop: 6 }}><Icon name="clock" size={12} />Rutina de prueba · quedan {trialInfo(c).daysLeft} días</span>}
           <p>{c.routine.goal} · {c.routine.frequency} entrenamientos por semana · preparada por {coach.name}</p>
         </div>
         <button className="btn btn-primary" onClick={() => openWorkout(active ? undefined : day.id)}><Icon name="play" size={18} />{active ? "Continuar entrenamiento" : `Empezar ${day.name}`}</button>

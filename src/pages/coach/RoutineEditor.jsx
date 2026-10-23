@@ -13,13 +13,15 @@ const RESTS = [30, 45, 60, 75, 90, 120, 150, 180, 240];
 const blank = () => ({ name: "", goal: "Hipertrofia", frequency: 3, notes: "", days: [{ id: newUid(), name: "Día 1", exercises: [] }] });
 const cloneWithIds = (r) => ({ ...structuredClone(r), days: r.days.map((d) => ({ ...structuredClone(d), id: newUid(), exercises: d.exercises.map((e) => ({ ...e, uid: newUid() })) })) });
 
-export default function RoutineEditor({ clientId }) {
+export default function RoutineEditor({ clientId, slot = "current" }) {
   const db = useDB();
   const { me } = useApp();
   const client = db.clients.find((c) => c.userId === clientId);
   const user = userById(db, clientId);
   const first = user.name.split(" ")[0];
-  const [draft, setDraft] = useState(() => (client.routine ? structuredClone(client.routine) : null));
+  const isPlan = slot === "plan";
+  const saved = (isPlan ? client.planRoutine : client.routine) ?? null;
+  const [draft, setDraft] = useState(() => (saved ? structuredClone(saved) : null));
   const [dayIdx, setDayIdx] = useState(0);
   const [picker, setPicker] = useState(false);
   const [templates, setTemplates] = useState(false);
@@ -28,15 +30,17 @@ export default function RoutineEditor({ clientId }) {
   const [askDelDay, setAskDelDay] = useState(false);
   const [view, setView] = useState(null);
 
-  const dirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(client.routine ?? null), [draft, client.routine]);
+  const dirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(saved), [draft, saved]);
 
   if (!draft) {
     return (
       <section className="panel">
-        <Empty icon="dumbbell" title={`${first} todavía no tiene rutina`} text="Empieza desde cero o parte de una de tus plantillas y ajústala a su nivel."
+        <Empty icon="dumbbell" title={isPlan ? `Prepara el plan completo de ${first}` : `${first} todavía no tiene rutina`}
+          text={isPlan ? "Es la rutina específica para sus objetivos. Se activa sola cuando termine la prueba (o cuando tú decidas). Mientras tanto no la ve." : "Empieza desde cero o parte de una de tus plantillas y ajústala a su nivel."}
           action={<div className="row wrap" style={{ justifyContent: "center" }}>
+            {isPlan && client.routine && <button className="btn btn-quiet" onClick={() => setDraft({ ...cloneWithIds(client.routine), name: `Plan completo de ${first}` })}><Icon name="copy" size={18} />Partir de la rutina de prueba</button>}
             <button className="btn btn-quiet" onClick={() => setTemplates(true)}><Icon name="layers" size={18} />Usar plantilla</button>
-            <button className="btn btn-primary" onClick={() => setDraft({ ...blank(), goal: client.goal, name: `Plan de ${first}` })}><Icon name="plus" size={18} />Empezar desde cero</button>
+            <button className="btn btn-primary" onClick={() => setDraft({ ...blank(), goal: client.goal, name: isPlan ? `Plan completo de ${first}` : client.trial?.status === "active" ? `Prueba de ${first}` : `Plan de ${first}` })}><Icon name="plus" size={18} />Empezar desde cero</button>
           </div>} />
         {templates && <TemplatePicker onClose={() => setTemplates(false)} onPick={(t) => { setDraft(cloneWithIds(t)); setDayIdx(0); setTemplates(false); }} />}
       </section>
@@ -51,7 +55,7 @@ export default function RoutineEditor({ clientId }) {
   function save() {
     if (!draft.name.trim()) return toast("Ponle un nombre a la rutina", "alert");
     if (!total) return toast("Agrega al menos un ejercicio", "alert");
-    run(saveRoutine(clientId, draft), `Rutina guardada. ${first} ya la ve en su app`);
+    run(saveRoutine(clientId, draft, slot), isPlan ? `Plan completo guardado. Se activará al terminar la prueba` : `Rutina guardada. ${first} ya la ve en su app`);
   }
 
   return (
@@ -160,10 +164,10 @@ export default function RoutineEditor({ clientId }) {
       <RoutineBalance routine={draft} body={user.body} />
 
       <div className="panel panel-pad row wrap spread" style={{ position: "sticky", bottom: 12, zIndex: 5, boxShadow: "var(--shadow)", paddingBlock: 12 }}>
-        <span className="small muted">{dirty ? "Tienes cambios sin guardar" : client.routine ? `${first} ve esta versión` : "Aún no se ha guardado"} · {draft.days.length} {draft.days.length === 1 ? "día" : "días"}, {total} ejercicios</span>
+        <span className="small muted">{dirty ? "Tienes cambios sin guardar" : saved ? (isPlan ? `Se activa al terminar la prueba (${new Date(client.trial.end).toLocaleDateString("es-EC", { day: "numeric", month: "short" })})` : `${first} ve esta versión`) : "Aún no se ha guardado"} · {draft.days.length} {draft.days.length === 1 ? "día" : "días"}, {total} ejercicios</span>
         <div className="row gap-sm">
-          {dirty && client.routine && <button className="btn btn-ghost" onClick={() => setAskDiscard(true)}>Descartar</button>}
-          <button className="btn btn-primary" onClick={save} disabled={!dirty && !!client.routine}>Guardar rutina</button>
+          {dirty && saved && <button className="btn btn-ghost" onClick={() => setAskDiscard(true)}>Descartar</button>}
+          <button className="btn btn-primary" onClick={save} disabled={!dirty && !!saved}>{isPlan ? "Guardar plan completo" : "Guardar rutina"}</button>
         </div>
       </div>
 
@@ -172,7 +176,7 @@ export default function RoutineEditor({ clientId }) {
       {templates && <TemplatePicker onClose={() => setTemplates(false)} onPick={(t) => { setDraft({ ...cloneWithIds(t), name: draft.name || t.name }); setDayIdx(0); setTemplates(false); toast("Plantilla aplicada. Revisa y guarda"); }} />}
       {asTemplate && <TemplateNameModal initial={draft.name} onClose={() => setAsTemplate(false)} onSave={(name) => { run(saveTemplate(me.id, draft, name), "Plantilla guardada en tu biblioteca", "layers"); setAsTemplate(false); }} />}
       {view && <ExerciseDetail ex={view} onClose={() => setView(null)} />}
-      {askDiscard && <Confirm title="Descartar cambios" confirmLabel="Descartar" onClose={() => setAskDiscard(false)} onConfirm={() => { setDraft(structuredClone(client.routine)); setDayIdx(0); }} text="Vuelves a la última versión guardada de la rutina." />}
+      {askDiscard && <Confirm title="Descartar cambios" confirmLabel="Descartar" onClose={() => setAskDiscard(false)} onConfirm={() => { setDraft(structuredClone(saved)); setDayIdx(0); }} text="Vuelves a la última versión guardada de la rutina." />}
       {askDelDay && <Confirm title={`Quitar ${day.name}`} confirmLabel="Quitar día" onClose={() => setAskDelDay(false)} onConfirm={() => { up((n) => { n.days.splice(dayIdx, 1); }); setDayIdx(0); }} text={`Se quitan sus ${day.exercises.length} ejercicios. El cambio se aplica cuando guardes la rutina.`} />}
     </div>
   );
