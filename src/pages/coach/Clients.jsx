@@ -67,7 +67,7 @@ export default function Clients() {
                 <span className="m-hide row gap-sm" style={{ width: 150 }}>
                   {r.routine ? <><Dots done={r.week} goal={r.routine.frequency} /><span className="small muted num">{r.week}/{r.routine.frequency}</span></> : <Pill tone="warn">Sin rutina</Pill>}
                 </span>
-                <span className="stack" style={{ width: 118, alignItems: "flex-end", gap: 4 }}>
+                <span className="stack cl-status">
                   {r.active && <TrialPill c={r} short />}
                   {!r.active ? <Pill>En pausa</Pill> : r.pay === "overdue" ? <Pill tone="bad">Vencido</Pill> : r.pay === "pending" ? <Pill tone="warn">Pendiente</Pill> : <Pill tone="ok">Al día</Pill>}
                 </span>

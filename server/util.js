@@ -35,5 +35,7 @@ export function addMonths(date, months) {
 
 const MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 export const monthName = (d = new Date()) => MONTHS[d.getMonth()];
+/** «Mensualidad octubre 2026» */
+export const monthlyConcept = (d = new Date()) => `Mensualidad ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 
 export const round2 = (n) => Math.round(n * 100) / 100;

@@ -57,9 +57,10 @@ export default function MyRoutine() {
                 <div className="grow" style={{ minWidth: 0 }}>
                   <div className="section-title" style={{ overflowWrap: "anywhere" }}>{info.name}</div>
                   <div className="small muted">{info.muscle} · {info.equipment}</div>
+                  <div className="narrow-only small strong num" style={{ marginTop: 2 }}>{e.sets} × {e.reps} <span className="muted" style={{ fontWeight: 400 }}>· descanso {clock(parseRest(e.rest))}</span></div>
                   <button className="link-btn small" style={{ fontSize: 13 }} onClick={() => setView(info)}>Ver técnica</button>
                 </div>
-                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                <div className="wide-only" style={{ textAlign: "right", flexShrink: 0 }}>
                   <div className="display num" style={{ fontSize: 24, lineHeight: 1, whiteSpace: "nowrap" }}>{e.sets} × {e.reps}</div>
                   <div className="tiny muted num">descanso {clock(parseRest(e.rest))}</div>
                 </div>

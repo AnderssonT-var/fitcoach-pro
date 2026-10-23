@@ -94,7 +94,7 @@ Lenguaje visual estilo Apple: tipografía del sistema (SF Pro en Mac y iPhone, I
 - **Archivos privados:** fotos y comprobantes fuera de la carpeta pública; se abren solo con enlaces firmados que vencen. Se valida el tipo real de cada imagen.
 - **Cabeceras:** CSP estricta, HSTS, sin `X-Powered-By`, CORS solo para orígenes conocidos.
 
-Las pruebas automáticas de seguridad (52 casos) cubren todo lo anterior.
+Las pruebas automáticas (más de 100 casos de API, probadas en SQLite y en MySQL/MariaDB) cubren todo lo anterior, además de rutinas, drop sets, chat, plan de prueba y cobros.
 
 ## Privacidad (datos sensibles)
 
@@ -123,6 +123,20 @@ El administrador fija el **precio por mes** y los descuentos de 3, 6 y 12 meses,
    - Iniciar: `npm start`
 4. Activa **HTTPS** en el dominio. Al arrancar, el servidor crea las tablas y el administrador.
 5. Entra con el administrador, ve a **Cobros** y define el precio, tus datos bancarios y los datos legales. Luego genera la primera licencia en **Licencias**.
+
+### Rendimiento y mantenimiento
+
+- La app consulta cambios cada 20 s; si nada cambió, el servidor responde `304` sin datos (ahorra batería y megas).
+- Se envía el detalle por serie de los últimos 4 meses y un resumen de los anteriores; los récords de todos los tiempos se guardan aparte. La exportación de datos siempre incluye el historial completo.
+- Cada 6 horas se limpian sesiones vencidas y entrenamientos abandonados (más de 14 días sin terminar).
+- El servidor se apaga de forma ordenada (`SIGTERM`) y la tipografía va incluida en la app (sin depender de Google Fonts).
+
+### Copias de seguridad
+
+Respalda dos cosas, idealmente cada día:
+
+1. La base de datos: `mysqldump -u USUARIO -p BASE > respaldo-$(date +%F).sql` (en Hostinger también desde hPanel → Copias de seguridad).
+2. La carpeta privada de archivos (`UPLOAD_DIR`, por defecto `data/uploads`): fotos de progreso y comprobantes.
 
 También se puede crear o cambiar el administrador con `npm run create-admin -- correo@dominio.com "Contraseña-segura-1" "Nombre"`.
 

@@ -1,6 +1,7 @@
 /* FitCoach Pro — servidor de producción.
    API en /api y la app web compilada (carpeta dist) en el mismo dominio. */
 import fs from "node:fs";
+import crypto from "node:crypto";
 import path from "node:path";
 import express from "express";
 import helmet from "helmet";
@@ -28,8 +29,8 @@ export function createApp() {
       directives: {
         "default-src": ["'self'"],
         "script-src": ["'self'"],
-        "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-        "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
+        "style-src": ["'self'", "'unsafe-inline'"],
+        "font-src": ["'self'", "data:"],
         "img-src": ["'self'", "data:", "blob:"],
         "connect-src": ["'self'"],
         "frame-ancestors": ["'none'"],
@@ -50,7 +51,8 @@ export function createApp() {
     if (origin && config.corsOrigins.includes(origin)) {
       res.setHeader("Access-Control-Allow-Origin", origin);
       res.setHeader("Vary", "Origin");
-      res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
+      res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type, If-None-Match");
+      res.setHeader("Access-Control-Expose-Headers", "ETag");
       res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
       res.setHeader("Access-Control-Max-Age", "600");
     }
@@ -75,7 +77,12 @@ export function createApp() {
       else if (!(await coachLicenseRow(c.coach_id))) s.access = { ok: false, code: "coach_license", message: "El acceso de tu entrenador está pausado por ahora. Vuelve a intentar más tarde." };
       else s.access = { ok: true };
     }
-    res.json(s);
+    // Si nada cambió desde la última consulta se responde 304 (sin cuerpo): ahorra datos en el celular
+    const body = JSON.stringify(s);
+    const etag = `"${crypto.createHash("sha1").update(body).digest("base64url")}"`;
+    res.setHeader("ETag", etag);
+    if (req.headers["if-none-match"] === etag) return res.status(304).end();
+    res.type("json").send(body);
   }));
 
   app.use("/api/admin", authenticate, requireRole("admin"), adminRouter);
@@ -118,10 +125,37 @@ export async function ensureAdmin() {
   console.log(`[FitCoach Pro] Administrador creado: ${email}. Ya puedes quitar ADMIN_PASSWORD del archivo .env.`);
 }
 
+/** Limpieza periódica: sesiones vencidas, entrenamientos abandonados y actividad antigua. */
+export async function housekeeping() {
+  const now = Date.now();
+  try {
+    await knex("refresh_tokens").where("expires_at", "<", new Date(now).toISOString()).delete();
+    await knex("active_workouts").where("updated_at", "<", new Date(now - 14 * 864e5).toISOString()).delete();
+    await knex("activity").where("at", "<", new Date(now - 400 * 864e5).toISOString()).delete();
+  } catch (e) { console.error("[limpieza]", e.message); }
+}
+
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname);
 if (isMain) {
+  process.on("unhandledRejection", (e) => console.error("[unhandledRejection]", e));
+  if (config.isProd && config.db.client !== "mysql2") console.warn("[FitCoach Pro] Producción con SQLite: se recomienda MySQL (define DB_HOST, DB_NAME, DB_USER y DB_PASSWORD).");
+  if (!fs.existsSync(path.join(config.webDir, "index.html"))) console.warn("[FitCoach Pro] No se encontró la app compilada (dist). Ejecuta: npm run build");
   await migrate();
   await ensureAdmin();
+  await housekeeping();
+  const timer = setInterval(housekeeping, 6 * 3600e3);
+  timer.unref();
   const app = createApp();
-  app.listen(config.port, () => console.log(`[FitCoach Pro] listo en el puerto ${config.port} (${config.isProd ? "producción" : "desarrollo"}, base ${config.db.client})`));
+  const server = app.listen(config.port, () => console.log(`[FitCoach Pro] listo en el puerto ${config.port} (${config.isProd ? "producción" : "desarrollo"}, base ${config.db.client})`));
+  server.keepAliveTimeout = 65e3; // mayor que el del proxy para evitar cortes 502
+  server.headersTimeout = 66e3;
+  // Apagado ordenado: termina las solicitudes en curso y cierra la base de datos
+  const stop = (sig) => {
+    console.log(`[FitCoach Pro] ${sig}: cerrando…`);
+    server.close(() => knex.destroy().finally(() => process.exit(0)));
+    server.closeIdleConnections?.(); // conexiones keep-alive sin uso no deben retrasar el apagado
+    setTimeout(() => process.exit(1), 10e3).unref();
+  };
+  process.on("SIGTERM", () => stop("SIGTERM"));
+  process.on("SIGINT", () => stop("SIGINT"));
 }

@@ -1,7 +1,7 @@
 /* Administrador: licencias, precios, cobros de suscripción y soporte. */
 import { Router } from "express";
 import { z } from "zod";
-import { knex, bool, J, S } from "../db.js";
+import { knex, J, S } from "../db.js";
 import { hashPassword, revokeAll, tempPassword } from "../auth.js";
 import { bad, h, notFound, nowISO, parse, uid, addMonths } from "../util.js";
 import { DEFAULT_PRICING, PLAN_MONTHS, getLegal, getPricing, licenseOut, planPrice } from "../state.js";

@@ -9,7 +9,7 @@ import {
   LOCK_MINUTES, MAX_FAILS, authenticate, checkPassword, dummyCheck, hashPassword, issueTokens,
   passwordProblem, revokeAll, revokeRefresh, rotateRefresh,
 } from "../auth.js";
-import { HttpError, bad, h, nowISO, parse, uid, addMonths } from "../util.js";
+import { HttpError, bad, h, nowISO, parse, addMonths } from "../util.js";
 import { getLegal, getPricing, planPrice } from "../state.js";
 import { log, normalizeCode, slugFrom } from "./common.js";
 

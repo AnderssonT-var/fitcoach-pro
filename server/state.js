@@ -5,6 +5,7 @@ import { signedUrl } from "./files.js";
 import { config } from "./config.js";
 import { round2 } from "./util.js";
 import { settleTrials } from "./trial.js";
+import { backfillBests, historyFor } from "./history.js";
 
 /* ---------- precios ---------- */
 export const PLAN_MONTHS = [1, 3, 6, 12];
@@ -37,7 +38,7 @@ export function userOut(u, { self = false, publicOnly = false } = {}) {
   const base = { id: u.id, role: u.role, name: u.name, photo: profile.photo, body: profile.body };
   if (publicOnly) return base;
   const out = { ...base, email: u.email, createdAt: u.created_at, ...profile };
-  if (u.role === "coach") out.brand = { businessName: "", slug: u.brand_slug || "", color: "", logo: null, tagline: "", ...J(u.brand, {}), slug: u.brand_slug || "" };
+  if (u.role === "coach") out.brand = { businessName: "", color: "", logo: null, tagline: "", ...J(u.brand, {}), slug: u.brand_slug || "" };
   if (self) {
     out.mustChangePassword = bool(u.must_change_password);
     out.consentVersion = u.consent_version;
@@ -59,7 +60,6 @@ export const licenseOut = (l) => ({
   expiresAt: l.expires_at, revoked: bool(l.revoked), note: l.note || "", charges: J(l.charges, []),
 });
 const paymentOut = (p) => ({ id: p.id, coachId: p.coach_id, clientId: p.client_id, concept: p.concept, amount: +p.amount, dueDate: p.due_date, paidAt: p.paid_at, method: p.method || "" });
-const workoutOut = (w) => ({ ...J(w.data, {}), id: w.id, clientId: w.client_id, finishedAt: w.finished_at });
 const messageOut = (m) => ({ id: m.id, coachId: m.coach_id, clientId: m.client_id, from: m.from_id, text: m.text, at: m.at, read: bool(m.read), exId: m.ex_id || null, tag: m.tag || null });
 const postOut = (p) => ({ id: p.id, coachId: p.coach_id, authorId: p.author_id, kind: p.kind, text: p.text, at: p.at, likes: J(p.likes, []), comments: J(p.comments, []), workoutId: p.workout_id });
 const templateOut = (t) => ({ ...J(t.data, {}), id: t.id, coachId: t.coach_id, createdAt: t.created_at });
@@ -82,6 +82,9 @@ export function clientOut(c, photos = [], user = null, { withNotes = true } = {}
     photos: photos.filter((p) => p.client_id === c.user_id).map((p) => ({ id: p.id, src: signedUrl(p.file_id), pose: p.pose, note: p.note || "", date: p.date, by: p.by_id, at: p.at })),
   };
 }
+
+/* Mensajes del último año (el resto queda en la base y en la exportación de datos) */
+const MSG_FROM = () => new Date(Date.now() - 365 * 864e5).toISOString();
 
 const empty = () => ({ version: 1, users: [], clients: [], licenses: [], payments: [], workouts: [], messages: [], posts: [], templates: [], exercises: [], activity: [], active: {}, subscriptions: [], ranking: null });
 
@@ -107,7 +110,7 @@ export async function buildState(me) {
 
   if (me.role === "coach") {
     let clientRows = await knex("clients").where({ coach_id: me.id });
-    if (await settleTrials(clientRows)) clientRows = await knex("clients").where({ coach_id: me.id });
+    if ((await settleTrials(clientRows)) | (await backfillBests(clientRows))) clientRows = await knex("clients").where({ coach_id: me.id });
     const ids = clientRows.map((c) => c.user_id);
     const clientUsers = ids.length ? await knex("users").whereIn("id", ids) : [];
     const photos = ids.length ? await knex("photos").whereIn("client_id", ids).orderBy("date", "desc") : [];
@@ -116,8 +119,8 @@ export async function buildState(me) {
     s.licenses = (await knex("licenses").where({ coach_id: me.id })).map(licenseOut);
     s.subscriptions = (await knex("subscriptions").where({ coach_id: me.id }).orderBy("created_at", "desc")).map(subscriptionOut);
     s.payments = (await knex("payments").where({ coach_id: me.id })).map(paymentOut);
-    s.workouts = (await knex("workouts").where({ coach_id: me.id })).map(workoutOut);
-    s.messages = (await knex("messages").where({ coach_id: me.id })).map(messageOut);
+    s.workouts = await historyFor((q) => q.where({ coach_id: me.id }));
+    s.messages = (await knex("messages").where({ coach_id: me.id }).where("at", ">=", MSG_FROM())).map(messageOut);
     s.posts = (await knex("posts").where({ coach_id: me.id }).orderBy("at", "desc").limit(200)).map(postOut);
     s.templates = (await knex("templates").where({ coach_id: me.id }).orderBy("created_at", "desc")).map(templateOut);
     s.exercises = (await knex("exercises").where({ coach_id: me.id })).map(exerciseOut);
@@ -128,13 +131,13 @@ export async function buildState(me) {
   // Asesorado
   let c = await knex("clients").where({ user_id: me.id }).first();
   if (!c) return s;
-  if (await settleTrials([c])) c = await knex("clients").where({ user_id: me.id }).first();
+  if ((await settleTrials([c])) | (await backfillBests([c]))) c = await knex("clients").where({ user_id: me.id }).first();
   const coach = await knex("users").where({ id: c.coach_id }).first();
   const photos = await knex("photos").where({ client_id: me.id }).orderBy("date", "desc");
   s.clients = [clientOut(c, photos, me, { withNotes: false })]; // las notas del entrenador son privadas
   s.payments = (await knex("payments").where({ client_id: me.id })).map(paymentOut);
-  s.workouts = (await knex("workouts").where({ client_id: me.id })).map(workoutOut);
-  s.messages = (await knex("messages").where({ client_id: me.id, coach_id: c.coach_id })).map(messageOut);
+  s.workouts = await historyFor((q) => q.where({ client_id: me.id }));
+  s.messages = (await knex("messages").where({ client_id: me.id, coach_id: c.coach_id }).where("at", ">=", MSG_FROM())).map(messageOut);
   s.posts = (await knex("posts").where({ coach_id: c.coach_id }).orderBy("at", "desc").limit(200)).map(postOut);
   s.exercises = (await knex("exercises").where({ coach_id: c.coach_id })).map(exerciseOut);
   const active = await knex("active_workouts").where({ client_id: me.id }).first();

@@ -663,3 +663,15 @@ input[type=number] { -moz-appearance: textfield; }
 .trial-seg button .strong { display: inline-flex; align-items: center; gap: 4px; }
 .trial-seg button[aria-selected="true"] { background: var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
 .trial-client { border: 1px solid var(--blue-soft); }
+.cl-status { align-items: flex-end; gap: 4px; flex-shrink: 0; }
+@media (min-width: 700px) { .cl-status { width: 118px; } }
+
+/* Pantallas muy angostas (≤ 400 px): datos secundarios pasan debajo del nombre */
+.narrow-only { display: none; }
+@media (max-width: 400px) {
+  .narrow-only { display: block; }
+  .wide-only { display: none !important; }
+  .set-grid { grid-template-columns: 24px minmax(0, 1fr) 58px 50px 40px; gap: 5px; }
+  .set-check { width: 40px; height: 40px; }
+  .ex-card .section-title { font-size: 19px !important; }
+}

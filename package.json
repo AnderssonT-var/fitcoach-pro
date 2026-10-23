@@ -15,6 +15,8 @@
   "dependencies": {
     "@capacitor/app": "^7.1.2",
     "@capacitor/core": "^7.6.9",
+    "@fontsource/inter": "^5.1.0",
+    "@vitejs/plugin-react": "^4.3.1",
     "bcryptjs": "^3.0.3",
     "compression": "^1.8.2",
     "express": "^4.22.3",
@@ -25,9 +27,8 @@
     "mysql2": "^3.24.6",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "zod": "^3.25.76",
     "vite": "^5.4.10",
-    "@vitejs/plugin-react": "^4.3.1"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@capacitor/android": "^7.6.9",

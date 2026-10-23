@@ -2,9 +2,9 @@
 import { Router } from "express";
 import { z } from "zod";
 import { knex, bool, J, S } from "../db.js";
-import { config } from "../config.js";
 import { hashPassword, requireConsent, requireLicense, revokeAll, tempPassword } from "../auth.js";
-import { bad, h, notFound, nowISO, parse, uid, addMonths, monthName, round2 } from "../util.js";
+import { bad, h, notFound, nowISO, parse, uid, addMonths, monthlyConcept, round2 } from "../util.js";
+import { hasMonthly } from "../history.js";
 import { checkInlineImage, deleteFile, saveFile } from "../files.js";
 import { PLAN_MONTHS, getPricing, planPrice } from "../state.js";
 import { codeLimiter } from "./auth.js";
@@ -115,7 +115,7 @@ router.post("/clients", h(async (req, res) => {
     if (body.trial) {
       if (body.trial.fee > 0) await trx("payments").insert({ id: uid("pay-"), coach_id: req.user.id, client_id: userId, concept: trialConcept(body.trial.days), amount: body.trial.fee, due_date: now, paid_at: null, method: "" });
     } else if (body.fee > 0) {
-      await trx("payments").insert({ id: uid("pay-"), coach_id: req.user.id, client_id: userId, concept: `Mensualidad ${monthName()}`, amount: body.fee, due_date: now, paid_at: null, method: "" });
+      await trx("payments").insert({ id: uid("pay-"), coach_id: req.user.id, client_id: userId, concept: monthlyConcept(), amount: body.fee, due_date: now, paid_at: null, method: "" });
     }
     await trx("messages").insert({ id: uid("m-"), coach_id: req.user.id, client_id: userId, from_id: req.user.id, read: false, at: now,
       text: `¡Hola ${body.name.split(" ")[0]}! Bienvenido/a. Aquí verás tu rutina y podrás registrar cada entrenamiento.` });
@@ -318,10 +318,18 @@ async function exerciseData(body, prev = {}) {
 }
 router.post("/exercises", h(async (req, res) => {
   const body = parse(exerciseSchema, req.body);
-  const max = (await knex("exercises").max({ m: "id" }).first())?.m || 0;
-  const id = Math.max(100000, +max) + 1;
-  await knex("exercises").insert({ id, coach_id: req.user.id, data: S(await exerciseData(body)) });
-  res.status(201).json({ id });
+  const data = S(await exerciseData(body));
+  // El id es correlativo; si dos entrenadores crean a la vez, se reintenta con el siguiente
+  for (let tries = 0; ; tries++) {
+    const max = (await knex("exercises").max({ m: "id" }).first())?.m || 0;
+    const id = Math.max(100000, +max) + 1;
+    try {
+      await knex("exercises").insert({ id, coach_id: req.user.id, data });
+      return res.status(201).json({ id });
+    } catch (e) {
+      if (tries >= 4 || !/unique|duplicate|primary/i.test(String(e?.message || e?.code))) throw e;
+    }
+  }
 }));
 router.put("/exercises/:id", h(async (req, res) => {
   const body = parse(exerciseSchema, req.body);
@@ -334,7 +342,8 @@ router.delete("/exercises/:id", h(async (req, res) => {
   const e = await knex("exercises").where({ id: +req.params.id, coach_id: req.user.id }).first();
   if (!e) throw notFound();
   const clients = await knex("clients").where({ coach_id: req.user.id }).select("data");
-  if (clients.some((c) => J(c.data, {}).routine?.days?.some((d) => d.exercises.some((x) => x.exId === e.id)))) {
+  const uses = (r) => r?.days?.some((d) => d.exercises.some((x) => x.exId === e.id));
+  if (clients.some((c) => { const d = J(c.data, {}); return uses(d.routine) || uses(d.planRoutine); })) {
     throw bad("Ese ejercicio está en la rutina de un asesorado. Quítalo de esas rutinas primero.");
   }
   await knex("exercises").where({ id: e.id }).delete();
@@ -369,7 +378,7 @@ router.delete("/payments/:id", h(async (req, res) => {
 }));
 router.post("/payments/generate-monthly", h(async (req, res) => {
   const now = new Date();
-  const concept = `Mensualidad ${monthName(now)}`;
+  const concept = monthlyConcept(now);
   let created = 0;
   await knex.transaction(async (trx) => {
     const clients = await trx("clients").where({ coach_id: req.user.id, active: true });
@@ -377,7 +386,7 @@ router.post("/payments/generate-monthly", h(async (req, res) => {
       const d = J(c.data, {});
       if (!(d.fee > 0)) continue;
       if (d.trial && ["active", "ended"].includes(d.trial.status)) continue; // en prueba aún no paga mensualidad
-      if (await trx("payments").where({ client_id: c.user_id, concept }).first()) continue;
+      if (await hasMonthly(trx, c.user_id, now)) continue;
       const due = new Date(now.getFullYear(), now.getMonth(), Math.min(d.billingDay || 1, 28), 9);
       await trx("payments").insert({ id: uid("pay-"), coach_id: req.user.id, client_id: c.user_id, concept, amount: d.fee, due_date: due.toISOString(), paid_at: null, method: "" });
       created++;

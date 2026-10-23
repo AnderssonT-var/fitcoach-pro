@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Icon from "../../ui/Icon";
-import { Avatar, Confirm, Empty, toast, run } from "../../ui/kit";
+import { Avatar, Confirm, Empty, run } from "../../ui/kit";
 import { useApp } from "../../context";
 import { addComment, addPost, clientById, deletePost, toggleLike, useDB, userById } from "../../store/db";
 import { ago } from "../../lib/format";

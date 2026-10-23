@@ -27,18 +27,23 @@ export function setTokens(t) {
 }
 
 let refreshing = null;
+/* Varias pestañas comparten la sesión: la renovación se hace de a una (Web Locks) y cada una
+   lee el token más reciente, para que el servidor no lo tome como reuso de un token robado. */
+const withLock = (fn) => (typeof navigator !== "undefined" && navigator.locks?.request ? navigator.locks.request("fcp-refresh", fn) : fn());
 async function refresh() {
-  const rt = safeGet(RT_KEY);
-  if (!rt) return false;
-  refreshing ||= (async () => {
+  if (!safeGet(RT_KEY)) return false;
+  const before = access;
+  refreshing ||= withLock(async () => {
+    const rt = safeGet(RT_KEY);
+    if (!rt) return false;
+    if (access && access !== before) return true; // otra llamada de esta pestaña ya renovó
     try {
       const r = await fetch(`${apiBase()}/api/auth/refresh`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ refreshToken: rt }) });
       if (!r.ok) { setTokens(null); return false; }
       setTokens(await r.json());
       return true;
     } catch { return null; } // sin conexión: no se cierra la sesión
-    finally { setTimeout(() => { refreshing = null; }, 0); }
-  })();
+  }).finally(() => { setTimeout(() => { refreshing = null; }, 0); });
   return refreshing;
 }
 
@@ -48,10 +53,14 @@ export const onLost = (fn) => { onSessionLost = fn; };
 /**
  * Llama a la API. Nunca lanza: devuelve el JSON o { error, status, code }.
  */
-export async function api(method, path, body) {
+let stateTag = null; // ETag del último /api/state recibido
+export const resetStateTag = () => { stateTag = null; };
+
+export async function api(method, path, body, { conditional = false } = {}) {
   const go = () => fetch(`${apiBase()}${path}`, {
-    method,
-    headers: { ...(body !== undefined ? { "Content-Type": "application/json" } : {}), ...(access ? { Authorization: `Bearer ${access}` } : {}) },
+    method, cache: "no-store",
+    headers: { ...(body !== undefined ? { "Content-Type": "application/json" } : {}), ...(access ? { Authorization: `Bearer ${access}` } : {}),
+      ...(conditional && stateTag ? { "If-None-Match": stateTag } : {}) },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   let r;
@@ -66,6 +75,8 @@ export async function api(method, path, body) {
   } catch {
     return { error: "Sin conexión con el servidor. Revisa tu internet e intenta de nuevo.", status: 0, offline: true };
   }
+  if (conditional && r.status === 304) return { notModified: true };
+  if (conditional && r.ok) stateTag = r.headers.get("ETag");
   let data = {};
   try { data = await r.json(); } catch { /* sin cuerpo */ }
   if (!r.ok) return { error: data.error || "Algo salió mal. Intenta de nuevo.", status: r.status, code: data.code };

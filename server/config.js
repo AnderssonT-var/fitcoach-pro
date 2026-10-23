@@ -18,6 +18,7 @@ function loadEnv(file) {
   }
 }
 loadEnv(path.join(ROOT, ".env"));
+if (!process.env.TZ) process.env.TZ = "America/Guayaquil"; // mensualidades y fechas en hora de Ecuador
 
 const env = process.env;
 const isProd = env.NODE_ENV === "production";

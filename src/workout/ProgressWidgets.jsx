@@ -63,12 +63,13 @@ export function WeightChart({ clientId, action }) {
 export function Records({ clientId }) {
   const db = useDB();
   const ws = workoutsOf(db, clientId);
-  const ids = [...new Set(ws.flatMap((w) => w.exercises.map((e) => e.exId)))];
+  const bests = clientById(db, clientId)?.bests || {};
+  const ids = [...new Set([...Object.keys(bests).map(Number), ...ws.flatMap((w) => w.exercises.map((e) => e.exId))])];
   const rows = ids.map((id) => {
     const chrono = [...ws].reverse();
     const first = chrono.find((w) => w.exercises.some((e) => e.exId === id));
-    const firstTop = Math.max(0, ...first.exercises.find((e) => e.exId === id).sets.filter((x) => x.done).map((x) => +x.weight));
     const best = bestSet(db, clientId, id);
+    const firstTop = best?.first ?? (first ? Math.max(0, ...first.exercises.find((e) => e.exId === id).sets.filter((x) => x.done).map((x) => +x.weight)) : 0);
     return { id, best, gain: best ? best.weight - firstTop : 0 };
   }).filter((r) => r.best && r.best.weight > 0).sort((a, b) => b.best.weight - a.best.weight);
   return (

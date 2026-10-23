@@ -8,6 +8,7 @@ import { bad, forbidden, h, notFound, nowISO, parse, uid } from "../util.js";
 import { checkInlineImage, deleteFile, saveFile } from "../files.js";
 import { buildState, userOut } from "../state.js";
 import { groupOf } from "./common.js";
+import { addToBests } from "../history.js";
 import { deleteClientData, MESSAGE_TAGS, photosSchema, profileSchema, sessionSchema } from "./schemas.js";
 
 /* ============================================================
@@ -19,7 +20,12 @@ accountRouter.get("/export", h(async (req, res) => {
   const me = state.users.find((u) => u.id === req.user.id);
   const data = {
     exportadoEl: nowISO(), cuenta: { nombre: me.name, correo: me.email, creada: me.createdAt, perfil: me },
-    asesoria: state.clients[0] || null, entrenamientos: state.workouts, pagos: state.payments, mensajes: state.messages,
+    asesoria: state.clients[0] || null, pagos: state.payments,
+    // Exportación completa: todo el historial, no solo lo que la app muestra
+    entrenamientos: (await knex("workouts").where(req.user.role === "coach" ? { coach_id: req.user.id } : { client_id: req.user.id }).orderBy("finished_at"))
+      .map((w) => ({ ...J(w.data, {}), id: w.id, clientId: w.client_id, finishedAt: w.finished_at })),
+    mensajes: (await knex("messages").where(req.user.role === "coach" ? { coach_id: req.user.id } : { client_id: req.user.id }).orderBy("at"))
+      .map((m) => ({ de: m.from_id, texto: m.text, fecha: m.at })),
   };
   res.setHeader("Content-Disposition", `attachment; filename="mis-datos-fitcoach.json"`);
   res.json(data);
@@ -119,6 +125,10 @@ clientRouter.post("/workout/finish", h(async (req, res) => {
   const id = uid("w-");
   await knex.transaction(async (trx) => {
     await trx("workouts").insert({ id, client_id: req.user.id, coach_id: coachId, finished_at: finishedAt, data: S(w) });
+    // Récords de todos los tiempos del asesorado
+    const cRow = await trx("clients").where({ user_id: req.user.id }).first();
+    const cd = J(cRow.data, {});
+    if (cd.bests) await trx("clients").where({ user_id: req.user.id }).update({ data: S({ ...cd, bests: addToBests(cd.bests, { ...w, finishedAt }) }) });
     await trx("active_workouts").where({ client_id: req.user.id }).delete();
     if (body.comment) {
       await trx("messages").insert({ id: uid("m-"), coach_id: coachId, client_id: req.user.id, from_id: req.user.id, read: false, at: finishedAt,

@@ -3,7 +3,8 @@
    data.routine      → la rutina que el asesorado ve (durante la prueba, la de prueba)
    data.planRoutine  → el plan completo que el entrenador deja listo; se activa al terminar la prueba */
 import { knex, J, S } from "./db.js";
-import { monthName, nowISO, uid } from "./util.js";
+import { monthlyConcept, nowISO, uid } from "./util.js";
+import { hasMonthly } from "./history.js";
 
 export const TRIAL_DAYS = [7, 14, 21, 30];
 
@@ -18,9 +19,8 @@ export async function convertTrial(trx, c, { auto = false } = {}) {
   d.trial = { ...d.trial, status: "converted", convertedAt: now, ...(Date.parse(d.trial.end) > Date.now() ? { end: now } : {}) };
   await trx("clients").where({ user_id: c.user_id }).update({ data: S(d) });
   if (d.fee > 0) {
-    const concept = `Mensualidad ${monthName()}`;
-    if (!(await trx("payments").where({ client_id: c.user_id, concept }).first())) {
-      await trx("payments").insert({ id: uid("pay-"), coach_id: c.coach_id, client_id: c.user_id, concept, amount: d.fee, due_date: now, paid_at: null, method: "" });
+    if (!(await hasMonthly(trx, c.user_id))) {
+      await trx("payments").insert({ id: uid("pay-"), coach_id: c.coach_id, client_id: c.user_id, concept: monthlyConcept(), amount: d.fee, due_date: now, paid_at: null, method: "" });
     }
   }
   const name = d.routine?.name ? `«${d.routine.name}»` : "tu plan completo";

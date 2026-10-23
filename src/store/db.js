@@ -19,7 +19,9 @@ let state = blank(hasSession() ? "boot" : "guest");
 const listeners = new Set();
 const emit = () => listeners.forEach((l) => l());
 function setState(next) { state = next; emit(); }
-function patch(fn) { const d = structuredClone(state); fn(d); setState(d); }
+let localDirty = false; // hubo cambios optimistas desde la última carga
+let lastRaw = null;     // última respuesta completa del servidor
+function patch(fn) { const d = structuredClone(state); fn(d); localDirty = true; setState(d); }
 
 export function useDB() {
   return useSyncExternalStore((l) => { listeners.add(l); return () => listeners.delete(l); }, () => state, () => state);
@@ -48,19 +50,26 @@ function normalize(s) {
 export async function reload() {
   if (!hasSession()) { setState(blank("guest")); return; }
   loading ||= (async () => {
-    const s = await api("GET", "/api/state");
+    const ready = state.status === "ready" && lastRaw;
+    const s = await api("GET", "/api/state", undefined, { conditional: !!ready });
+    if (s.notModified) {
+      // Sin cambios en el servidor; si hubo cambios optimistas que no se confirmaron, se vuelve a lo del servidor
+      if (localDirty) { localDirty = false; setState(normalize(structuredClone(lastRaw))); }
+      return;
+    }
     if (s.error) {
       if (s.offline && state.status === "ready") return; // sin conexión: se mantiene lo que había
       if (s.offline) { setState({ ...blank("offline"), error: s.error }); return; }
       if (!hasSession()) setState(blank("guest"));
       return;
     }
-    setState(normalize(s));
+    lastRaw = s; localDirty = false;
+    setState(normalize(structuredClone(s)));
   })().finally(() => { loading = null; });
   return loading;
 }
 
-onLost(() => { pendingActive = null; setTokens(null); setState(blank("guest")); });
+onLost(() => { pendingActive = null; lastRaw = null; setTokens(null); setState(blank("guest")); });
 
 /* Sincroniza cada 20 s mientras la app está visible (mensajes, cambios del entrenador, etc.) */
 if (typeof window !== "undefined") {
@@ -152,10 +161,11 @@ export function weekStreak(s, clientId, goal) {
   return streak;
 }
 export function sessionVolume(w) {
+  if (w.summary) return w.vol || 0; // entrenamiento antiguo: el servidor envía solo el resumen
   return w.exercises.reduce((t, e) => t + e.sets.filter((x) => x.done).reduce((a, x) => a + (+x.weight || 0) * (+x.reps || 0)
     + (x.drops || []).reduce((v, d) => v + (+d.weight || 0) * (+d.reps || 0), 0), 0), 0);
 }
-export function doneSetCount(w) { return w.exercises.reduce((t, e) => t + e.sets.filter((x) => x.done).length, 0); }
+export function doneSetCount(w) { if (w.summary) return w.setCount || 0; return w.exercises.reduce((t, e) => t + e.sets.filter((x) => x.done).length, 0); }
 
 export function lastPerformance(s, clientId, exId) {
   for (const w of workoutsOf(s, clientId)) {
@@ -165,14 +175,16 @@ export function lastPerformance(s, clientId, exId) {
   return null;
 }
 export function bestSet(s, clientId, exId) {
-  let best = null;
+  // Récord de todos los tiempos guardado en el servidor + lo registrado recién
+  const b = s.clients.find((c) => c.userId === clientId)?.bests?.[exId];
+  let best = b && b.w >= 0 ? { weight: b.w, reps: b.r, at: b.at, first: b.first } : null;
   for (const w of s.workouts) {
     if (w.clientId !== clientId) continue;
     const e = w.exercises.find((x) => x.exId === exId);
     if (!e) continue;
     for (const x of e.sets) {
       if (!x.done || !(+x.reps > 0)) continue;
-      if (!best || +x.weight > best.weight || (+x.weight === best.weight && +x.reps > best.reps)) best = { weight: +x.weight, reps: +x.reps, at: w.finishedAt };
+      if (!best || +x.weight > best.weight || (+x.weight === best.weight && +x.reps > best.reps)) best = { ...best, weight: +x.weight, reps: +x.reps, at: w.finishedAt };
     }
   }
   return best;

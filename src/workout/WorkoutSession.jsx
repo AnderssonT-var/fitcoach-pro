@@ -37,6 +37,7 @@ export default function WorkoutSession({ clientId, onClose }) {
   const [comment, setComment] = useState("");
   const [share, setShare] = useState(true);
   const [result, setResult] = useState(null);
+  const [saving, setSaving] = useState(false);
   const audio = useRef(null);
   const notified = useRef(null);
   const cards = useRef([]);
@@ -125,7 +126,6 @@ export default function WorkoutSession({ clientId, onClose }) {
   const removeSet = (ei) => upd((a) => { const ss = a.exercises[ei].sets; if (ss.length > 1 && !ss.at(-1).done) ss.pop(); });
   const adjust = (d) => upd((a) => { if (a.restEndsAt) { a.restEndsAt = Math.max(Date.now() + 1000, a.restEndsAt + d * 1000); a.restTotal = Math.max(1, a.restTotal + d); } });
 
-  const [saving, setSaving] = useState(false);
   async function save() {
     if (saving) return;
     setSaving(true);
@@ -262,9 +262,10 @@ function ExerciseCard({ ex, info, best, isCurrent, coachFirst, chatNote, onToggl
           <div className="section-title" style={{ fontSize: 22 }}>{info.name}</div>
           <button className="link-btn" style={{ fontSize: 13 }} onClick={() => setHow(true)}>Ver técnica</button>
           <div className="small muted">Objetivo {ex.target.sets} × {ex.target.reps} · descanso {clock(parseRest(ex.target.rest))}</div>
+          {best && best.weight > 0 && <div className="narrow-only small strong" style={{ color: "var(--yellow-ink)" }}>Récord {kg(best.weight)} kg</div>}
           {ex.target.drop && <span className="drop-badge" style={{ marginTop: 6 }} title={dropLabel(ex.target.drop)}><Icon name="trend" size={13} />{dropLabel(ex.target.drop)}</span>}
         </div>
-        {best && best.weight > 0 && <div style={{ textAlign: "right" }}><div className="tiny muted">Récord</div><div className="display num" style={{ fontSize: 20, color: "var(--yellow-ink)" }}>{kg(best.weight)} kg</div></div>}
+        {best && best.weight > 0 && <div className="wide-only" style={{ textAlign: "right" }}><div className="tiny muted">Récord</div><div className="display num" style={{ fontSize: 20, color: "var(--yellow-ink)" }}>{kg(best.weight)} kg</div></div>}
       </div>
       {ex.notes && <div className="note-box small" style={{ marginBottom: 10 }}><Icon name="note" size={16} /><span><strong>{coachFirst}:</strong> {ex.notes}</span></div>}
       {chatNote && chatNote.text !== ex.notes && <div className="note-box small chat-note" style={{ marginBottom: 10 }}><Icon name="chat" size={16} /><span><strong>{coachFirst} en el chat:</strong> {chatNote.text}</span></div>}
@@ -272,7 +273,7 @@ function ExerciseCard({ ex, info, best, isCurrent, coachFirst, chatNote, onToggl
       {barbell && shownWeight > 20 && !complete && <div style={{ marginBottom: 8 }}><PlateLoader weight={shownWeight} /></div>}
 
       <div className="set-grid tiny muted strong" style={{ padding: "0 4px 6px" }}>
-        <span style={{ textAlign: "center" }}>Serie</span><span>Anterior</span><span style={{ textAlign: "center" }}>Kg</span><span style={{ textAlign: "center" }}>Reps</span><span />
+        <span style={{ textAlign: "center" }}><span className="wide-only">Serie</span><span className="narrow-only">#</span></span><span>Anterior</span><span style={{ textAlign: "center" }}>Kg</span><span style={{ textAlign: "center" }}>Reps</span><span />
       </div>
       {ex.sets.map((st, si) => {
         const isNext = isCurrent && !dropNext && si === next;

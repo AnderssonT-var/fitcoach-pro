@@ -57,6 +57,7 @@ export default function SessionList({ sessions, showClient, limit, onReply }) {
             {isOpen && (
               <div className="stack gap-sm" style={{ paddingTop: 4 }}>
                 <span className="d-hide"><DiffBar v={w.difficulty} /></span>
+                {w.summary && <div className="small muted">El detalle por serie se muestra para los últimos 4 meses (queda guardado completo).</div>}
                 {w.exercises.map((e, i) => (
                   <div key={i}>
                     <div className="small strong">{exerciseById(db, e.exId).name}{e.target?.drop && <span className="drop-badge sm" style={{ marginLeft: 6 }}>Drop set</span>}</div>
