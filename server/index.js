@@ -121,7 +121,12 @@ export async function ensureAdmin() {
   const { passwordProblem } = await import("./auth.js");
   const pp = passwordProblem(password, email);
   if (pp) { console.error(`[VYTRAFIT] ADMIN_PASSWORD no es segura: ${pp}`); return; }
-  await knex("users").insert({ role: "admin", email: email.toLowerCase(), password_hash: await hashPassword(password), name, profile: "{}", created_at: nowISO() });
+  try {
+    await knex("users").insert({ role: "admin", email: email.toLowerCase(), password_hash: await hashPassword(password), name, profile: "{}", created_at: nowISO() });
+  } catch (e) {
+    if (/duplicate|unique/i.test(String(e?.message))) return; // otro proceso lo creó al mismo tiempo
+    throw e;
+  }
   console.log(`[VYTRAFIT] Administrador creado: ${email}. Ya puedes quitar ADMIN_PASSWORD del archivo .env.`);
 }
 

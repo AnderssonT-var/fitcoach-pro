@@ -1,0 +1,8 @@
+{
+  "domain": "vytra.fit",
+  "username": "u753080405",
+  "type": "nodejs",
+  "entry_file": "server.js",
+  "node_version": 22,
+  "deploy": "rama hostinger-deploy (app.zip) clonada en public_html/deploy-src y compilada desde ese archivo"
+}

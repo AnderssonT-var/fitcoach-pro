@@ -168,7 +168,19 @@ const MIGRATIONS = [
   }],
 ];
 
+/* Varios procesos pueden arrancar a la vez (el hosting levanta más de uno): en MySQL se toma un candado */
 export async function migrate() {
+  if (config.db.client !== "mysql2") return runMigrations();
+  const conn = await knex.client.acquireConnection();
+  try {
+    await knex.raw("SELECT GET_LOCK('vytrafit_migrate', 60)").connection(conn);
+    await runMigrations();
+  } finally {
+    await knex.raw("SELECT RELEASE_LOCK('vytrafit_migrate')").connection(conn).catch(() => {});
+    await knex.client.releaseConnection(conn);
+  }
+}
+async function runMigrations() {
   if (!(await knex.schema.hasTable("_migrations"))) {
     await knex.schema.createTable("_migrations", (t) => { t.string("name", 60).primary(); t.string("at", 30); });
   }

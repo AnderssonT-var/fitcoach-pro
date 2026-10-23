@@ -140,6 +140,13 @@ Respalda dos cosas, idealmente cada día:
 
 También se puede crear o cambiar el administrador con `npm run create-admin -- correo@dominio.com "Contraseña-segura-1" "Nombre"`.
 
+### Producción actual: https://vytra.fit
+
+- Hosting Business de Hostinger, Node.js 22 (Express), MySQL `u753080405_vytrafit`, SSL activo y redirección a HTTPS.
+- Las variables de entorno (secretos, base de datos, `DATA_DIR`/`UPLOAD_DIR` fuera de la carpeta pública) están en hPanel → Node.js → Variables de entorno. No están en el repositorio.
+- Fotos y comprobantes: `/home/u753080405/domains/vytra.fit/vytrafit-data/uploads` (no se borran al redesplegar).
+- Para redesplegar: se empaqueta `main` como `app.zip` en la rama `hostinger-deploy`, Hostinger la clona en `public_html/deploy-src` y compila desde ese archivo. Si conectas GitHub en hPanel (Sitios web → Administrar → Git), se puede activar el despliegue automático en cada push.
+
 ## App Android
 
 El APK se compila en GitHub Actions (`.github/workflows/android.yml`) y se publica en **Releases**:
