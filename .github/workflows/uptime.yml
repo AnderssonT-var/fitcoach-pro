@@ -1,0 +1,27 @@
+# Monitor de disponibilidad: cada 10 minutos revisa que https://vytra.fit responda.
+# Si falla, GitHub te avisa por correo (la ejecución queda en rojo).
+# Si defines el secreto CRON_KEY (el mismo valor que en el servidor), también dispara
+# las tareas programadas: recordatorios, avisos de pagos y de pruebas.
+name: Monitor vytra.fit
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+permissions: {}
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: ¿Responde el servidor?
+        run: |
+          for i in 1 2 3; do
+            body=$(curl -fsS -m 20 https://vytra.fit/api/health) && echo "$body" | grep -q '"ok":true' && { echo "OK: $body"; exit 0; }
+            echo "Intento $i falló, reintento en 20 s"; sleep 20
+          done
+          echo "::error::vytra.fit no responde"; exit 1
+      - name: Tareas programadas
+        env:
+          CRON_KEY: ${{ secrets.CRON_KEY }}
+        if: env.CRON_KEY != ''
+        run: curl -fsS -m 60 -X POST -H "X-Cron-Key: $CRON_KEY" https://vytra.fit/api/cron

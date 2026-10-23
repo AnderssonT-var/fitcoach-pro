@@ -13,6 +13,7 @@ import AdminHome from "./pages/admin/AdminHome";
 import Licenses from "./pages/admin/Licenses";
 import Coaches from "./pages/admin/Coaches";
 import Billing from "./pages/admin/Billing";
+import SystemPage from "./pages/admin/System";
 import CoachHome from "./pages/coach/CoachHome";
 import Clients from "./pages/coach/Clients";
 import ClientDetail from "./pages/coach/ClientDetail";
@@ -83,6 +84,29 @@ export default function App() {
 
   useEffect(() => { setRoute({ page: "inicio", params: {} }); setTraining(false); }, [me?.id]);
 
+  // Tocar una notificación abre la pantalla que corresponde
+  const openFrom = useCallback(({ page, params } = {}) => {
+    if (!page) return;
+    if (page === "mensajes" && params?.clientId) go("mensajes", { clientId: +params.clientId });
+    else if (page === "clientes" && params?.id) go("clientes", { id: +params.id, ...(params.tab ? { tab: params.tab } : {}) });
+    else go(page);
+  }, [go]);
+  useEffect(() => {
+    const onMsg = (e) => { if (e.data?.type === "open") openFrom(e.data); };
+    const onEv = (e) => openFrom(e.detail);
+    navigator.serviceWorker?.addEventListener("message", onMsg);
+    window.addEventListener("vytrafit:open", onEv);
+    return () => { navigator.serviceWorker?.removeEventListener("message", onMsg); window.removeEventListener("vytrafit:open", onEv); };
+  }, [openFrom]);
+  useEffect(() => {
+    if (!me) return;
+    const q = new URLSearchParams(window.location.search);
+    const page = q.get("open");
+    if (!page) return;
+    try { window.history.replaceState(null, "", window.location.pathname + window.location.hash); } catch { /* nada */ }
+    setTimeout(() => openFrom({ page, params: q.get("client") ? { clientId: q.get("client"), id: q.get("client") } : null }), 0);
+  }, [me?.id, openFrom]);
+
   const openWorkout = useCallback((dayId) => {
     if (!me) return;
     startWorkout(me.id, dayId);
@@ -127,7 +151,7 @@ export default function App() {
   let view;
   const { page, params } = route;
   if (me.role === "admin") {
-    view = { licencias: <Licenses />, entrenadores: <Coaches />, cobros: <Billing /> }[page] || <AdminHome />;
+    view = { licencias: <Licenses />, entrenadores: <Coaches />, cobros: <Billing />, sistema: <SystemPage /> }[page] || <AdminHome />;
   } else if (me.role === "coach") {
     if (page === "perfil") view = <CoachProfile />;
     else if (page === "suscripcion") view = <Subscription />;

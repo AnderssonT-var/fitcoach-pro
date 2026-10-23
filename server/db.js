@@ -166,6 +166,44 @@ const MIGRATIONS = [
       t.string("tag", 20).nullable();
     });
   }],
+  // Entrenamientos terminados sin conexión: el id de la sesión evita guardarlos dos veces
+  ["003_ref_entrenamiento", async (k) => {
+    await k.schema.alterTable("workouts", (t) => {
+      t.string("ref", 40).nullable();
+      t.unique(["client_id", "ref"]);
+    });
+  }],
+  // Notificaciones push (navegador y app) y registro para no repetir avisos
+  ["004_notificaciones", async (k) => {
+    const long = (t, name) => (config.db.client === "mysql2" ? t.text(name, "longtext") : t.text(name));
+    await k.schema.createTable("push_subs", (t) => {
+      t.string("id", 40).primary();
+      t.integer("user_id").unsigned().notNullable().index();
+      t.string("kind", 10).notNullable(); // web | fcm
+      t.string("endpoint_hash", 64).notNullable().unique();
+      long(t, "data"); // endpoint + claves (web) o token (fcm)
+      t.string("ua", 200).nullable();
+      t.string("created_at", 30).notNullable();
+    });
+    await k.schema.createTable("notif_log", (t) => {
+      t.string("key", 160).primary();
+      t.string("at", 30).notNullable().index();
+    });
+  }],
+  // Registro de errores del servidor y de la app (para el administrador)
+  ["005_errores", async (k) => {
+    await k.schema.createTable("error_log", (t) => {
+      t.increments("id").primary();
+      t.string("at", 30).notNullable().index();
+      t.string("source", 10).notNullable(); // server | app
+      t.string("fingerprint", 64).notNullable().index();
+      t.string("message", 500).notNullable();
+      t.text("detail").nullable();
+      t.string("path", 200).nullable();
+      t.integer("user_id").unsigned().nullable();
+      t.string("ua", 200).nullable();
+    });
+  }],
 ];
 
 /* Varios procesos pueden arrancar a la vez (el hosting levanta más de uno): en MySQL se toma un candado */

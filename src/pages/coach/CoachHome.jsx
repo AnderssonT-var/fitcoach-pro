@@ -7,6 +7,7 @@ import {
 } from "../../store/db";
 import { capitalize, daysSince, daysUntil, money, shortDate } from "../../lib/format";
 import { trialInfo } from "../../lib/trial";
+import { NotifyPrompt } from "../shared/Account";
 
 export default function CoachHome() {
   const db = useDB();
@@ -57,6 +58,7 @@ export default function CoachHome() {
         <button className="btn btn-primary" onClick={() => go("clientes", { create: true })}><Icon name="plus" size={18} />Nuevo cliente</button>
       </div>
 
+      <NotifyPrompt />
       {licenseStatus(lic) === "expiring" && (
         <div className="warn-box">
           <Icon name="key" size={18} />

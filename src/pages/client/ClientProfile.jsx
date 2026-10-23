@@ -6,7 +6,7 @@ import { useApp } from "../../context";
 import { brandOf, clientById, updateProfile, useDB, userById } from "../../store/db";
 import { avatarImage } from "../../lib/image";
 import { shortDate } from "../../lib/format";
-import { PrivacyPanel, SecurityPanel } from "../shared/Account";
+import { NotificationsPanel, PrivacyPanel, SecurityPanel } from "../shared/Account";
 
 export default function ClientProfile() {
   const db = useDB();
@@ -21,6 +21,7 @@ export default function ClientProfile() {
       <div className="split">
         <div className="stack-lg">
           <ProfileForm u={u} c={c} coachName={coach.name.split(" ")[0]} />
+          <NotificationsPanel />
           <PrivacyPanel />
           <SecurityPanel />
         </div>

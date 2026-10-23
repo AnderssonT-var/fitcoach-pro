@@ -17,6 +17,11 @@ import { router as authRouter, publicRouter } from "./routes/auth.js";
 import { router as adminRouter } from "./routes/admin.js";
 import { router as coachRouter } from "./routes/coach.js";
 import { accountRouter, clientRouter, sharedRouter } from "./routes/client.js";
+import { cronRouter, logError, pushRouter, reportRouter, systemRouter } from "./routes/system.js";
+import { runJobs } from "./jobs.js";
+import { signupRouter } from "./routes/signup.js";
+
+const VERSION = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
 export function createApp() {
   const app = express();
@@ -63,8 +68,13 @@ export function createApp() {
   app.use("/api", rateLimit({ windowMs: 60e3, limit: 400, standardHeaders: "draft-7", legacyHeaders: false, message: { error: "Demasiadas solicitudes. Espera un momento." } }));
   app.use("/api", (_req, res, next) => { res.setHeader("Cache-Control", "no-store"); next(); });
 
-  app.get("/api/health", h(async (_req, res) => { await knex.raw("select 1"); res.json({ ok: true, time: nowISO() }); }));
+  app.get("/api/health", h(async (_req, res) => { await knex.raw("select 1"); res.json({ ok: true, version: VERSION, time: nowISO() }); }));
+  app.use("/api/public/signup", signupRouter);
   app.use("/api/public", publicRouter);
+  app.use("/api/cron", cronRouter);
+  app.use("/api/report-error", reportRouter);
+  app.use("/api/push", pushRouter);
+  app.use("/api/admin/system", systemRouter);
   app.use("/api/auth", authRouter);
   app.get("/api/files/:id", h(serveFile));
 
@@ -94,16 +104,17 @@ export function createApp() {
 
   /* App web */
   if (fs.existsSync(path.join(config.webDir, "index.html"))) {
-    app.use(express.static(config.webDir, { index: false, maxAge: "7d", setHeaders: (res, p) => { if (p.endsWith(".html")) res.setHeader("Cache-Control", "no-cache"); } }));
+    app.use(express.static(config.webDir, { index: false, maxAge: "7d", setHeaders: (res, p) => { if (p.endsWith(".html") || p.endsWith("sw.js") || p.endsWith(".webmanifest")) res.setHeader("Cache-Control", "no-cache"); } }));
     app.get("*", (_req, res) => { res.setHeader("Cache-Control", "no-cache"); res.sendFile(path.join(config.webDir, "index.html")); });
   }
 
   /* Errores: mensaje claro para el usuario, sin detalles internos */
-  app.use((err, _req, res, _next) => {
+  app.use((err, req, res, _next) => {
     if (err instanceof HttpError) return res.status(err.status).json({ error: err.message, ...err.extra });
     if (err?.type === "entity.too.large") return res.status(413).json({ error: "El archivo es demasiado grande." });
     if (err?.type === "entity.parse.failed") return res.status(400).json({ error: "Solicitud no válida." });
     console.error("[error]", err);
+    logError({ source: "server", message: err?.message || String(err), detail: err?.stack || "", path: `${req.method} ${req.path}`, userId: req.user?.id ?? null, ua: req.headers["user-agent"] });
     res.status(500).json({ error: "Algo salió mal en el servidor. Intenta de nuevo." });
   });
   return app;
@@ -137,6 +148,8 @@ export async function housekeeping() {
     await knex("refresh_tokens").where("expires_at", "<", new Date(now).toISOString()).delete();
     await knex("active_workouts").where("updated_at", "<", new Date(now - 14 * 864e5).toISOString()).delete();
     await knex("activity").where("at", "<", new Date(now - 400 * 864e5).toISOString()).delete();
+    await knex("notif_log").where("at", "<", new Date(now - 60 * 864e5).toISOString()).delete();
+    await knex("error_log").where("at", "<", new Date(now - 30 * 864e5).toISOString()).delete();
   } catch (e) { console.error("[limpieza]", e.message); }
 }
 
@@ -153,6 +166,10 @@ export async function start() {
   await housekeeping();
   const timer = setInterval(housekeeping, 6 * 3600e3);
   timer.unref();
+  // Recordatorios, avisos de pagos y de pruebas (cada 5 minutos)
+  const jobs = setInterval(() => runJobs().catch(() => {}), 5 * 60e3);
+  jobs.unref();
+  setTimeout(() => runJobs().catch(() => {}), 20e3).unref();
   const app = createApp();
   const server = app.listen(config.port, () => console.log(`[VYTRAFIT] listo en el puerto ${config.port} (${config.isProd ? "producción" : "desarrollo"}, base ${config.db.client})`));
   server.keepAliveTimeout = 65e3; // mayor que el del proxy para evitar cortes 502

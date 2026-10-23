@@ -2,16 +2,19 @@ import { useState } from "react";
 import Icon from "../../ui/Icon";
 import { BrandMark, Field, PlatesLogo, toast, DevCredit } from "../../ui/kit";
 import { useApp } from "../../context";
-import { activateLicense, login, normalizeCode } from "../../store/db";
+import { activateLicense, login, normalizeCode, signupWithCoach } from "../../store/db";
+import { GOALS } from "../coach/Clients";
+import { money } from "../../lib/format";
 
 export default function Login({ slug = "", brand, onBrand }) {
   const [mode, setMode] = useState("login");
   const coach = brand?.data;
   return (
     <div className="auth">
-      {mode === "login"
+      {mode === "signup" && coach?.signup?.open ? <SignupForm slug={slug} coach={coach} onBack={() => setMode("login")} />
+        : mode === "login" || mode === "signup"
         ? <LoginForm key={coach?.coachId || "general"} slug={slug} coach={coach} loading={brand?.loading}
-            unknownSlug={slug && !brand?.loading && !coach ? slug : ""} onBrand={onBrand} onActivate={() => setMode("activate")} />
+            unknownSlug={slug && !brand?.loading && !coach ? slug : ""} onBrand={onBrand} onActivate={() => setMode("activate")} onSignup={() => setMode("signup")} />
         : <ActivateForm onBack={() => setMode("login")} />}
     </div>
   );
@@ -28,7 +31,7 @@ function LegalLinks() {
   );
 }
 
-function LoginForm({ slug, coach, loading, unknownSlug, onBrand, onActivate }) {
+function LoginForm({ slug, coach, loading, unknownSlug, onBrand, onActivate, onSignup }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
@@ -88,6 +91,12 @@ function LoginForm({ slug, coach, loading, unknownSlug, onBrand, onActivate }) {
         )}
       </form>
 
+      {coach?.signup?.open && (
+        <div className="signup-cta">
+          <div><strong>¿Eres nuevo?</strong> Inscríbete con {coach.coachName.split(" ")[0]}{coach.signup.trialDays ? <> y empieza tu {coach.signup.trialDays === 30 ? "mes" : `prueba de ${coach.signup.trialDays} días`} de prueba{coach.signup.trialFee ? ` (${money(coach.signup.trialFee)})` : " gratis"}</> : null}.</div>
+          <button type="button" className="btn btn-quiet btn-block" onClick={onSignup}><Icon name="plus" size={17} />Crear mi cuenta</button>
+        </div>
+      )}
       {coach ? (
         <p className="small muted" style={{ textAlign: "center" }}>
           Acceso exclusivo para {coach.businessName || coach.coachName} y sus asesorados ·{" "}
@@ -149,5 +158,63 @@ function ActivateForm({ onBack }) {
       </div>
       <DevCredit />
     </form>
+  );
+}
+
+/* Inscripción desde el enlace del entrenador */
+function SignupForm({ slug, coach, onBack }) {
+  const { openLegal } = useApp();
+  const [f, setF] = useState({ name: "", email: "", phone: "", goal: "Hipertrofia", password: "", accept: false, photos: false, website: "" });
+  const [show, setShow] = useState(false);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const set = (k) => (e) => { setF({ ...f, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value }); setError(""); };
+  const brand = { coach: { name: coach.coachName, photo: coach.coachPhoto }, name: coach.businessName, logo: coach.logo, color: coach.color };
+  const s = coach.signup;
+  async function submit(e) {
+    e.preventDefault();
+    if (f.name.trim().length < 3) return setError("Escribe tu nombre completo.");
+    if (!/^\S+@\S+\.\S+$/.test(f.email)) return setError("Escribe un correo válido: lo usarás para entrar.");
+    if (f.password.length < 8 || !/\d/.test(f.password) || !/[a-zA-Z]/.test(f.password)) return setError("La contraseña necesita al menos 8 caracteres, con letras y números.");
+    if (!f.accept) return setError("Acepta el aviso de privacidad para inscribirte.");
+    setBusy(true);
+    const r = await signupWithCoach({ slug, name: f.name.trim(), email: f.email.trim().toLowerCase(), phone: f.phone, goal: f.goal, password: f.password, acceptTerms: true, photos: f.photos, website: f.website });
+    setBusy(false);
+    if (r.error) return setError(r.error);
+    toast(`¡Bienvenido/a, ${f.name.split(" ")[0]}!`, "check");
+  }
+  return (
+    <div className="auth-card">
+      <div className="auth-hero">
+        <BrandMark brand={brand} size={64} />
+        <h1 style={{ fontSize: 28 }}>Inscríbete con {coach.businessName || coach.coachName}</h1>
+        <p>{s.trialDays ? `Empiezas con ${s.trialDays === 30 ? "un mes" : `${s.trialDays} días`} de prueba${s.trialFee ? ` por ${money(s.trialFee)}` : " gratis"}${s.fee ? `; luego ${money(s.fee)} al mes` : ""}.` : s.fee ? `Mensualidad: ${money(s.fee)}.` : "Crea tu cuenta para empezar a entrenar."}</p>
+      </div>
+      <form className="auth-box" onSubmit={submit} noValidate>
+        <Field label="Nombre completo" id="su-name"><input id="su-name" className="input" autoComplete="name" value={f.name} onChange={set("name")} /></Field>
+        <Field label="Correo" id="su-email"><input id="su-email" className="input" type="email" inputMode="email" autoCapitalize="none" autoComplete="email" placeholder="tu@correo.com" value={f.email} onChange={set("email")} /></Field>
+        <div className="form-grid">
+          <Field label="Teléfono" id="su-phone"><input id="su-phone" className="input" type="tel" autoComplete="tel" value={f.phone} onChange={set("phone")} /></Field>
+          <Field label="Objetivo" id="su-goal"><select id="su-goal" className="select" value={f.goal} onChange={set("goal")}>{GOALS.map((g) => <option key={g}>{g}</option>)}</select></Field>
+        </div>
+        <Field label="Crea tu contraseña" id="su-pass" hint="Al menos 8 caracteres, con letras y números">
+          <div style={{ position: "relative" }}>
+            <input id="su-pass" className="input" type={show ? "text" : "password"} autoComplete="new-password" value={f.password} onChange={set("password")} style={{ paddingRight: 44 }} />
+            <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={() => setShow(!show)} aria-label={show ? "Ocultar contraseña" : "Mostrar contraseña"}
+              style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }}><Icon name="eye" size={18} /></button>
+          </div>
+        </Field>
+        {/* campo trampa: las personas no lo ven */}
+        <input type="text" name="website" value={f.website} onChange={set("website")} tabIndex={-1} autoComplete="off" aria-hidden="true" style={{ position: "absolute", left: -9999, width: 1, height: 1, opacity: 0 }} />
+        <label className="check-row"><input type="checkbox" checked={f.accept} onChange={set("accept")} />
+          <span>Acepto el <button type="button" className="link-btn small" onClick={() => openLegal("privacidad")}>aviso de privacidad</button> y los <button type="button" className="link-btn small" onClick={() => openLegal("terminos")}>términos</button>. Mis medidas y lesiones son datos sensibles y solo los verá mi entrenador.</span></label>
+        <label className="check-row"><input type="checkbox" checked={f.photos} onChange={set("photos")} />
+          <span><strong>Opcional:</strong> permito que mi entrenador y yo guardemos fotos de mi cuerpo para seguir mi progreso. Puedo retirarlo cuando quiera.</span></label>
+        {error && <div className="error-box" role="alert"><Icon name="alert" size={18} />{error}</div>}
+        <button className="btn btn-primary btn-lg btn-block" type="submit" disabled={busy}>{busy ? "Creando tu cuenta…" : "Crear mi cuenta"}</button>
+        <button type="button" className="link-btn small" style={{ alignSelf: "center" }} onClick={onBack}>Ya tengo cuenta: iniciar sesión</button>
+      </form>
+      <DevCredit />
+    </div>
   );
 }

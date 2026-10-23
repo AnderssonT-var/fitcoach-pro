@@ -16,6 +16,8 @@
   "dependencies": {
     "@capacitor/app": "^7.1.2",
     "@capacitor/core": "^7.6.9",
+    "@capacitor/local-notifications": "^7.0.1",
+    "@capacitor/push-notifications": "^7.0.1",
     "@fontsource/inter": "^5.1.0",
     "@vitejs/plugin-react": "^4.3.1",
     "bcryptjs": "^3.0.3",
@@ -29,6 +31,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "vite": "^5.4.10",
+    "web-push": "^3.6.7",
     "zod": "^3.25.76"
   },
   "devDependencies": {

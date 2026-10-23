@@ -9,6 +9,7 @@ import { checkInlineImage, deleteFile, saveFile } from "../files.js";
 import { buildState, userOut } from "../state.js";
 import { groupOf } from "./common.js";
 import { addToBests } from "../history.js";
+import { notifyLater, setRestAlarm } from "../notify.js";
 import { deleteClientData, MESSAGE_TAGS, photosSchema, profileSchema, sessionSchema } from "./schemas.js";
 
 /* ============================================================
@@ -87,6 +88,12 @@ clientRouter.put("/workout/active", h(async (req, res) => {
   if (!n) await knex("active_workouts").insert({ client_id: req.user.id, ...row });
   res.json({ ok: true });
 }));
+/* Alarma de fin de descanso: llega como notificación si la app quedó en segundo plano */
+clientRouter.post("/rest-alarm", h(async (req, res) => {
+  const { at } = parse(z.object({ at: z.number().nullable() }), req.body);
+  setRestAlarm(req.user.id, at);
+  res.json({ ok: true });
+}));
 clientRouter.delete("/workout/active", h(async (req, res) => {
   await knex("active_workouts").where({ client_id: req.user.id }).delete();
   res.json({ ok: true });
@@ -96,11 +103,24 @@ clientRouter.post("/workout/finish", h(async (req, res) => {
   const body = parse(z.object({
     session: sessionSchema, difficulty: z.number().int().min(1).max(5), comment: z.string().trim().max(1000).optional().default(""),
     share: z.boolean().optional().default(false), prName: z.string().trim().max(80).optional(),
+    finishedAt: z.string().max(30).optional(),
   }), req.body);
   const a = body.session;
   if (a.clientId !== req.user.id) throw forbidden();
   const coachId = req.client.coach_id;
-  const finishedAt = nowISO();
+  // Ya se guardó (reintento de un entrenamiento terminado sin conexión): se responde lo mismo
+  const prior = await knex("workouts").where({ client_id: req.user.id, ref: a.id }).first();
+  if (prior) {
+    await knex("active_workouts").where({ client_id: req.user.id }).delete();
+    const pw = J(prior.data, {});
+    return res.json({ ...pw, id: prior.id, clientId: req.user.id, finishedAt: prior.finished_at, duplicate: true,
+      volume: (pw.exercises || []).reduce((t, e) => t + e.sets.filter((x) => x.done).reduce((s, x) => s + x.weight * x.reps + (x.drops || []).reduce((v, d) => v + d.weight * d.reps, 0), 0), 0),
+      done: (pw.exercises || []).reduce((t, e) => t + e.sets.filter((x) => x.done).length, 0) });
+  }
+  // Hora real de término (si se terminó sin conexión y se sube después)
+  const started0 = Date.parse(a.startedAt), fin = Date.parse(body.finishedAt || "");
+  const finishedAt = Number.isFinite(fin) && fin <= Date.now() + 60e3 && fin > Date.now() - 14 * 864e5 && (!Number.isFinite(started0) || fin >= started0)
+    ? new Date(Math.min(fin, Date.now())).toISOString() : nowISO();
 
   // Récords contra el historial guardado en el servidor
   const history = (await knex("workouts").where({ client_id: req.user.id }).select("data")).map((w) => J(w.data, {}));
@@ -120,11 +140,11 @@ clientRouter.post("/workout/finish", h(async (req, res) => {
     return { exId: e.exId, target: e.target, sets };
   });
   const started = Date.parse(a.startedAt);
-  const durationSec = Number.isFinite(started) ? Math.max(0, Math.min(6 * 3600, Math.round((Date.now() - started) / 1000))) : 0;
-  const w = { dayId: a.dayId, dayName: a.dayName, routineName: a.routineName, startedAt: a.startedAt, durationSec, difficulty: body.difficulty, comment: body.comment, prs, exercises };
+  const durationSec = Number.isFinite(started) ? Math.max(0, Math.min(6 * 3600, Math.round((Date.parse(finishedAt) - started) / 1000))) : 0;
+  const w = { ref: a.id, dayId: a.dayId, dayName: a.dayName, routineName: a.routineName, startedAt: a.startedAt, durationSec, difficulty: body.difficulty, comment: body.comment, prs, exercises };
   const id = uid("w-");
   await knex.transaction(async (trx) => {
-    await trx("workouts").insert({ id, client_id: req.user.id, coach_id: coachId, finished_at: finishedAt, data: S(w) });
+    await trx("workouts").insert({ id, client_id: req.user.id, coach_id: coachId, finished_at: finishedAt, data: S(w), ref: a.id });
     // Récords de todos los tiempos del asesorado
     const cRow = await trx("clients").where({ user_id: req.user.id }).first();
     const cd = J(cRow.data, {});
@@ -140,6 +160,10 @@ clientRouter.post("/workout/finish", h(async (req, res) => {
         text: `${req.user.name.split(" ")[0]} completó ${a.dayName} en ${Math.round(durationSec / 60)} min.${pr}`, workout_id: id });
     }
   });
+  // Aviso al entrenador
+  notifyLater(coachId, { title: `${req.user.name.split(" ")[0]} terminó ${a.dayName}`,
+    body: `${Math.round(durationSec / 60)} min${prs.length ? ` · ${prs.length} ${prs.length === 1 ? "récord" : "récords"} 🏆` : ""}${body.comment ? ` · “${body.comment.slice(0, 80)}”` : ""}`,
+    page: "clientes", params: { id: req.user.id, tab: "historial" }, tag: `wk-${req.user.id}`, kind: "workout" });
   const volume = exercises.reduce((t, e) => t + e.sets.filter((x) => x.done).reduce((s, x) => s + x.weight * x.reps + (x.drops || []).reduce((v, d) => v + d.weight * d.reps, 0), 0), 0);
   const done = exercises.reduce((t, e) => t + e.sets.filter((x) => x.done).length, 0);
   res.status(201).json({ ...w, id, clientId: req.user.id, finishedAt, volume, done });
@@ -158,7 +182,7 @@ sharedRouter.put("/profile", h(async (req, res) => {
   // Campos que aplican a cada rol
   const allowed = req.user.role === "coach"
     ? ["photo", "phone", "city", "headline", "years", "instagram", "bio", "specialties", "certifications", "services", "body"]
-    : ["photo", "phone", "bio", "injuries", "birthYear", "body"];
+    : ["photo", "phone", "bio", "injuries", "birthYear", "body", "notif"];
   const profile = J(req.user.profile, {});
   for (const k of allowed) if (rest[k] !== undefined) profile[k] = rest[k];
   await knex.transaction(async (trx) => {
@@ -193,6 +217,10 @@ sharedRouter.post("/messages", h(async (req, res) => {
   const m = { id: uid("m-"), coach_id: p.coachId, client_id: p.clientId, from_id: req.user.id, text: body.text, at: nowISO(), read: false,
     ...(body.exId ? { ex_id: body.exId, tag: body.tag || "comentario" } : {}) };
   await knex("messages").insert(m);
+  // Aviso al otro lado de la conversación
+  const toCoach = req.user.role !== "coach";
+  notifyLater(toCoach ? p.coachId : p.clientId, { title: req.user.name, body: body.text.slice(0, 140), page: "mensajes",
+    params: toCoach ? { clientId: p.clientId } : null, tag: `chat-${p.coachId}-${p.clientId}`, kind: "message" });
   res.status(201).json({ id: m.id });
 }));
 sharedRouter.post("/messages/read", h(async (req, res) => {

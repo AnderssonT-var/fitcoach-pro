@@ -12,6 +12,8 @@ import {
 import { HttpError, bad, h, nowISO, parse, addMonths } from "../util.js";
 import { getLegal, getPricing, planPrice } from "../state.js";
 import { log, normalizeCode, slugFrom } from "./common.js";
+import { coachLicenseRow } from "../auth.js";
+import { signupSettings } from "./signup.js";
 
 export const router = Router();
 
@@ -146,7 +148,9 @@ publicRouter.get("/brand/:slug", h(async (req, res) => {
   if (!u) return res.status(404).json({ error: "No existe ese acceso." });
   const b = JSON.parse(u.brand || "{}");
   const p = JSON.parse(u.profile || "{}");
-  res.json({ coachId: u.id, coachName: u.name, coachPhoto: p.photo || null, businessName: b.businessName || "", logo: b.logo || null, color: b.color || "", tagline: b.tagline || "", slug });
+  const su = signupSettings(u);
+  const signup = su.open && (await coachLicenseRow(u.id)) ? { open: true, trialDays: su.trialDays, trialFee: su.trialFee, fee: su.fee } : { open: false };
+  res.json({ coachId: u.id, coachName: u.name, coachPhoto: p.photo || null, businessName: b.businessName || "", logo: b.logo || null, color: b.color || "", tagline: b.tagline || "", slug, signup });
 }));
 publicRouter.get("/pricing", h(async (_req, res) => {
   const p = await getPricing();

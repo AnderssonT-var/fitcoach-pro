@@ -10,6 +10,7 @@ export const NAV = {
     { id: "cobros", icon: "wallet", label: "Cobros", badge: "pendingSubs" },
     { id: "licencias", icon: "key", label: "Licencias" },
     { id: "entrenadores", icon: "users", label: "Entrenadores" },
+    { id: "sistema", icon: "activity", label: "Sistema" },
   ],
   coach: [
     { id: "inicio", icon: "home", label: "Inicio" },

@@ -4,6 +4,7 @@ import { Avatar } from "../ui/kit";
 import { doneSetCount, exerciseById, sessionVolume, useDB, userById } from "../store/db";
 import { ago, clock, kg, tons, weekdayDate } from "../lib/format";
 import { setText } from "./dropset";
+import { effortLabel, supersets } from "./techniques";
 
 export const DIFFICULTY = [
   { v: 1, l: "Muy fácil" }, { v: 2, l: "Fácil" }, { v: 3, l: "Justo" }, { v: 4, l: "Duro" }, { v: 5, l: "Al límite" },
@@ -58,9 +59,12 @@ export default function SessionList({ sessions, showClient, limit, onReply }) {
               <div className="stack gap-sm" style={{ paddingTop: 4 }}>
                 <span className="d-hide"><DiffBar v={w.difficulty} /></span>
                 {w.summary && <div className="small muted">El detalle por serie se muestra para los últimos 4 meses (queda guardado completo).</div>}
-                {w.exercises.map((e, i) => (
+                {(() => { const ss = supersets(w.exercises.map((e) => e.target || {})); return w.exercises.map((e, i) => (
                   <div key={i}>
-                    <div className="small strong">{exerciseById(db, e.exId).name}{e.target?.drop && <span className="drop-badge sm" style={{ marginLeft: 6 }}>Drop set</span>}</div>
+                    <div className="small strong">{ss[i] && <span className="ss-tag sm">{ss[i].letter}{ss[i].pos}</span>}{exerciseById(db, e.exId).name}
+                      {e.target?.drop && <span className="drop-badge sm" style={{ marginLeft: 6 }}>Drop set</span>}
+                      {e.target?.effort && <span className="tech-badge sm" style={{ marginLeft: 6 }}>{effortLabel(e.target.effort)}</span>}
+                      {e.target?.tempo && <span className="tech-badge sm" style={{ marginLeft: 6 }}>Tempo {e.target.tempo}</span>}</div>
                     <div className="row wrap gap-xs" style={{ marginTop: 4 }}>
                       {e.sets.map((x, j) => (
                         <span key={j} className="tag num" style={x.done ? null : { textDecoration: "line-through", opacity: .6 }}>
@@ -70,7 +74,7 @@ export default function SessionList({ sessions, showClient, limit, onReply }) {
                       {w.prs?.some((p) => p.exId === e.exId) && <span className="tag" style={{ background: "var(--yellow-soft)", color: "var(--yellow-ink)" }}><Icon name="trophy" size={13} />Récord</span>}
                     </div>
                   </div>
-                ))}
+                )); })()}
               </div>
             )}
           </div>

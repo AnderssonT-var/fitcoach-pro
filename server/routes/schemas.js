@@ -8,6 +8,10 @@ const MUSCLES = ["chest", "shoulders", "biceps", "triceps", "forearms", "abdomin
 /* Drop set: bajadas de peso sin descanso al final de la serie */
 const dropSchema = z.object({ count: z.number().int().min(1).max(4), pct: z.number().int().min(5).max(50), on: z.enum(["last", "all"]) });
 
+/* Intensidad objetivo (RIR o RPE) y tempo (bajada-pausa-subida-pausa) */
+const effortSchema = z.object({ type: z.enum(["rir", "rpe"]), value: z.number().min(0).max(10) });
+const tempoSchema = z.string().trim().toUpperCase().max(11).refine((t) => t === "" || /^[0-9X]{1,2}(-[0-9X]{1,2}){2,3}$/.test(t), "El tempo va como 3-1-1-0 (X = explosivo).");
+
 export const MESSAGE_TAGS = ["comentario", "nota", "tecnica", "molestia"];
 
 export const routineSchema = z.object({
@@ -20,6 +24,7 @@ export const routineSchema = z.object({
       notes: str(300).optional().default(""),
       technique: z.enum(["normal", "dropset"]).optional().default("normal"),
       drops: dropSchema.optional(),
+      linkNext: z.boolean().optional(), effort: effortSchema.optional(), tempo: tempoSchema.optional(),
     }).transform((e) => (e.technique === "dropset" && e.drops ? e : { ...e, technique: "normal", drops: undefined }))).max(40),
   })).min(1).max(7),
 });
@@ -51,6 +56,8 @@ export const profileSchema = z.object({
   years: z.number().int().min(0).max(70).nullable(), instagram: str(60), bio: str(800),
   specialties: z.array(str(60)).max(12), certifications: z.array(str(80)).max(12), services: z.array(str(100)).max(12),
   injuries: str(400), birthYear: z.number().int().min(1920).max(new Date().getFullYear() - 10).nullable(), body: z.enum(["m", "f"]),
+  // Recordatorio de entrenamiento: días (0 = domingo) y hora local
+  notif: z.object({ reminder: z.object({ on: z.boolean(), days: z.array(z.number().int().min(0).max(6)).max(7), time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/) }) }),
 }).partial();
 
 /* Sesión de entrenamiento en curso: estructura conocida y tamaño acotado */
@@ -67,9 +74,11 @@ const setSchema = z.object({
 export const sessionSchema = z.object({
   id: str(40), clientId: z.number().int(), dayId: str(40), dayName: str(60), routineName: str(80).optional().default(""),
   startedAt: z.string().max(30), restEndsAt: z.number().nullable().optional(), restTotal: z.number().optional().default(0),
+  focus: z.number().int().min(0).max(60).optional(),
   exercises: z.array(z.object({
     exId: z.number().int().positive(), notes: str(300).optional().default(""),
-    target: z.object({ sets: z.number(), reps: z.string().max(20), rest: z.number(), drop: dropSchema.optional() }),
+    target: z.object({ sets: z.number(), reps: z.string().max(20), rest: z.number(), drop: dropSchema.optional(),
+      linkNext: z.boolean().optional(), effort: effortSchema.optional(), tempo: tempoSchema.optional() }),
     sets: z.array(setSchema).max(30),
   })).max(40),
 });

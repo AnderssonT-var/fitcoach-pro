@@ -35,6 +35,14 @@ const nowISO = () => new Date().toISOString();
    Carga del estado desde el servidor
    ============================================================ */
 let pendingActive = null; // cambios del entrenamiento en curso aún no guardados
+
+/* ---------- Sin conexión: el celular guarda la sesión en curso, los entrenamientos
+   terminados sin señal (se suben solos) y lo último que llegó del servidor ---------- */
+const LS = { state: "fcp.state", active: "fcp.active", outbox: "fcp.outbox" };
+const lsGet = (k) => { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch { return null; } };
+const lsSet = (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch { /* sin espacio o sin almacenamiento */ } };
+const saveLocalActive = (a) => lsSet(LS.active, a ? { a, at: Date.now() } : null);
+export const outbox = () => lsGet(LS.outbox) || [];
 let loading = null;
 
 function normalize(s) {
@@ -43,6 +51,18 @@ function normalize(s) {
   s.clients = (s.clients || []).map((c) => ({ ...c, photos: (c.photos || []).map((p) => ({ ...p, src: abs(p.src) })) }));
   s.subscriptions = (s.subscriptions || []).map((x) => ({ ...x, receipt: abs(x.receipt) }));
   if (pendingActive) s.active = { ...s.active, [pendingActive.clientId]: pendingActive };
+  // Sesión guardada en este celular (por ejemplo, se cerró la app sin señal)
+  const local = lsGet(LS.active)?.a;
+  if (local && local.clientId === s.sessionUserId) {
+    const finished = (s.workouts || []).some((w) => w.ref === local.id) || outbox().some((o) => o.session.id === local.id);
+    const server = s.active?.[local.clientId];
+    if (finished) saveLocalActive(null);
+    else if (!server || server.id === local.id) {
+      s.active = { ...s.active, [local.clientId]: local };
+      if (!server || JSON.stringify(server) !== JSON.stringify(local)) setTimeout(() => queueActiveSave(local), 0);
+    }
+  }
+  s.pendingUploads = outbox().filter((o) => o.userId === s.sessionUserId).length;
   return s;
 }
 
@@ -54,22 +74,28 @@ export async function reload() {
     const s = await api("GET", "/api/state", undefined, { conditional: !!ready });
     if (s.notModified) {
       // Sin cambios en el servidor; si hubo cambios optimistas que no se confirmaron, se vuelve a lo del servidor
-      if (localDirty) { localDirty = false; setState(normalize(structuredClone(lastRaw))); }
+      if (localDirty || state.offline) { localDirty = false; setState(normalize(structuredClone(lastRaw))); }
       return;
     }
     if (s.error) {
-      if (s.offline && state.status === "ready") return; // sin conexión: se mantiene lo que había
-      if (s.offline) { setState({ ...blank("offline"), error: s.error }); return; }
+      if (s.offline && state.status === "ready") { if (!state.offline) setState({ ...state, offline: true }); return; } // se mantiene lo que había
+      if (s.offline) {
+        const cached = lsGet(LS.state);
+        if (cached) { lastRaw = cached; setState({ ...normalize(structuredClone(cached)), offline: true }); return; }
+        setState({ ...blank("offline"), error: s.error }); return;
+      }
       if (!hasSession()) setState(blank("guest"));
       return;
     }
     lastRaw = s; localDirty = false;
+    try { const txt = JSON.stringify(s); if (txt.length < 2.5e6) localStorage.setItem(LS.state, txt); } catch { /* sin espacio */ }
     setState(normalize(structuredClone(s)));
+    if (outbox().some((o) => o.userId === s.sessionUserId)) setTimeout(flushOutbox, 0);
   })().finally(() => { loading = null; });
   return loading;
 }
 
-onLost(() => { pendingActive = null; lastRaw = null; setTokens(null); setState(blank("guest")); });
+onLost(() => { pendingActive = null; lastRaw = null; lsSet(LS.state, null); setTokens(null); setState(blank("guest")); });
 
 /* Sincroniza cada 20 s mientras la app está visible (mensajes, cambios del entrenador, etc.) */
 if (typeof window !== "undefined") {
@@ -235,7 +261,8 @@ export async function login(email, password, brandSlug = null) {
 }
 export async function logout() {
   const rt = (() => { try { return localStorage.getItem("fcp.rt"); } catch { return null; } })();
-  pendingActive = null;
+  pendingActive = null; lastRaw = null;
+  lsSet(LS.state, null); // los datos guardados para usar sin conexión no quedan en el equipo
   api("POST", "/api/auth/logout", { refreshToken: rt });
   setTokens(null);
   setState(blank("guest"));
@@ -321,7 +348,9 @@ export function addBodyWeight(clientId, kgValue) {
 const cleanRoutine = (r) => r && ({
   name: r.name || "", goal: r.goal || "", frequency: +r.frequency || 3, notes: r.notes || "",
   days: r.days.map((d) => ({ id: d.id, name: d.name, exercises: d.exercises.map((e) => ({ uid: e.uid, exId: e.exId, sets: +e.sets || 1, reps: String(e.reps ?? ""), rest: +e.rest || 0, notes: e.notes || "",
-    technique: e.technique === "dropset" ? "dropset" : "normal", ...(e.technique === "dropset" && e.drops ? { drops: { count: +e.drops.count, pct: +e.drops.pct, on: e.drops.on === "all" ? "all" : "last" } } : {}) })) })),
+    technique: e.technique === "dropset" ? "dropset" : "normal", ...(e.technique === "dropset" && e.drops ? { drops: { count: +e.drops.count, pct: +e.drops.pct, on: e.drops.on === "all" ? "all" : "last" } } : {}),
+    ...(e.linkNext ? { linkNext: true } : {}), ...(e.effort?.type ? { effort: { type: e.effort.type, value: +e.effort.value } } : {}),
+    ...(e.tempo && /^[0-9X]{1,2}(-[0-9X]{1,2}){2,3}$/i.test(e.tempo) ? { tempo: e.tempo.toUpperCase() } : {}) })) })),
 });
 export const saveRoutine = (clientId, routine, slot = "current") => act("PUT", `/api/coach/clients/${clientId}/routine`, { routine: routine ? cleanRoutine(routine) : null, slot });
 /* Plan de prueba */
@@ -377,6 +406,23 @@ export function updateProfile(_userId, p) {
   const body = Object.fromEntries(PROFILE_KEYS.filter((k) => p[k] !== undefined).map((k) => [k, k === "years" || k === "birthYear" ? (p[k] === "" || p[k] == null ? null : +p[k]) : p[k]]));
   return act("PUT", "/api/profile", body);
 }
+
+/** Recordatorio de entrenamiento del asesorado: { on, days: [0..6], time: "18:00" } */
+export const saveReminder = (reminder) => act("PUT", "/api/profile", { notif: { reminder } });
+
+/** Inscripción desde el enlace del entrenador: crea la cuenta y entra. */
+export async function signupWithCoach(data) {
+  const r = await api("POST", "/api/public/signup", data);
+  if (r.error) return r;
+  setTokens(r);
+  await reload();
+  return { ok: true };
+}
+
+/* Administrador: estado del sistema y errores */
+export const fetchSystem = () => api("GET", "/api/admin/system");
+export const clearErrors = () => api("DELETE", "/api/admin/system/errors");
+export const runJobsNow = () => api("POST", "/api/admin/system/jobs", {});
 
 export async function sendMessage(coachId, clientId, from, text, ref = null) {
   // Se muestra al instante y luego se confirma con el servidor
@@ -453,7 +499,8 @@ export function startWorkout(clientId, dayId) {
       const drop = e.technique === "dropset" && e.drops?.count > 0 ? { count: +e.drops.count, pct: +e.drops.pct || 20, on: e.drops.on === "all" ? "all" : "last" } : null;
       return {
         exId: e.exId, notes: e.notes || "",
-        target: { sets: nSets, reps: String(e.reps), rest: +e.rest || 0, ...(drop ? { drop } : {}) },
+        target: { sets: nSets, reps: String(e.reps), rest: +e.rest || 0, ...(drop ? { drop } : {}),
+          ...(e.linkNext ? { linkNext: true } : {}), ...(e.effort?.type ? { effort: e.effort } : {}), ...(e.tempo ? { tempo: e.tempo } : {}) },
         sets: Array.from({ length: nSets }, (_, i) => {
           const prev = last?.sets[i] || last?.sets.at(-1);
           const st = { weight: "", reps: "", prevWeight: prev?.weight ?? null, prevReps: prev?.reps ?? null, done: false };
@@ -464,16 +511,18 @@ export function startWorkout(clientId, dayId) {
     }),
   };
   patch((d) => { d.active[clientId] = a; });
+  saveLocalActive(a);
   pendingActive = a;
   flushActive();
 }
 export function updateWorkout(clientId, fn) {
   if (!state.active[clientId]) return;
   patch((d) => { fn(d.active[clientId]); });
+  saveLocalActive(state.active[clientId]);
   queueActiveSave(state.active[clientId]);
 }
 export async function discardWorkout(clientId) {
-  clearTimeout(saveTimer); pendingActive = null;
+  clearTimeout(saveTimer); pendingActive = null; saveLocalActive(null);
   patch((d) => { delete d.active[clientId]; });
   await act("DELETE", "/api/client/workout/active");
 }
@@ -490,12 +539,47 @@ export async function finishWorkout(clientId, { difficulty, comment, share }) {
     }
     return undefined;
   })();
-  const r = await api("POST", "/api/client/workout/finish", { session: a, difficulty, comment, share, prName });
+  const body = { session: a, difficulty, comment, share, prName, finishedAt: nowISO() };
+  const r = await api("POST", "/api/client/workout/finish", body);
+  if (r.error && (r.offline || r.status >= 500)) {
+    // Sin señal: queda en el celular y se sube solo cuando vuelva la conexión
+    lsSet(LS.outbox, [...outbox().filter((o) => o.session.id !== a.id), { userId: clientId, ...body }]);
+    pendingActive = null; saveLocalActive(null);
+    patch((d) => { delete d.active[clientId]; d.pendingUploads = outbox().filter((o) => o.userId === clientId).length; });
+    const done = a.exercises.reduce((t, e) => t + e.sets.filter((x) => x.done).length, 0);
+    const volume = sessionVolume(a);
+    return { queued: true, durationSec: Math.round((Date.now() - Date.parse(a.startedAt)) / 1000), done, volume, prs: [], comment };
+  }
   if (r.error) return r;
-  pendingActive = null;
+  pendingActive = null; saveLocalActive(null);
   patch((d) => { delete d.active[clientId]; });
   await reload();
   return r;
+}
+
+/** Sube los entrenamientos que se terminaron sin conexión (el servidor ignora duplicados). */
+let flushing = false;
+export async function flushOutbox() {
+  if (flushing || state.status !== "ready") return;
+  const mine = outbox().filter((o) => o.userId === state.sessionUserId);
+  if (!mine.length) return;
+  flushing = true;
+  let sent = 0;
+  try {
+    for (const item of mine) {
+      const { userId, ...body } = item;
+      const r = await api("POST", "/api/client/workout/finish", body);
+      if (r.error && (r.offline || r.status >= 500 || r.status === 401)) break; // se reintenta luego
+      lsSet(LS.outbox, outbox().filter((o) => o.session.id !== item.session.id)); // subido (o rechazado por datos no válidos)
+      if (!r.error) sent++;
+    }
+  } finally { flushing = false; }
+  if (sent) await reload();
+  else patch((d) => { d.pendingUploads = outbox().filter((o) => o.userId === state.sessionUserId).length; });
+}
+if (typeof window !== "undefined") {
+  window.addEventListener("online", () => { if (state.status === "ready") reload(); });
+  setInterval(() => { if (state.status === "ready" && navigator.onLine !== false && outbox().length) flushOutbox(); }, 30000);
 }
 
 export { repsLow };

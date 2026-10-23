@@ -5,6 +5,7 @@
 import { knex, J, S } from "./db.js";
 import { monthlyConcept, nowISO, uid } from "./util.js";
 import { hasMonthly } from "./history.js";
+import { notifyLater } from "./notify.js";
 
 export const TRIAL_DAYS = [7, 14, 21, 30];
 
@@ -28,6 +29,7 @@ export async function convertTrial(trx, c, { auto = false } = {}) {
     text: auto
       ? `¡Terminó tu periodo de prueba! Desde hoy entrenas con ${name}. Vamos por tus objetivos 💪`
       : `¡Bienvenido/a al plan completo! Desde hoy entrenas con ${name}.` });
+  notifyLater(c.user_id, { title: auto ? "¡Terminó tu prueba!" : "¡Bienvenido/a al plan completo!", body: `Desde hoy entrenas con ${name}.`, page: "rutina", kind: "trial" });
   return true;
 }
 

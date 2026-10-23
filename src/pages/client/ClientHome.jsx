@@ -7,6 +7,7 @@ import {
 } from "../../store/db";
 import { ago, capitalize, clock, parseRest, sameDay, tons } from "../../lib/format";
 import { trialInfo, trialName } from "../../lib/trial";
+import { NotifyPrompt } from "../shared/Account";
 
 export function estimateMin(day) {
   const sec = day.exercises.reduce((t, e) => t + e.sets * (40 + parseRest(e.rest)), 0);
@@ -38,6 +39,7 @@ export default function ClientHome() {
       <div className="page-head">
         <div><h1>Hola, {me.name.split(" ")[0]}</h1><p>{today}</p></div>
       </div>
+      <NotifyPrompt />
 
       {trialInfo(c)?.running && (() => { const t = trialInfo(c); return (
         <section className="panel panel-pad stack trial-client" style={{ gap: 10 }}>

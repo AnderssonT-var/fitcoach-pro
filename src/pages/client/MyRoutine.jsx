@@ -8,6 +8,7 @@ import { clock, kg, parseRest } from "../../lib/format";
 import { estimateMin } from "./ClientHome";
 import { dropLabel, isDrop, setText } from "../../workout/dropset";
 import { trialInfo } from "../../lib/trial";
+import { effortHelp, effortLabel, supersets, tempoHelp } from "../../workout/techniques";
 
 export default function MyRoutine() {
   const db = useDB();
@@ -42,12 +43,14 @@ export default function MyRoutine() {
       <p className="small muted">{day.exercises.length} ejercicios · unos {estimateMin(day)} minutos</p>
 
       <ol className="stack" style={{ listStyle: "none", margin: 0, padding: 0 }}>
-        {day.exercises.map((e, i) => {
+        {(() => { const ss = supersets(day.exercises); return day.exercises.map((e, i) => {
+          const g = ss[i];
           const info = exerciseById(db, e.exId);
           const last = lastPerformance(db, me.id, e.exId);
           const best = bestSet(db, me.id, e.exId);
           return (
-            <li key={e.uid} className="panel panel-pad stack" style={{ gap: 10 }}>
+            <li key={e.uid} className={`panel panel-pad stack ${g ? "in-ss" : ""} ${g && g.pos < g.size ? "ss-joined" : ""}`} style={{ gap: 10 }}>
+              {g && g.pos === 1 && <div className="ss-head" style={{ margin: "-4px 0 0" }}><Icon name="link" size={15} /><strong>Superserie {g.letter}</strong><span>{g.size} ejercicios seguidos, sin descanso entre ellos</span></div>}
               <div className="row" style={{ alignItems: "flex-start" }}>
                 {exerciseImage(info) ? (
                   <button className="ex-thumb-btn" onClick={() => setView(info)} aria-label={`Ver técnica de ${info.name}`}>
@@ -55,7 +58,7 @@ export default function MyRoutine() {
                   </button>
                 ) : <span className="display num" style={{ fontSize: 30, width: 28, lineHeight: 1, color: "var(--muted)" }}>{i + 1}</span>}
                 <div className="grow" style={{ minWidth: 0 }}>
-                  <div className="section-title" style={{ overflowWrap: "anywhere" }}>{info.name}</div>
+                  <div className="section-title" style={{ overflowWrap: "anywhere" }}>{g && <span className="ss-tag">{g.letter}{g.pos}</span>}{info.name}</div>
                   <div className="small muted">{info.muscle} · {info.equipment}</div>
                   <div className="narrow-only small strong num" style={{ marginTop: 2 }}>{e.sets} × {e.reps} <span className="muted" style={{ fontWeight: 400 }}>· descanso {clock(parseRest(e.rest))}</span></div>
                   <button className="link-btn small" style={{ fontSize: 13 }} onClick={() => setView(info)}>Ver técnica</button>
@@ -65,7 +68,13 @@ export default function MyRoutine() {
                   <div className="tiny muted num">descanso {clock(parseRest(e.rest))}</div>
                 </div>
               </div>
-              {isDrop(e) && <span className="drop-badge" style={{ alignSelf: "flex-start" }}><Icon name="trend" size={13} />{dropLabel(e.drops)}</span>}
+              {(isDrop(e) || e.effort || e.tempo) && (
+                <div className="row wrap gap-xs">
+                  {isDrop(e) && <span className="drop-badge"><Icon name="trend" size={13} />{dropLabel(e.drops)}</span>}
+                  {e.effort && <span className="tech-badge" title={effortHelp(e.effort)}><Icon name="gauge" size={13} />{effortLabel(e.effort)}</span>}
+                  {e.tempo && <span className="tech-badge" title={tempoHelp(e.tempo)}><Icon name="clock" size={13} />Tempo {e.tempo}</span>}
+                </div>)}
+              {(e.effort || e.tempo) && <p className="tiny muted" style={{ margin: 0 }}>{[effortHelp(e.effort), tempoHelp(e.tempo)].filter(Boolean).join(" · ")}</p>}
               {info.cues && <p className="small ink2">{info.cues}</p>}
               {e.notes && <div className="note-box small"><Icon name="note" size={16} /><span><strong>{coach.name.split(" ")[0]}:</strong> {e.notes}</span></div>}
               {(last || best) && (
@@ -78,7 +87,7 @@ export default function MyRoutine() {
                 <Icon name="chat" size={14} /> Comentar a {coach.name.split(" ")[0]} sobre este ejercicio</button>
             </li>
           );
-        })}
+        }); })()}
       </ol>
       {view && <ExerciseDetail ex={view} coachName={coach.name.split(" ")[0]} onClose={() => setView(null)} />}
     </div>

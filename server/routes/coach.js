@@ -9,6 +9,8 @@ import { checkInlineImage, deleteFile, saveFile } from "../files.js";
 import { PLAN_MONTHS, getPricing, planPrice } from "../state.js";
 import { codeLimiter } from "./auth.js";
 import { convertTrial } from "../trial.js";
+import { notifyLater } from "../notify.js";
+import { insertClient, newTrial, trialConcept } from "../clients.js";
 import { RESERVED_SLUGS, log, normalizeCode, ownClient, slugify } from "./common.js";
 import { routineSchema, measurementSchema, photosSchema, exerciseSchema, deleteClientData } from "./schemas.js";
 
@@ -59,7 +61,11 @@ router.put("/brand", h(async (req, res) => {
   const body = parse(z.object({
     businessName: z.string().trim().max(60).optional(), tagline: z.string().trim().max(90).optional(),
     color: z.string().regex(/^(#[0-9a-fA-F]{6})?$/).optional(), logo: z.string().max(500_000).nullable().optional(), slug: z.string().max(60).optional(),
+    // Inscripción desde el enlace: abierta o no, mensualidad, prueba y plantilla de rutina inicial
+    signup: z.object({ open: z.boolean(), fee: z.number().min(0).max(100000), trialDays: z.union([z.literal(0), z.literal(7), z.literal(14), z.literal(21), z.literal(30)]),
+      trialFee: z.number().min(0).max(100000), templateId: z.string().max(40).nullable() }).optional(),
   }), req.body);
+  if (body.signup?.templateId && !(await knex("templates").where({ id: body.signup.templateId, coach_id: req.user.id }).first())) throw bad("Esa plantilla ya no existe.");
   const patch = {};
   if (body.slug !== undefined) {
     const slug = slugify(body.slug);
@@ -82,11 +88,6 @@ router.use(requireLicense, requireConsent);
 
 /* ---------- asesorados ---------- */
 const trialSchema = z.object({ days: z.number().int().min(1).max(60), fee: z.number().min(0).max(100000).optional().default(0) });
-const trialConcept = (days) => (days === 30 ? "Mes de prueba" : `Plan de prueba (${days} días)`);
-function newTrial({ days, fee }) {
-  const start = new Date();
-  return { start: start.toISOString(), end: new Date(start.getTime() + days * 864e5).toISOString(), days, fee: fee || 0, status: "active", convertedAt: null };
-}
 const clientFields = {
   goal: z.string().trim().max(60), phone: z.string().trim().max(30), heightCm: z.number().min(50).max(260).nullable(),
   fee: z.number().min(0).max(100000), billingDay: z.number().int().min(1).max(28), active: z.boolean(),
@@ -102,23 +103,8 @@ router.post("/clients", h(async (req, res) => {
   const password = tempPassword();
   const hash = await hashPassword(password);
   const out = await knex.transaction(async (trx) => {
-    const [userId] = await trx("users").insert({ role: "client", email: body.email, password_hash: hash, name: body.name,
-      profile: S({ body: "m" }), must_change_password: true, created_at: nowISO() });
-    const now = nowISO();
-    await trx("clients").insert({ user_id: userId, coach_id: req.user.id, active: true, data: S({
-      goal: body.goal, phone: body.phone, heightCm: body.height || null, fee: body.fee, billingDay: Math.min(new Date().getDate(), 28),
-      routine: null, planRoutine: null, joinedAt: now, weights: body.weight ? [{ date: now, kg: body.weight }] : [],
-      ...(body.trial ? { trial: newTrial(body.trial) } : {}),
-      measurements: body.weight ? [{ id: uid("ms-"), date: now, weight: body.weight, note: "Medición inicial" }] : [], notes: [],
-    }) });
-    // Con prueba se cobra la prueba; la mensualidad empieza al pasar al plan completo
-    if (body.trial) {
-      if (body.trial.fee > 0) await trx("payments").insert({ id: uid("pay-"), coach_id: req.user.id, client_id: userId, concept: trialConcept(body.trial.days), amount: body.trial.fee, due_date: now, paid_at: null, method: "" });
-    } else if (body.fee > 0) {
-      await trx("payments").insert({ id: uid("pay-"), coach_id: req.user.id, client_id: userId, concept: monthlyConcept(), amount: body.fee, due_date: now, paid_at: null, method: "" });
-    }
-    await trx("messages").insert({ id: uid("m-"), coach_id: req.user.id, client_id: userId, from_id: req.user.id, read: false, at: now,
-      text: `¡Hola ${body.name.split(" ")[0]}! Bienvenido/a. Aquí verás tu rutina y podrás registrar cada entrenamiento.` });
+    const userId = await insertClient(trx, { coach: req.user, name: body.name, email: body.email, passwordHash: hash, mustChange: true,
+      phone: body.phone, goal: body.goal, fee: body.fee, height: body.height, weight: body.weight, trial: body.trial });
     await log(trx, "client", `${req.user.name} agregó un asesorado`);
     return { userId };
   });
@@ -185,6 +171,7 @@ router.put("/clients/:id/routine", h(async (req, res) => {
       d.planRoutine = routine;
     } else d.routine = routine;
   });
+  if (slot === "current" && routine) notifyLater(+req.params.id, { title: "Tu rutina se actualizó", body: `${req.user.name.split(" ")[0]} actualizó «${routine.name || "tu rutina"}». Ábrela para ver los cambios.`, page: "rutina", tag: "routine", kind: "routine" });
   res.json({ ok: true });
 }));
 

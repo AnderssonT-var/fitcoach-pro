@@ -8,6 +8,7 @@ import { clock } from "../../lib/format";
 import { GOALS } from "./Clients";
 import { DROP_DEFAULT, DROP_PCTS, dropLabel, isDrop } from "../../workout/dropset";
 import { RoutineBalance } from "../../workout/MuscleLoad";
+import { RIR_VALUES, RPE_VALUES, TEMPO_RE, effortLabel, supersets, tempoHelp } from "../../workout/techniques";
 
 const RESTS = [30, 45, 60, 75, 90, 120, 150, 180, 240];
 const blank = () => ({ name: "", goal: "Hipertrofia", frequency: 3, notes: "", days: [{ id: newUid(), name: "Día 1", exercises: [] }] });
@@ -102,18 +103,22 @@ export default function RoutineEditor({ clientId, slot = "current" }) {
           {day.exercises.length === 0 && <div className="note-box"><Icon name="dumbbell" size={18} />Este día no tiene ejercicios. Agrega el primero desde tu biblioteca.</div>}
 
           <ol className="stack" style={{ listStyle: "none", padding: 0, margin: 0, gap: 10 }}>
-            {day.exercises.map((e, i) => {
+            {(() => { const ss = supersets(day.exercises); return day.exercises.map((e, i) => {
               const info = exerciseById(db, e.exId);
               const set = (k, v) => upDay((d) => { d.exercises[i][k] = v; });
+              const g = ss[i];
+              const tempoBad = e.tempo && !TEMPO_RE.test(e.tempo);
               return (
-                <li key={e.uid} className="panel" style={{ padding: 12, background: "var(--surface-2)" }}>
+                <li key={e.uid} className={`panel re-ex ${g ? "in-ss" : ""} ${g && g.pos < g.size ? "ss-joined" : ""}`} style={{ padding: 12, background: "var(--surface-2)" }}>
                   <div className="row" style={{ alignItems: "flex-start" }}>
                     <span className="display num" style={{ fontSize: 22, width: 22, color: "var(--muted)" }}>{i + 1}</span>
                     <div className="grow stack" style={{ gap: 10 }}>
                       <div className="row spread wrap gap-sm">
                         <div className="row gap-sm" style={{ minWidth: 0 }}>
                           {exerciseImage(info) && <button className="ex-thumb-btn" onClick={() => setView(info)} aria-label={`Ver ${info.name}`}><img className="ex-thumb" src={exerciseImage(info)} alt="" /></button>}
-                          <div style={{ minWidth: 0 }}><div className="strong">{info.name}</div><div className="tiny muted">{info.muscle} · {info.equipment}</div></div>
+                          <div style={{ minWidth: 0 }}>
+                            {g && <span className="ss-badge">Superserie {g.letter}{g.pos}</span>}
+                            <div className="strong">{info.name}</div><div className="tiny muted">{info.muscle} · {info.equipment}</div></div>
                         </div>
                         <div className="row gap-xs">
                           <button className="btn btn-ghost btn-icon btn-sm" disabled={i === 0} onClick={() => upDay((d) => { [d.exercises[i - 1], d.exercises[i]] = [d.exercises[i], d.exercises[i - 1]]; })} aria-label={`Subir ${info.name}`}><Icon name="arrowUp" size={17} /></button>
@@ -126,16 +131,27 @@ export default function RoutineEditor({ clientId, slot = "current" }) {
                           <input className="input num" type="number" inputMode="numeric" min="1" max="10" value={e.sets} onChange={(ev) => set("sets", Math.max(1, Math.min(10, +ev.target.value || 1)))} /></label>
                         <label className="field" style={{ width: 96 }}><span className="tiny muted strong">Reps</span>
                           <input className="input num" value={e.reps} onChange={(ev) => set("reps", ev.target.value.slice(0, 7))} placeholder="8-10" /></label>
-                        <label className="field" style={{ width: 110 }}><span className="tiny muted strong">Descanso</span>
+                        <label className="field" style={{ width: 110 }}><span className="tiny muted strong">{g && g.pos < g.size ? "Descanso (ronda)" : "Descanso"}</span>
                           <select className="select num" value={e.rest} onChange={(ev) => set("rest", +ev.target.value)}>{RESTS.map((r) => <option key={r} value={r}>{clock(r)}</option>)}</select></label>
                         <label className="field" style={{ width: 130 }}><span className="tiny muted strong">Técnica</span>
                           <select className="select" value={e.technique || "normal"} aria-label={`Técnica de ${info.name}`}
                             onChange={(ev) => upDay((d) => { const x = d.exercises[i]; x.technique = ev.target.value; if (x.technique === "dropset" && !x.drops) x.drops = { ...DROP_DEFAULT }; })}>
                             <option value="normal">Normal</option><option value="dropset">Drop set</option>
                           </select></label>
+                        <label className="field" style={{ width: 128 }}><span className="tiny muted strong">Intensidad</span>
+                          <select className="select" aria-label={`Intensidad de ${info.name}`} value={e.effort ? `${e.effort.type}:${e.effort.value}` : ""}
+                            onChange={(ev) => upDay((d) => { const v = ev.target.value; if (!v) delete d.exercises[i].effort; else { const [type, value] = v.split(":"); d.exercises[i].effort = { type, value: +value }; } })}>
+                            <option value="">—</option>
+                            <optgroup label="Repeticiones en reserva">{RIR_VALUES.map((v) => <option key={`r${v}`} value={`rir:${v}`}>{effortLabel({ type: "rir", value: v })}</option>)}</optgroup>
+                            <optgroup label="Esfuerzo percibido">{RPE_VALUES.map((v) => <option key={`p${v}`} value={`rpe:${v}`}>{effortLabel({ type: "rpe", value: v })}</option>)}</optgroup>
+                          </select></label>
+                        <label className="field" style={{ width: 104 }}><span className="tiny muted strong">Tempo</span>
+                          <input className={`input num ${tempoBad ? "invalid" : ""}`} aria-label={`Tempo de ${info.name}`} value={e.tempo || ""} placeholder="3-1-1-0" title={tempoHelp(e.tempo) || "Bajada-pausa-subida-pausa en segundos"}
+                            onChange={(ev) => set("tempo", ev.target.value.toUpperCase().replace(/[^0-9X-]/g, "").slice(0, 11))} /></label>
                         <label className="field grow" style={{ minWidth: 180 }}><span className="tiny muted strong">Nota para {first}</span>
                           <input className="input" value={e.notes} onChange={(ev) => set("notes", ev.target.value)} placeholder="Opcional" /></label>
                       </div>
+                      {tempoBad && <span className="tiny" style={{ color: "var(--red-ink)" }}>Tempo: 3 o 4 números separados por guiones, por ejemplo 3-1-1-0 (X = explosivo).</span>}
                       {isDrop(e) && (
                         <div className="drop-config">
                           <span className="drop-badge"><Icon name="trend" size={14} />Drop set</span>
@@ -153,9 +169,16 @@ export default function RoutineEditor({ clientId, slot = "current" }) {
                       )}
                     </div>
                   </div>
+                  {i < day.exercises.length - 1 && (
+                    <button type="button" className={`ss-link ${e.linkNext ? "on" : ""}`} aria-pressed={!!e.linkNext}
+                      onClick={() => upDay((d) => { d.exercises[i].linkNext = !d.exercises[i].linkNext; })}
+                      title="Superserie: se hacen seguidos, sin descanso entre ellos">
+                      <Icon name="link" size={14} />{e.linkNext ? "En superserie con el siguiente · separar" : "Unir en superserie con el siguiente"}
+                    </button>
+                  )}
                 </li>
               );
-            })}
+            }); })()}
           </ol>
           <button className="btn btn-quiet" onClick={() => setPicker(true)} style={{ borderStyle: "dashed" }}><Icon name="plus" size={18} />Agregar ejercicio a {day.name || "este día"}</button>
         </div>

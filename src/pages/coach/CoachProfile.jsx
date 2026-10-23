@@ -7,7 +7,8 @@ import { clientsOf, updateBrand, updateProfile, useDB, userById } from "../../st
 import { avatarImage, logoImage } from "../../lib/image";
 import { BRAND_COLORS } from "../../lib/brand";
 import { apiBase, isNative } from "../../store/api";
-import { SecurityPanel } from "../shared/Account";
+import { NotificationsPanel, SecurityPanel } from "../shared/Account";
+import SignupSettings from "./SignupSettings";
 
 /** Enlace público de acceso con la marca del entrenador. */
 export function brandUrl(slug) {
@@ -31,6 +32,8 @@ export default function CoachProfile() {
         <div className="stack-lg">
           <ProfileForm u={u} />
           <BrandForm u={u} />
+          <SignupSettings u={u} />
+          <NotificationsPanel />
           <SecurityPanel />
         </div>
         <div className="stack-lg sticky-col">

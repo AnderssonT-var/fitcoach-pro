@@ -675,3 +675,29 @@ input[type=number] { -moz-appearance: textfield; }
   .set-check { width: 40px; height: 40px; }
   .ex-card .section-title { font-size: 19px !important; }
 }
+
+/* ---------- Superseries, intensidad y tempo ---------- */
+.ss-badge { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--blue-ink); background: var(--blue-soft); padding: 1px 7px; border-radius: 6px; margin-bottom: 3px; }
+.ss-tag { display: inline-grid; place-items: center; min-width: 26px; height: 22px; padding: 0 5px; margin-right: 7px; border-radius: 7px; background: var(--blue); color: #fff; font-size: 13px; font-weight: 700; vertical-align: 3px; font-family: var(--body); letter-spacing: 0; }
+.ss-tag.sm { min-width: 22px; height: 18px; font-size: 11px; vertical-align: 1px; margin-right: 5px; }
+.ss-link { margin: 10px 0 -2px 30px; display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; border: 1px dashed var(--line-strong); background: var(--surface); color: var(--ink-2); padding: 5px 11px; border-radius: 999px; cursor: pointer; }
+.ss-link.on { border-style: solid; border-color: var(--blue); color: var(--blue-ink); background: var(--blue-soft); }
+li.in-ss { border-left: 4px solid var(--blue); }
+li.ss-joined { margin-bottom: -6px; border-bottom-left-radius: 4px; border-bottom-right-radius: 4px; }
+li.ss-joined + li.in-ss { border-top-left-radius: 4px; border-top-right-radius: 4px; }
+.ss-block { border-left: 4px solid var(--blue); padding-left: 10px; display: flex; flex-direction: column; gap: 10px; }
+.ss-head { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; font-size: 13px; color: var(--blue-ink); }
+.ss-head span { color: var(--muted); font-size: 12.5px; }
+.tech-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 650; color: var(--ink-2); background: var(--surface-3); padding: 3px 10px; border-radius: 12px; font-variant-numeric: tabular-nums; }
+.tech-badge.sm { font-size: 11px; padding: 1px 7px; vertical-align: 1px; }
+.input.invalid { box-shadow: inset 0 0 0 2px var(--red); }
+@media (max-width: 400px) { .ss-block { padding-left: 6px; } }
+
+/* ---------- Sin conexión ---------- */
+.net-bar { display: flex; align-items: center; gap: 10px; margin: 0 auto 14px; max-width: 1180px; padding: 10px 14px; border-radius: 12px; background: var(--blue-soft); color: var(--ink); font-size: 14px; }
+.net-bar.off { background: var(--yellow-soft); }
+.net-bar > svg { flex-shrink: 0; color: var(--ink-2); }
+.error-detail { white-space: pre-wrap; word-break: break-word; font-size: 11.5px; background: var(--surface-2); padding: 10px; border-radius: 8px; max-height: 240px; overflow: auto; margin: 0; }
+.reminder-box { border-top: 1px solid var(--line); padding-top: 12px; }
+.notify-prompt { align-items: center; }
+.signup-cta { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: 14px; background: var(--blue-soft); font-size: 14.5px; text-align: center; }

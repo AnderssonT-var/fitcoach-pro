@@ -3,5 +3,9 @@
   "appName": "VYTRAFIT",
   "webDir": "dist",
   "server": { "androidScheme": "https" },
-  "android": { "allowMixedContent": false, "backgroundColor": "#F2F2F7" }
+  "android": { "allowMixedContent": false, "backgroundColor": "#F2F2F7" },
+  "plugins": {
+    "LocalNotifications": { "smallIcon": "ic_stat_vytrafit", "iconColor": "#FF6B00" },
+    "PushNotifications": { "presentationOptions": ["badge", "sound", "alert"] }
+  }
 }

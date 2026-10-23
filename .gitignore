@@ -10,3 +10,4 @@ uploads/
 android/app/release/
 *.keystore
 *.jks
+android/app/google-services.json

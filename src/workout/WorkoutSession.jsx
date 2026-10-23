@@ -11,6 +11,9 @@ import {
 import { SessionMuscles } from "./MuscleLoad";
 import { clock, kg, parseRest, repsLow, tons } from "../lib/format";
 import { dropLabel, dropWeight } from "./dropset";
+import { afterSet, blocksOf, effortHelp, effortLabel, supersets, tempoHelp } from "./techniques";
+import { armRestAlarm } from "../lib/notify";
+import { isNative } from "../store/api";
 
 const setVolume = (x) => (x.done ? (+x.weight || 0) * (+x.reps || 0) : 0) + (x.drops || []).reduce((t, d) => t + (d.done ? (+d.weight || 0) * (+d.reps || 0) : 0), 0);
 
@@ -54,6 +57,21 @@ export default function WorkoutSession({ clientId, onClose }) {
     return () => { document.removeEventListener("visibilitychange", vis); lock?.release?.().catch(() => {}); };
   }, []);
 
+  // Pantalla apagada o app en segundo plano: el fin del descanso llega como notificación
+  const restAtRef = useRef(null);
+  restAtRef.current = live?.restEndsAt || null;
+  useEffect(() => {
+    const sync = () => armRestAlarm(document.visibilityState === "hidden" && restAtRef.current > Date.now() ? restAtRef.current : null);
+    document.addEventListener("visibilitychange", sync);
+    let pause, resume;
+    if (isNative()) import("@capacitor/app").then(({ App: Cap }) => {
+      pause = Cap.addListener("pause", () => armRestAlarm(restAtRef.current > Date.now() ? restAtRef.current : null));
+      resume = Cap.addListener("resume", () => armRestAlarm(null));
+    });
+    return () => { document.removeEventListener("visibilitychange", sync); pause?.then?.((h) => h.remove()); resume?.then?.((h) => h.remove()); armRestAlarm(null); };
+  }, []);
+  useEffect(() => { if (document.visibilityState === "hidden") armRestAlarm(live?.restEndsAt > Date.now() ? live.restEndsAt : null); }, [live?.restEndsAt]);
+
   // Fin del descanso
   useEffect(() => {
     if (!live?.restEndsAt || now < live.restEndsAt || notified.current === live.restEndsAt) return;
@@ -71,7 +89,8 @@ export default function WorkoutSession({ clientId, onClose }) {
   const pct = all.length ? Math.round((done / all.length) * 100) : 0;
   const elapsed = (now - Date.parse(s.startedAt)) / 1000;
   const restLeft = live?.restEndsAt ? Math.ceil((live.restEndsAt - now) / 1000) : null;
-  const current = s.exercises.findIndex((e) => e.sets.some((x) => !x.done));
+  // Ejercicio actual: el que sigue en la superserie, o el primero con series pendientes
+  const current = s.focus != null && s.exercises[s.focus]?.sets.some((x) => !x.done) ? s.focus : s.exercises.findIndex((e) => e.sets.some((x) => !x.done));
 
   const upd = (fn) => updateWorkout(clientId, fn);
   function ensureAudio() {
@@ -80,7 +99,7 @@ export default function WorkoutSession({ clientId, onClose }) {
   }
   function toggle(ei, si) {
     ensureAudio();
-    let completedExercise = false;
+    let goTo = null;
     upd((a) => {
       const ex = a.exercises[ei], st = ex.sets[si];
       if (st.done) { st.done = false; return; }
@@ -89,12 +108,22 @@ export default function WorkoutSession({ clientId, onClose }) {
       st.done = true;
       // Drop set: se sigue sin descanso; el descanso arranca al terminar la última bajada
       if (st.drops?.some((d) => !d.done)) { a.restEndsAt = null; return; }
-      completedExercise = ex.sets.every((x) => x.done);
-      startRest(a, ex);
+      goTo = afterRound(a, ei, si);
     });
     try { navigator.vibrate?.(25); } catch { /* nada */ }
-    if (completedExercise) setTimeout(() => cards.current[ei + 1]?.scrollIntoView({ behavior: "smooth", block: "start" }), 250);
+    scrollTo(goTo, ei);
   }
+  /** Tras completar una serie: superserie → siguiente ejercicio sin descanso; si no, descanso. Devuelve a qué tarjeta ir. */
+  function afterRound(a, ei, si) {
+    const ex = a.exercises[ei];
+    const nx = afterSet(a.exercises, ei, si);
+    const g = supersets(a.exercises.map((e) => e.target))[ei];
+    if (nx.rest) startRest(a, g ? a.exercises[g.end] : ex); else a.restEndsAt = null;
+    a.focus = nx.next ?? undefined;
+    if (nx.next != null) return nx.next;
+    return ex.sets.every((x) => x.done) ? ei + 1 : null;
+  }
+  const scrollTo = (target, from) => { if (target != null && target !== from) setTimeout(() => cards.current[target]?.scrollIntoView({ behavior: "smooth", block: "start" }), 250); };
   function startRest(a, ex) {
     const left = a.exercises.some((e) => e.sets.some((x) => !x.done || x.drops?.some((d) => !d.done)));
     a.restTotal = parseRest(ex.target.rest);
@@ -102,7 +131,7 @@ export default function WorkoutSession({ clientId, onClose }) {
   }
   function toggleDrop(ei, si, di) {
     ensureAudio();
-    let completedExercise = false;
+    let goTo = null;
     upd((a) => {
       const ex = a.exercises[ei], st = ex.sets[si], d = st.drops[di];
       if (d.done) { d.done = false; return; }
@@ -112,11 +141,10 @@ export default function WorkoutSession({ clientId, onClose }) {
       if (!st.done) st.done = true;
       d.done = true;
       if (st.drops.some((x) => !x.done)) return;
-      completedExercise = ex.sets.every((x) => x.done);
-      startRest(a, ex);
+      goTo = afterRound(a, ei, si);
     });
     try { navigator.vibrate?.(25); } catch { /* nada */ }
-    if (completedExercise) setTimeout(() => cards.current[ei + 1]?.scrollIntoView({ behavior: "smooth", block: "start" }), 250);
+    scrollTo(goTo, ei);
   }
   const editDrop = (ei, si, di, k, v) => upd((a) => { a.exercises[ei].sets[si].drops[di][k] = v.replace(",", "."); });
   const edit = (ei, si, k, v) => upd((a) => { a.exercises[ei].sets[si][k] = v.replace(",", "."); });
@@ -132,6 +160,7 @@ export default function WorkoutSession({ clientId, onClose }) {
     const r = await finishWorkout(clientId, { difficulty, comment, share });
     setSaving(false);
     if (r?.error) return toast(`${r.error} Tus series no se perdieron: vuelve a tocar Guardar.`, "alert");
+    if (r?.queued) toast("Sin conexión: el entrenamiento quedó guardado en tu celular y se subirá solo.", "wifi");
     setResult(r); setStage("done");
   }
 
@@ -156,12 +185,18 @@ export default function WorkoutSession({ clientId, onClose }) {
 
       <div className="workout-body">
         <div className="workout-inner stack" style={{ padding: 16 }}>
-          {stage === "train" && s.exercises.map((ex, ei) => (
-            <ExerciseCard key={ei} refEl={(el) => (cards.current[ei] = el)} ex={ex} isCurrent={ei === current}
-              info={exerciseById(db, ex.exId)} best={bestSet(db, clientId, ex.exId)} coachFirst={coachFirst} chatNote={lastExerciseNote(db, client.coachId, clientId, ex.exId)}
-              onToggle={(si) => toggle(ei, si)} onEdit={(si, k, v) => edit(ei, si, k, v)}
-              onToggleDrop={(si, di) => toggleDrop(ei, si, di)} onEditDrop={(si, di, k, v) => editDrop(ei, si, di, k, v)} onAdd={() => addSet(ei)} onRemove={() => removeSet(ei)} />
-          ))}
+          {stage === "train" && blocksOf(s.exercises.map((e) => e.target)).map((b) => {
+            const cardsOf = b.items.map((ei, k) => { const ex = s.exercises[ei]; return (
+              <ExerciseCard key={ei} refEl={(el) => (cards.current[ei] = el)} ex={ex} isCurrent={ei === current} ssLabel={b.kind === "superset" ? `${b.letter}${k + 1}` : null}
+                info={exerciseById(db, ex.exId)} best={bestSet(db, clientId, ex.exId)} coachFirst={coachFirst} chatNote={lastExerciseNote(db, client.coachId, clientId, ex.exId)}
+                onToggle={(si) => toggle(ei, si)} onEdit={(si, k2, v) => edit(ei, si, k2, v)}
+                onToggleDrop={(si, di) => toggleDrop(ei, si, di)} onEditDrop={(si, di, k2, v) => editDrop(ei, si, di, k2, v)} onAdd={() => addSet(ei)} onRemove={() => removeSet(ei)} />); });
+            return b.kind === "superset" ? (
+              <div key={`ss${b.items[0]}`} className="ss-block">
+                <div className="ss-head"><Icon name="link" size={15} /><strong>Superserie {b.letter}</strong><span>Alterna sin descanso · descansas al terminar la ronda</span></div>
+                {cardsOf}
+              </div>) : cardsOf;
+          })}
 
           {stage === "finish" && (
             <div className="stack-lg">
@@ -197,7 +232,7 @@ export default function WorkoutSession({ clientId, onClose }) {
           {stage === "done" && result && (
             <div className="stack-lg" style={{ alignItems: "center", textAlign: "center", paddingTop: 16 }}>
               <span className="avatar lg" style={{ width: 88, height: 88, background: "var(--green)", animation: "pop .4s ease-out" }}><Icon name="check" size={44} stroke={3} /></span>
-              <div><h2 style={{ fontSize: 38 }}>Entrenamiento guardado</h2><p className="muted">{coach.name} ya puede ver tu sesión{result.comment ? " y tu mensaje" : ""}.</p></div>
+              <div><h2 style={{ fontSize: 38 }}>Entrenamiento guardado</h2><p className="muted">{result.queued ? "Quedó guardado en tu celular. Se subirá solo cuando vuelva la conexión." : `${coach.name} ya puede ver tu sesión${result.comment ? " y tu mensaje" : ""}.`}</p></div>
               <div className="stats" style={{ gridTemplateColumns: "repeat(3, minmax(0,1fr))", width: "100%" }}>
                 <div className="stat"><span className="stat-label">Duración</span><span className="stat-value num" style={{ fontSize: 28 }}>{clock(result.durationSec)}</span></div>
                 <div className="stat"><span className="stat-label">Series</span><span className="stat-value num" style={{ fontSize: 28 }}>{result.done}</span></div>
@@ -235,7 +270,7 @@ export default function WorkoutSession({ clientId, onClose }) {
   );
 }
 
-function ExerciseCard({ ex, info, best, isCurrent, coachFirst, chatNote, onToggle, onEdit, onToggleDrop, onEditDrop, onAdd, onRemove, refEl }) {
+function ExerciseCard({ ex, info, best, isCurrent, coachFirst, chatNote, ssLabel, onToggle, onEdit, onToggleDrop, onEditDrop, onAdd, onRemove, refEl }) {
   const complete = ex.sets.every((x) => x.done && !x.drops?.some((d) => !d.done));
   const next = ex.sets.findIndex((x) => !x.done);
   // Bajada pendiente de una serie ya hecha: va antes que la siguiente serie
@@ -259,11 +294,17 @@ function ExerciseCard({ ex, info, best, isCurrent, coachFirst, chatNote, onToggl
           </span>
         )}
         <div className="grow">
-          <div className="section-title" style={{ fontSize: 22 }}>{info.name}</div>
+          <div className="section-title" style={{ fontSize: 22 }}>{ssLabel && <span className="ss-tag">{ssLabel}</span>}{info.name}</div>
           <button className="link-btn" style={{ fontSize: 13 }} onClick={() => setHow(true)}>Ver técnica</button>
           <div className="small muted">Objetivo {ex.target.sets} × {ex.target.reps} · descanso {clock(parseRest(ex.target.rest))}</div>
           {best && best.weight > 0 && <div className="narrow-only small strong" style={{ color: "var(--yellow-ink)" }}>Récord {kg(best.weight)} kg</div>}
-          {ex.target.drop && <span className="drop-badge" style={{ marginTop: 6 }} title={dropLabel(ex.target.drop)}><Icon name="trend" size={13} />{dropLabel(ex.target.drop)}</span>}
+          {(ex.target.drop || ex.target.effort || ex.target.tempo) && (
+            <div className="row wrap gap-xs" style={{ marginTop: 6 }}>
+              {ex.target.drop && <span className="drop-badge" title={dropLabel(ex.target.drop)}><Icon name="trend" size={13} />{dropLabel(ex.target.drop)}</span>}
+              {ex.target.effort && <span className="tech-badge" title={effortHelp(ex.target.effort)}><Icon name="gauge" size={13} />{effortLabel(ex.target.effort)}</span>}
+              {ex.target.tempo && <span className="tech-badge" title={tempoHelp(ex.target.tempo)}><Icon name="clock" size={13} />Tempo {ex.target.tempo}</span>}
+            </div>)}
+          {(ex.target.effort || ex.target.tempo) && <div className="tiny muted" style={{ marginTop: 4 }}>{[effortHelp(ex.target.effort), tempoHelp(ex.target.tempo)].filter(Boolean).join(" · ")}</div>}
         </div>
         {best && best.weight > 0 && <div className="wide-only" style={{ textAlign: "right" }}><div className="tiny muted">Récord</div><div className="display num" style={{ fontSize: 20, color: "var(--yellow-ink)" }}>{kg(best.weight)} kg</div></div>}
       </div>

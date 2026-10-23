@@ -43,6 +43,8 @@ export function PrivacyText({ info }) {
         <li><strong>Datos de salud y físicos:</strong> peso, medidas corporales, porcentaje de grasa, lesiones o molestias que reportes.</li>
         <li><strong>Fotos de progreso:</strong> imágenes de tu cuerpo que subes tú o tu entrenador.</li>
         <li><strong>Actividad:</strong> rutinas, entrenamientos registrados, mensajes con tu entrenador, publicaciones en la comunidad y pagos de tu mensualidad.</li>
+        <li><strong>Notificaciones:</strong> si las activas, un identificador de tu navegador o teléfono para enviarte avisos, y la hora y días de tu recordatorio. Puedes desactivarlas cuando quieras.</li>
+        <li><strong>Registro técnico de errores:</strong> si la app falla, el mensaje del error y el tipo de navegador, para poder corregirlo.</li>
       </ul>
 
       <h2>3. Datos sensibles e imágenes de tu cuerpo</h2>
@@ -66,7 +68,7 @@ export function PrivacyText({ info }) {
       </ul>
 
       <h2>6. Cómo los protegemos</h2>
-      <p>Conexión cifrada (HTTPS), contraseñas cifradas, bloqueo temporal tras varios intentos fallidos, sesiones que vencen y se pueden cerrar en todos los dispositivos, permisos revisados en el servidor en cada acción y fotos fuera del acceso público.</p>
+      <p>Conexión cifrada (HTTPS), contraseñas cifradas, bloqueo temporal tras varios intentos fallidos, sesiones que vencen y se pueden cerrar en todos los dispositivos, permisos revisados en el servidor en cada acción y fotos fuera del acceso público. Para que puedas entrenar sin señal, tu teléfono guarda una copia de tus datos y del entrenamiento en curso; esa copia se borra al cerrar sesión.</p>
 
       <h2>7. Cuánto tiempo</h2>
       <p>Mientras tu cuenta exista. Si eliminas tu cuenta, o tu entrenador te elimina, se borran tus datos, entrenamientos, mensajes y fotos. Los registros de pago pueden conservarse lo que exija la ley tributaria.</p>

@@ -69,6 +69,9 @@ En la ficha de cada cliente, el entrenador tiene:
 
 ## Funciones principales
 
+- **Técnicas en rutinas:** drop sets, superseries (se alternan sin descanso; el descanso llega al cerrar la ronda), intensidad por RIR o RPE y tempo (ej. 3-1-1-0).
+- **Inscripción desde el enlace del entrenador:** si el entrenador la abre en *Perfil y marca*, los nuevos asesorados se registran solos, aceptan el aviso de privacidad y empiezan su plan de prueba con la rutina inicial que él eligió.
+
 | Área | Qué hace |
 |---|---|
 | Licencias | Códigos `FIT-XXXX-XXXX`, activación en el registro, días restantes, aviso de vencimiento, renovación que suma tiempo, revocación y reactivación |
@@ -130,6 +133,26 @@ El administrador fija el **precio por mes** y los descuentos de 3, 6 y 12 meses,
 - Se envía el detalle por serie de los últimos 4 meses y un resumen de los anteriores; los récords de todos los tiempos se guardan aparte. La exportación de datos siempre incluye el historial completo.
 - Cada 6 horas se limpian sesiones vencidas y entrenamientos abandonados (más de 14 días sin terminar).
 - El servidor se apaga de forma ordenada (`SIGTERM`) y la tipografía va incluida en la app (sin depender de Google Fonts).
+
+### Notificaciones
+
+- **Navegador y web instalada (Android, PC, iPhone agregado a la pantalla de inicio):** Web Push. No requiere configurar nada: las claves se crean solas.
+- **App Android:** el fin del descanso y el recordatorio de entrenar funcionan con notificaciones locales, sin configuración. Para recibir también mensajes, pagos y avisos del servidor en la app, activa Firebase:
+  1. Crea un proyecto gratis en [console.firebase.google.com](https://console.firebase.google.com) y agrega una app Android con el paquete `com.atdev.fitcoachpro`.
+  2. Descarga `google-services.json` y pega su contenido en el secreto del repositorio `GOOGLE_SERVICES_JSON` (Settings → Secrets → Actions). El próximo APK ya lo incluye.
+  3. En Firebase → Configuración → Cuentas de servicio, genera una clave privada (JSON) y pégala en la variable `FCM_SERVICE_ACCOUNT` del servidor (hPanel → Node.js → Variables de entorno).
+- Avisos que se envían: mensajes nuevos, rutina actualizada, entrenamiento terminado (al entrenador), pago por vencer y vencido, prueba por terminar o terminada, licencia por vencer, inscripción nueva, recordatorio de entrenar (hora y días que elige el asesorado) y fin del descanso con la pantalla apagada. De noche (21:00–8:00) no salen avisos programados.
+
+### Tareas programadas y monitoreo
+
+- Los recordatorios y avisos corren cada 5 minutos dentro del servidor.
+- `.github/workflows/uptime.yml` revisa cada 10 minutos que `https://vytra.fit/api/health` responda; si falla, GitHub te avisa por correo.
+- Para asegurar las tareas aunque el servidor esté sin visitas, define `CRON_KEY` (un texto largo aleatorio) en el servidor **y** como secreto del repositorio con el mismo valor: el monitor llamará a `/api/cron` en cada revisión. También sirve un cron de hPanel: `curl -s -X POST -H "X-Cron-Key: TU_CLAVE" https://vytra.fit/api/cron`.
+- Los errores del servidor y de la app (pantallas) quedan en **Sistema** (administrador), agrupados, y el administrador recibe una notificación cuando falla el servidor.
+
+### Sin conexión
+
+El entrenamiento en curso se guarda en el celular en cada cambio. Si no hay señal, la app abre igual (con lo último que recibió), se puede seguir entrenando y terminar: el entrenamiento queda en el celular y se sube solo al volver la conexión. El servidor ignora los duplicados, así que reintentar es seguro. Al cerrar sesión se borran los datos guardados para usar sin conexión.
 
 ### Copias de seguridad
 

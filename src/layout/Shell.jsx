@@ -93,7 +93,16 @@ export default function Shell({ children }) {
           </button>
         </header>
 
-        <div className="content" id="content">{children}</div>
+        <div className="content" id="content">
+          {(db.offline || db.pendingUploads > 0) && (
+            <div className={`net-bar ${db.offline ? "off" : ""}`} role="status">
+              <Icon name="wifi" size={16} />
+              <span className="grow">{db.offline ? "Sin conexión. Puedes entrenar: todo se guarda en tu celular." : ""}{db.pendingUploads > 0 ? ` ${db.pendingUploads === 1 ? "1 entrenamiento" : `${db.pendingUploads} entrenamientos`} por subir${db.offline ? " cuando vuelva la señal" : "…"}.` : ""}</span>
+              {!db.offline && <button className="btn btn-quiet btn-sm" onClick={sync}>Subir ahora</button>}
+            </div>
+          )}
+          {children}
+        </div>
       </div>
 
       {/* ---------- Pestañas inferiores (móvil) ---------- */}
