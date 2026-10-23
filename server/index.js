@@ -164,4 +164,4 @@ export async function start() {
 }
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname);
-if (isMain) await start();
+if (isMain) start().catch((e) => { console.error("[VYTRAFIT] no pudo arrancar:", e); process.exit(1); });
