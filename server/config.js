@@ -54,7 +54,8 @@ export const config = {
   corsOrigins: (env.CORS_ORIGINS || "").split(",").map((s) => s.trim()).filter(Boolean)
     .concat(["https://localhost", "capacitor://localhost", "http://localhost"]),
   db: dbClient === "mysql2"
-    ? { client: "mysql2", connection: { host: env.DB_HOST || "127.0.0.1", port: +(env.DB_PORT || 3306), user: env.DB_USER, password: env.DB_PASSWORD, database: env.DB_NAME, charset: "utf8mb4", timezone: "Z" }, pool: { min: 0, max: 10 } }
+    ? { client: "mysql2", connection: { host: !env.DB_HOST || env.DB_HOST === "localhost" ? "127.0.0.1" : env.DB_HOST, // localhost puede resolver a IPv6 (::1) sin permiso en MySQL
+        port: +(env.DB_PORT || 3306), user: env.DB_USER, password: env.DB_PASSWORD, database: env.DB_NAME, charset: "utf8mb4", timezone: "Z" }, pool: { min: 0, max: 10 } }
     : { client: "better-sqlite3", connection: { filename: path.resolve(ROOT, env.DB_FILE || path.join(DATA, "fitcoach.sqlite")) }, useNullAsDefault: true },
   admin: { email: env.ADMIN_EMAIL, password: env.ADMIN_PASSWORD, name: env.ADMIN_NAME || "Administrador" },
   legalVersion: "2026-10",
