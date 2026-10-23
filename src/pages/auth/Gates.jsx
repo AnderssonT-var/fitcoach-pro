@@ -44,7 +44,7 @@ export function ServerSetup() {
     try {
       const r = await fetch(`${u.replace(/\/+$/, "")}/api/health`);
       if (!r.ok) throw new Error();
-    } catch { return setError("No respondió un servidor de FitCoach Pro en esa dirección."); }
+    } catch { return setError("No respondió un servidor de VYTRAFIT en esa dirección."); }
     setServer(u);
     window.location.reload();
   }
@@ -54,7 +54,7 @@ export function ServerSetup() {
         <div className="auth-hero">
           <span className="app-icon" style={{ width: 64, height: 64, borderRadius: 15 }}><Icon name="server" size={30} /></span>
           <h1 style={{ fontSize: 28 }}>Conectar con el servidor</h1>
-          <p>Escribe la dirección de FitCoach Pro que te dio tu entrenador o el administrador.</p>
+          <p>Escribe la dirección de VYTRAFIT que te dio tu entrenador o el administrador.</p>
         </div>
         <div className="auth-box">
           <Field label="Dirección" id="srv-url"><input id="srv-url" className="input" inputMode="url" value={url} onChange={(e) => { setUrl(e.target.value); setError(""); }} /></Field>

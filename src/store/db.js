@@ -405,7 +405,7 @@ export async function exportMyData() {
   if (r.error) return r;
   const blob = new Blob([JSON.stringify(r, null, 2)], { type: "application/json" });
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob); a.download = "mis-datos-fitcoach.json";
+  a.href = URL.createObjectURL(blob); a.download = "mis-datos-vytrafit.json";
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   return { ok: true };

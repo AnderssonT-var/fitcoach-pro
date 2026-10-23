@@ -50,7 +50,7 @@ export default function Shell({ children }) {
       <aside className="sidebar" aria-label="Menú principal">
         <div className="brand">
           <BrandMark brand={brand} size={32} />
-          <span className="brand-name ellipsis">{brandName || <>FitCoach <span>Pro</span></>}</span>
+          <span className="brand-name ellipsis">{brandName || <>VYTRA<span>FIT</span></>}</span>
         </div>
         <nav className="nav">
           {items.map((it) => (
@@ -87,7 +87,7 @@ export default function Shell({ children }) {
 
         {/* ---------- Barra superior (móvil) ---------- */}
         <header className="mobile-top">
-          <div className="row gap-sm" style={{ minWidth: 0 }}><BrandMark brand={brand} size={28} /><span className="brand-name ellipsis">{brandName || <>FitCoach <span>Pro</span></>}</span></div>
+          <div className="row gap-sm" style={{ minWidth: 0 }}><BrandMark brand={brand} size={28} /><span className="brand-name ellipsis">{brandName || <>VYTRA<span>FIT</span></>}</span></div>
           <button className="btn btn-ghost btn-icon" onClick={() => setSheet(true)} aria-label="Cuenta y opciones" style={{ padding: 0 }}>
             <Avatar name={me.name} id={me.id} size="sm" />
           </button>

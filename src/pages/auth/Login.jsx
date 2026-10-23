@@ -58,7 +58,7 @@ function LoginForm({ slug, coach, loading, unknownSlug, onBrand, onActivate }) {
       ) : (
         <div className="auth-hero">
           <PlatesLogo size={76} />
-          <h1>FitCoach Pro</h1>
+          <h1>VYTRAFIT</h1>
           <p>{loading ? "Cargando…" : "Rutinas, seguimiento y pagos de tus clientes, en un solo lugar."}</p>
         </div>
       )}

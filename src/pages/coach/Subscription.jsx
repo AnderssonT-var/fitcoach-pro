@@ -22,7 +22,7 @@ export default function Subscription() {
   return (
     <div className="page" style={{ maxWidth: 860 }}>
       <div className="page-head">
-        <div><h1>Suscripción</h1><p>Tu licencia de FitCoach Pro y tus pagos.</p></div>
+        <div><h1>Suscripción</h1><p>Tu licencia de VYTRAFIT y tus pagos.</p></div>
       </div>
       <section className="panel panel-pad row wrap" style={{ gap: 16 }}>
         <span className="avatar lg" style={{ background: st === "active" ? "var(--green-soft)" : st === "expiring" ? "var(--yellow-soft)" : "var(--red-soft)", color: st === "active" ? "var(--green-ink)" : st === "expiring" ? "var(--yellow-ink)" : "var(--red-ink)" }}>

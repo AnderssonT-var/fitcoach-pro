@@ -1,4 +1,4 @@
-# FitCoach Pro
+# VYTRAFIT
 
 Plataforma para entrenadores personales con modelo de licencias. Funciona en PC, en el navegador del celular y como app Android.
 

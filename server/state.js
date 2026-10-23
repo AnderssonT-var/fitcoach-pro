@@ -18,7 +18,7 @@ export async function getPricing(trx = knex) {
   const p = J(row?.value, {});
   return { ...DEFAULT_PRICING, ...p, discounts: { ...DEFAULT_PRICING.discounts, ...(p.discounts || {}) }, bank: { ...DEFAULT_PRICING.bank, ...(p.bank || {}) } };
 }
-export const DEFAULT_LEGAL = { company: "FitCoach Pro", contactEmail: "", city: "Quito, Ecuador" };
+export const DEFAULT_LEGAL = { company: "VYTRAFIT", contactEmail: "", city: "Quito, Ecuador" };
 export async function getLegal(trx = knex) {
   const row = await trx("settings").where({ key: "legal" }).first();
   return { ...DEFAULT_LEGAL, ...J(row?.value, {}) };

@@ -27,7 +27,7 @@ accountRouter.get("/export", h(async (req, res) => {
     mensajes: (await knex("messages").where(req.user.role === "coach" ? { coach_id: req.user.id } : { client_id: req.user.id }).orderBy("at"))
       .map((m) => ({ de: m.from_id, texto: m.text, fecha: m.at })),
   };
-  res.setHeader("Content-Disposition", `attachment; filename="mis-datos-fitcoach.json"`);
+  res.setHeader("Content-Disposition", `attachment; filename="mis-datos-vytrafit.json"`);
   res.json(data);
 }));
 accountRouter.delete("/", h(async (req, res) => {

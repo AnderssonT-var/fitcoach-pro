@@ -82,21 +82,21 @@ jobs:
       - name: Nombrar archivos
         run: |
           mkdir -p out
-          cp android/app/build/outputs/apk/release/*.apk "out/FitCoachPro-${VERSION}.apk"
-          if ls android/app/build/outputs/bundle/release/*.aab >/dev/null 2>&1; then cp android/app/build/outputs/bundle/release/*.aab "out/FitCoachPro-${VERSION}.aab"; fi
+          cp android/app/build/outputs/apk/release/*.apk "out/VYTRAFIT-${VERSION}.apk"
+          if ls android/app/build/outputs/bundle/release/*.aab >/dev/null 2>&1; then cp android/app/build/outputs/bundle/release/*.aab "out/VYTRAFIT-${VERSION}.aab"; fi
           ls -la out
 
       - uses: actions/upload-artifact@v4
         with:
-          name: FitCoachPro-${{ env.VERSION }}
+          name: VYTRAFIT-${{ env.VERSION }}
           path: out/*
 
       - name: Publicar en Releases
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('android-{0}', github.run_number) }}
-          name: FitCoach Pro ${{ env.VERSION }} (Android)
+          name: VYTRAFIT ${{ env.VERSION }} (Android)
           body: |
-            App Android de FitCoach Pro.
-            Descarga **FitCoachPro-${{ env.VERSION }}.apk** en el teléfono y ábrelo para instalar (Android pedirá permitir "instalar apps desconocidas").
+            App Android de VYTRAFIT.
+            Descarga **VYTRAFIT-${{ env.VERSION }}.apk** en el teléfono y ábrelo para instalar (Android pedirá permitir "instalar apps desconocidas").
           files: out/*

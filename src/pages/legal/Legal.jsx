@@ -8,7 +8,7 @@ import { DevCredit } from "../../ui/kit";
 export const LEGAL_UPDATED = "octubre de 2026";
 
 export function useLegalInfo() {
-  const [info, setInfo] = useState({ company: "FitCoach Pro", contactEmail: "", city: "Ecuador" });
+  const [info, setInfo] = useState({ company: "VYTRAFIT", contactEmail: "", city: "Ecuador" });
   useEffect(() => { fetchInfo().then((r) => { if (!r.error) setInfo(r); }); }, []);
   return info;
 }
@@ -34,7 +34,7 @@ export function PrivacyText({ info }) {
     <div className="legal-text">
       <p className="small muted">Última actualización: {LEGAL_UPDATED}</p>
       <h2>1. Quién es responsable</h2>
-      <p>{info.company}{info.city ? ` (${info.city})` : ""} administra la plataforma FitCoach Pro. Cada entrenador que usa la plataforma decide qué datos registra de sus asesorados y responde por su uso dentro de la asesoría. Para cualquier pregunta sobre tus datos escribe a {contact(info)}.</p>
+      <p>{info.company}{info.city ? ` (${info.city})` : ""} administra la plataforma VYTRAFIT. Cada entrenador que usa la plataforma decide qué datos registra de sus asesorados y responde por su uso dentro de la asesoría. Para cualquier pregunta sobre tus datos escribe a {contact(info)}.</p>
 
       <h2>2. Qué datos tratamos</h2>
       <ul>
@@ -88,7 +88,7 @@ export function TermsText({ info }) {
     <div className="legal-text">
       <p className="small muted">Última actualización: {LEGAL_UPDATED}</p>
       <h2>1. El servicio</h2>
-      <p>FitCoach Pro es una plataforma para que entrenadores gestionen a sus asesorados: rutinas, entrenamientos, seguimiento, mensajes y pagos. La administra {info.company}.</p>
+      <p>VYTRAFIT es una plataforma para que entrenadores gestionen a sus asesorados: rutinas, entrenamientos, seguimiento, mensajes y pagos. La administra {info.company}.</p>
       <h2>2. Cuentas</h2>
       <p>Cada persona usa su propia cuenta y es responsable de mantener su contraseña en secreto. Los entrenadores crean las cuentas de sus asesorados, que deben cambiar la contraseña temporal al primer ingreso.</p>
       <h2>3. Licencias y pagos de entrenadores</h2>

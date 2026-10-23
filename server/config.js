@@ -30,7 +30,7 @@ function secret(name) {
   const v = env[name];
   if (v && v.length >= 32) return v;
   if (isProd) {
-    console.error(`\n[FitCoach Pro] Falta ${name} (mínimo 32 caracteres) en el archivo .env. Genera uno con:\n  node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"\n`);
+    console.error(`\n[VYTRAFIT] Falta ${name} (mínimo 32 caracteres) en el archivo .env. Genera uno con:\n  node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"\n`);
     process.exit(1);
   }
   const f = path.join(DATA, `.${name.toLowerCase()}`);
@@ -42,7 +42,8 @@ const dbClient = env.DB_CLIENT || (env.DB_HOST ? "mysql2" : "better-sqlite3");
 
 export const config = {
   isProd,
-  port: +(env.PORT || 3000),
+  // Número de puerto, o la ruta del socket que entregan algunos hostings
+  port: /^\d+$/.test(env.PORT || "") ? +env.PORT : env.PORT || 3000,
   dataDir: DATA,
   uploadDir: path.resolve(ROOT, env.UPLOAD_DIR || path.join(DATA, "uploads")),
   webDir: path.resolve(ROOT, env.WEB_DIR || "dist"),

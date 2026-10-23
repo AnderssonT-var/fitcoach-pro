@@ -1,6 +1,6 @@
 {
   "appId": "com.atdev.fitcoachpro",
-  "appName": "FitCoach Pro",
+  "appName": "VYTRAFIT",
   "webDir": "dist",
   "server": { "androidScheme": "https" },
   "android": { "allowMixedContent": false, "backgroundColor": "#F2F2F7" }

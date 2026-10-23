@@ -1,4 +1,4 @@
-/* FitCoach Pro — servidor de producción.
+/* VYTRAFIT — servidor de producción.
    API en /api y la app web compilada (carpeta dist) en el mismo dominio. */
 import fs from "node:fs";
 import crypto from "node:crypto";
@@ -115,14 +115,14 @@ export async function ensureAdmin() {
   if (any) return;
   const { email, password, name } = config.admin;
   if (!email || !password) {
-    console.warn("[FitCoach Pro] No hay administrador. Define ADMIN_EMAIL y ADMIN_PASSWORD en .env y reinicia, o ejecuta: npm run create-admin");
+    console.warn("[VYTRAFIT] No hay administrador. Define ADMIN_EMAIL y ADMIN_PASSWORD en .env y reinicia, o ejecuta: npm run create-admin");
     return;
   }
   const { passwordProblem } = await import("./auth.js");
   const pp = passwordProblem(password, email);
-  if (pp) { console.error(`[FitCoach Pro] ADMIN_PASSWORD no es segura: ${pp}`); return; }
+  if (pp) { console.error(`[VYTRAFIT] ADMIN_PASSWORD no es segura: ${pp}`); return; }
   await knex("users").insert({ role: "admin", email: email.toLowerCase(), password_hash: await hashPassword(password), name, profile: "{}", created_at: nowISO() });
-  console.log(`[FitCoach Pro] Administrador creado: ${email}. Ya puedes quitar ADMIN_PASSWORD del archivo .env.`);
+  console.log(`[VYTRAFIT] Administrador creado: ${email}. Ya puedes quitar ADMIN_PASSWORD del archivo .env.`);
 }
 
 /** Limpieza periódica: sesiones vencidas, entrenamientos abandonados y actividad antigua. */
@@ -135,23 +135,26 @@ export async function housekeeping() {
   } catch (e) { console.error("[limpieza]", e.message); }
 }
 
-const isMain = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname);
-if (isMain) {
+/** Arranca el servidor (lo llama server.js en la raíz, o este archivo si se ejecuta directo). */
+let started = false;
+export async function start() {
+  if (started) return;
+  started = true;
   process.on("unhandledRejection", (e) => console.error("[unhandledRejection]", e));
-  if (config.isProd && config.db.client !== "mysql2") console.warn("[FitCoach Pro] Producción con SQLite: se recomienda MySQL (define DB_HOST, DB_NAME, DB_USER y DB_PASSWORD).");
-  if (!fs.existsSync(path.join(config.webDir, "index.html"))) console.warn("[FitCoach Pro] No se encontró la app compilada (dist). Ejecuta: npm run build");
+  if (config.isProd && config.db.client !== "mysql2") console.warn("[VYTRAFIT] Producción con SQLite: se recomienda MySQL (define DB_HOST, DB_NAME, DB_USER y DB_PASSWORD).");
+  if (!fs.existsSync(path.join(config.webDir, "index.html"))) console.warn("[VYTRAFIT] No se encontró la app compilada (dist). Ejecuta: npm run build");
   await migrate();
   await ensureAdmin();
   await housekeeping();
   const timer = setInterval(housekeeping, 6 * 3600e3);
   timer.unref();
   const app = createApp();
-  const server = app.listen(config.port, () => console.log(`[FitCoach Pro] listo en el puerto ${config.port} (${config.isProd ? "producción" : "desarrollo"}, base ${config.db.client})`));
+  const server = app.listen(config.port, () => console.log(`[VYTRAFIT] listo en el puerto ${config.port} (${config.isProd ? "producción" : "desarrollo"}, base ${config.db.client})`));
   server.keepAliveTimeout = 65e3; // mayor que el del proxy para evitar cortes 502
   server.headersTimeout = 66e3;
   // Apagado ordenado: termina las solicitudes en curso y cierra la base de datos
   const stop = (sig) => {
-    console.log(`[FitCoach Pro] ${sig}: cerrando…`);
+    console.log(`[VYTRAFIT] ${sig}: cerrando…`);
     server.close(() => knex.destroy().finally(() => process.exit(0)));
     server.closeIdleConnections?.(); // conexiones keep-alive sin uso no deben retrasar el apagado
     setTimeout(() => process.exit(1), 10e3).unref();
@@ -159,3 +162,6 @@ if (isMain) {
   process.on("SIGTERM", () => stop("SIGTERM"));
   process.on("SIGINT", () => stop("SIGINT"));
 }
+
+const isMain = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname);
+if (isMain) await start();
