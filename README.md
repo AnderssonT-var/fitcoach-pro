@@ -147,7 +147,7 @@ El APK se compila en GitHub Actions (`.github/workflows/android.yml`) y se publi
 - Automático al subir una etiqueta: `git tag v1.0.0 && git push origin v1.0.0`
 - O desde la pestaña **Actions → App Android → Run workflow**, escribiendo la dirección del servidor.
 
-Configura la variable del repositorio `API_URL` (Settings → Secrets and variables → Actions → Variables) con la dirección del servidor, por ejemplo `https://app.tudominio.com`. Si no está definida, la app la pregunta la primera vez.
+Por defecto la app usa `https://vytra.fit`. Para otro servidor, configura la variable del repositorio `API_URL` (Settings → Secrets and variables → Actions → Variables) con la dirección del servidor, por ejemplo `https://app.tudominio.com`. Si no está definida, la app la pregunta la primera vez.
 
 Para publicar en Google Play, agrega estos secretos y el flujo firmará con tu clave y generará también el `.aab`: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`.
 

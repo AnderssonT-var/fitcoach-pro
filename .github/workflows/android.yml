@@ -21,7 +21,7 @@ jobs:
     if: github.event_name != 'push' || github.ref_type == 'tag' || contains(github.event.head_commit.message, '[apk]')
     runs-on: ubuntu-latest
     env:
-      VITE_API_URL: ${{ inputs.api_url || vars.API_URL }}
+      VITE_API_URL: ${{ inputs.api_url || vars.API_URL || 'https://vytra.fit' }}
       VERSION: ${{ github.ref_type == 'tag' && github.ref_name || format('1.0.{0}', github.run_number) }}
     steps:
       - uses: actions/checkout@v4
