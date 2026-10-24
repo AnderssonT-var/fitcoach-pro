@@ -204,6 +204,16 @@ const MIGRATIONS = [
       t.string("ua", 200).nullable();
     });
   }],
+  // Índices por fecha: el historial, el ranking del mes y la comunidad se leen en cada actualización
+  ["006_indices_fecha", async (k) => {
+    await k.schema.alterTable("workouts", (t) => {
+      t.index(["coach_id", "finished_at"], "workouts_coach_finished_idx");
+      t.index(["client_id", "finished_at"], "workouts_client_finished_idx");
+    });
+    await k.schema.alterTable("posts", (t) => t.index(["coach_id", "at"], "posts_coach_at_idx"));
+    await k.schema.alterTable("messages", (t) => t.index(["coach_id", "at"], "messages_coach_at_idx"));
+    await k.schema.alterTable("payments", (t) => t.index(["paid_at", "due_date"], "payments_paid_due_idx"));
+  }],
 ];
 
 /* Varios procesos pueden arrancar a la vez (el hosting levanta más de uno): en MySQL se toma un candado */
