@@ -55,18 +55,19 @@ export default function AdminHome() {
           ) : (
             <div className="list">
               {attention.map(({ c, l, st }) => {
-                const d = daysUntil(l.expiresAt);
+                const d = l?.expiresAt ? daysUntil(l.expiresAt) : null;
                 return (
                   <div key={c.id} className="list-row m-stack">
                     <div className="row grow">
                       <Avatar name={c.name} id={c.id} />
                       <div className="grow">
                         <div className="strong">{c.name}</div>
-                        <div className="small muted">{d >= 0 ? `Vence en ${d} ${d === 1 ? "día" : "días"} · ${shortDate(l.expiresAt)}` : `Venció hace ${-d} días · ${shortDate(l.expiresAt)}`}</div>
+                        <div className="small muted">{!l ? "Sin licencia: no puede entrar" : d >= 0 ? `Vence en ${d} ${d === 1 ? "día" : "días"} · ${shortDate(l.expiresAt)}` : `Venció hace ${-d} días · ${shortDate(l.expiresAt)}`}</div>
                       </div>
-                      <Pill tone={LICENSE_TONE[st]}>{LICENSE_LABEL[st]}</Pill>
+                      <Pill tone={LICENSE_TONE[st]}>{l ? LICENSE_LABEL[st] : "Sin licencia"}</Pill>
                     </div>
-                    <button className="btn btn-quiet btn-sm" onClick={() => setRenew(l)}>Renovar</button>
+                    {l ? <button className="btn btn-quiet btn-sm" onClick={() => setRenew(l)}>Renovar</button>
+                      : <button className="btn btn-quiet btn-sm" onClick={() => go("licencias", { generate: true })}>Generar código</button>}
                   </div>
                 );
               })}

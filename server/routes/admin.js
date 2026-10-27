@@ -3,13 +3,14 @@ import { Router } from "express";
 import { z } from "zod";
 import { knex, J, S } from "../db.js";
 import { hashPassword, revokeAll, tempPassword } from "../auth.js";
-import { bad, h, notFound, nowISO, parse, uid, addMonths } from "../util.js";
+import { bad, h, notFound, nowISO, parse, uid, licenseEnd } from "../util.js";
 import { DEFAULT_PRICING, PLAN_MONTHS, getLegal, getPricing, licenseOut, planPrice } from "../state.js";
 import { log, newCode } from "./common.js";
 
 export const router = Router();
-const months = z.number().int().refine((m) => PLAN_MONTHS.includes(m), "Elige un plan de 1, 3, 6 o 12 meses.");
-const plural = (m) => `${m} ${m === 1 ? "mes" : "meses"}`;
+// 0 = licencia indefinida (no vence)
+const months = z.number().int().refine((m) => m === 0 || PLAN_MONTHS.includes(m), "Elige un plan de 1, 3, 6 o 12 meses, o indefinida.");
+const plural = (m) => (m ? `${m} ${m === 1 ? "mes" : "meses"}` : "sin vencimiento");
 
 async function uniqueCode(trx) {
   for (;;) {
@@ -32,7 +33,7 @@ router.post("/licenses", h(async (req, res) => {
     const rows = [];
     for (let i = 0; i < body.qty; i++) {
       const row = { id: uid("lic-"), code: await uniqueCode(trx), months: body.months, coach_id: null, created_at: nowISO(), revoked: false, note: body.note,
-        charges: S([{ at: nowISO(), amount: planPrice(pricing, body.months), months: body.months, kind: "venta" }]) };
+        charges: S(body.months ? [{ at: nowISO(), amount: planPrice(pricing, body.months), months: body.months, kind: "venta" }] : []) };
       await trx("licenses").insert(row);
       rows.push(row);
     }
@@ -50,10 +51,10 @@ router.post("/licenses/:id/renew", h(async (req, res) => {
     if (!l) throw notFound();
     if (!l.coach_id) throw bad("Esta licencia aún no tiene entrenador. Entrégale el código para que la active.");
     const base = l.expires_at && new Date(l.expires_at) > new Date() ? new Date(l.expires_at) : new Date();
-    const charges = [...J(l.charges, []), { at: nowISO(), amount: planPrice(pricing, m), months: m, kind: "renovación" }];
-    await trx("licenses").where({ id: l.id }).update({ expires_at: addMonths(base, m).toISOString(), revoked: false, charges: S(charges) });
+    const charges = m ? [...J(l.charges, []), { at: nowISO(), amount: planPrice(pricing, m), months: m, kind: "renovación" }] : J(l.charges, []);
+    await trx("licenses").where({ id: l.id }).update({ expires_at: licenseEnd(base, m), revoked: false, charges: S(charges), ...(m ? {} : { months: 0 }) });
     const coach = await trx("users").where({ id: l.coach_id }).first();
-    await log(trx, "license", `Renovaste la licencia de ${coach?.name ?? l.code} por ${plural(m)}`);
+    await log(trx, "license", m ? `Renovaste la licencia de ${coach?.name ?? l.code} por ${plural(m)}` : `Dejaste indefinida la licencia de ${coach?.name ?? l.code}`);
   });
   res.json({ ok: true });
 }));
@@ -74,11 +75,16 @@ router.post("/licenses/:id/restore", h(async (req, res) => {
   res.json({ ok: true });
 }));
 
+/* Borrar para siempre (también las que ya usa un entrenador: pierde ese tiempo de acceso) */
 router.delete("/licenses/:id", h(async (req, res) => {
   const l = await knex("licenses").where({ id: req.params.id }).first();
   if (!l) throw notFound();
-  if (l.coach_id) throw bad("Esta licencia ya la usa un entrenador. Puedes revocarla en lugar de eliminarla.");
-  await knex("licenses").where({ id: l.id }).delete();
+  await knex.transaction(async (trx) => {
+    await trx("subscriptions").where({ license_id: l.id }).update({ license_id: null });
+    await trx("licenses").where({ id: l.id }).delete();
+  });
+  const coach = l.coach_id ? await knex("users").where({ id: l.coach_id }).first() : null;
+  await log(null, "expired", `Eliminaste la licencia ${l.code}${coach ? ` de ${coach.name}` : ""}`);
   res.json({ ok: true });
 }));
 
@@ -120,7 +126,7 @@ router.post("/subscriptions/:id/approve", h(async (req, res) => {
     if (s.status !== "pending") throw bad("Esta solicitud ya fue revisada.");
     const from = await extendFrom(trx, s.coach_id);
     const lic = { id: uid("lic-"), code: await uniqueCode(trx), months: s.months, coach_id: s.coach_id, created_at: nowISO(), activated_at: nowISO(),
-      expires_at: addMonths(from, s.months).toISOString(), revoked: false, note: "Pago aprobado",
+      expires_at: licenseEnd(from, s.months), revoked: false, note: "Pago aprobado",
       charges: S([{ at: nowISO(), amount: +s.amount, months: s.months, kind: "suscripción" }]) };
     await trx("licenses").insert(lic);
     // Solo se aprueba si sigue pendiente (evita aprobar dos veces)

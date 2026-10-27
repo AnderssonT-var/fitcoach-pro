@@ -52,7 +52,7 @@ export default function Coaches() {
                 <span className="num m-hide" style={{ width: 130 }}>{week}</span>
                 <span className="stack gap-xs coach-status">
                   <Pill tone={LICENSE_TONE[st]}>{LICENSE_LABEL[st]}</Pill>
-                  {l?.expiresAt && <span className="tiny muted num">{shortDate(l.expiresAt)}</span>}
+                  {l?.expiresAt && <span className="tiny muted num">{l.unlimited ? "Indefinida" : shortDate(l.expiresAt)}</span>}
                 </span>
                 <Icon name="right" size={18} />
               </button>
@@ -101,6 +101,7 @@ function CoachModal({ id, onClose }) {
             <Icon name="key" size={18} />
             <span>
               {st === "revoked" ? `La licencia ${l.code} está revocada. El entrenador no puede entrar.` :
+                l.unlimited ? `Licencia ${l.code} indefinida: no vence.` :
                 d >= 0 ? `Licencia ${l.code} vigente hasta el ${shortDate(l.expiresAt)} (${d} días).` : `La licencia ${l.code} venció el ${shortDate(l.expiresAt)}. No puede entrar hasta renovar.`}
             </span>
           </div>

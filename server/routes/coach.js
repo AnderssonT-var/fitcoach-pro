@@ -3,7 +3,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { knex, bool, J, S } from "../db.js";
 import { hashPassword, requireConsent, requireLicense, revokeAll, tempPassword } from "../auth.js";
-import { bad, h, notFound, nowISO, parse, stamp, uid, addMonths, monthlyConcept, round2 } from "../util.js";
+import { bad, h, notFound, nowISO, parse, stamp, uid, addMonths, monthlyConcept, round2, isForever, licenseEnd } from "../util.js";
 import { hasMonthly } from "../history.js";
 import { checkInlineImage, deleteFile, saveFile } from "../files.js";
 import { PLAN_MONTHS, getPricing, planPrice } from "../state.js";
@@ -27,11 +27,12 @@ router.post("/redeem", codeLimiter, h(async (req, res) => {
     const l = await trx("licenses").where({ code: norm }).first();
     if (!l || bool(l.revoked) || l.coach_id) throw bad("El código no es válido o ya fue usado.");
     const cur = await trx("licenses").where({ coach_id: req.user.id, revoked: false }).where("expires_at", ">", nowISO()).orderBy("expires_at", "desc").first();
+    if (cur && isForever(cur.expires_at)) throw bad("Tu licencia es indefinida: no necesitas canjear otro código.");
     const from = cur ? new Date(cur.expires_at) : new Date();
     const n = await trx("licenses").where({ id: l.id, revoked: false }).whereNull("coach_id")
-      .update({ coach_id: req.user.id, activated_at: nowISO(), expires_at: addMonths(from, l.months).toISOString() });
+      .update({ coach_id: req.user.id, activated_at: nowISO(), expires_at: licenseEnd(from, l.months) });
     if (n !== 1) throw bad("El código no es válido o ya fue usado.");
-    await log(trx, "license", `${req.user.name} canjeó un código (+${plural(l.months)})`);
+    await log(trx, "license", `${req.user.name} canjeó un código (${l.months ? `+${plural(l.months)}` : "licencia indefinida"})`);
   });
   res.json({ ok: true });
 }));

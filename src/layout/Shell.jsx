@@ -68,11 +68,11 @@ export default function Shell({ children }) {
         </nav>
         <div className="sidebar-foot">
           <div className="row" style={{ padding: "2px 2px" }}>
-            <button className="nav-item grow" style={{ padding: "6px 6px" }} onClick={() => me.role !== "admin" && go("perfil")} disabled={me.role === "admin"}>
+            <button className="nav-item grow" style={{ padding: "6px 6px" }} onClick={() => go(me.role === "admin" ? "cuenta" : "perfil")}>
               <Avatar name={me.name} id={me.id} size="sm" />
               <span className="grow" style={{ minWidth: 0 }}>
                 <span className="strong ellipsis small" style={{ display: "block" }}>{me.name}</span>
-                <span className="tiny" style={{ opacity: .7 }}>{me.role === "admin" ? ROLE_LABEL[me.role] : "Ver mi perfil"}</span>
+                <span className="tiny" style={{ opacity: .7 }}>{me.role === "admin" ? "Mi cuenta" : "Ver mi perfil"}</span>
               </span>
             </button>
             <button className="btn btn-ghost btn-icon btn-sm" onClick={signOut} aria-label="Cerrar sesión" title="Cerrar sesión"><Icon name="logout" size={18} /></button>

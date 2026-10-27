@@ -56,4 +56,13 @@ export const monthName = (d = new Date()) => MONTHS[d.getMonth()];
 /** «Mensualidad octubre 2026» */
 export const monthlyConcept = (d = new Date()) => `Mensualidad ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 
+/* Licencia indefinida (sin vencimiento): se guarda con esta fecha; las comparaciones de texto siguen funcionando */
+export const FOREVER = "9999-12-31T23:59:59.000Z";
+export const isForever = (iso) => typeof iso === "string" && iso.startsWith("9999");
+/** Vencimiento de una licencia: meses desde una fecha, o indefinida (0 meses o ya indefinida). */
+export function licenseEnd(from, months) {
+  if (!months || new Date(from).getUTCFullYear() >= 9999) return FOREVER;
+  return addMonths(from, months).toISOString();
+}
+
 export const round2 = (n) => Math.round(n * 100) / 100;

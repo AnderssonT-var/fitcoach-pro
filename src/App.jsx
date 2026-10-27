@@ -14,6 +14,7 @@ import Licenses from "./pages/admin/Licenses";
 import Coaches from "./pages/admin/Coaches";
 import Billing from "./pages/admin/Billing";
 import SystemPage from "./pages/admin/System";
+import AdminAccount from "./pages/admin/Account";
 import CoachHome from "./pages/coach/CoachHome";
 import Clients from "./pages/coach/Clients";
 import ClientDetail from "./pages/coach/ClientDetail";
@@ -154,7 +155,7 @@ export default function App() {
   let view;
   const { page, params } = route;
   if (me.role === "admin") {
-    view = { licencias: <Licenses />, entrenadores: <Coaches />, cobros: <Billing />, sistema: <SystemPage /> }[page] || <AdminHome />;
+    view = { licencias: <Licenses />, entrenadores: <Coaches />, cobros: <Billing />, sistema: <SystemPage />, cuenta: <AdminAccount /> }[page] || <AdminHome />;
   } else if (me.role === "coach") {
     if (page === "perfil") view = <CoachProfile />;
     else if (page === "suscripcion") view = <Subscription />;

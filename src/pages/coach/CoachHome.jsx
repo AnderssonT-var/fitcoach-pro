@@ -14,7 +14,7 @@ export default function CoachHome() {
   const { me, go } = useApp();
 
   const lic = coachLicense(db, me.id);
-  const licDays = daysUntil(lic.expiresAt);
+  const licDays = lic?.expiresAt ? daysUntil(lic.expiresAt) : 0;
   const clients = clientsOf(db, me.id);
   const active = clients.filter((c) => c.active);
   const pays = db.payments.filter((p) => p.coachId === me.id);
@@ -59,7 +59,7 @@ export default function CoachHome() {
       </div>
 
       <NotifyPrompt />
-      {licenseStatus(lic) === "expiring" && (
+      {lic && licenseStatus(lic) === "expiring" && (
         <div className="warn-box">
           <Icon name="key" size={18} />
           <span className="grow">Tu licencia vence en <strong>{licDays} {licDays === 1 ? "día" : "días"}</strong> ({shortDate(lic.expiresAt)}). Renuévala para que tus clientes no pierdan el seguimiento.</span>

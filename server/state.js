@@ -57,7 +57,7 @@ const coachPublic = (u) => {
 
 export const licenseOut = (l) => ({
   id: l.id, code: l.code, months: l.months, coachId: l.coach_id, createdAt: l.created_at, activatedAt: l.activated_at,
-  expiresAt: l.expires_at, revoked: bool(l.revoked), note: l.note || "", charges: J(l.charges, []),
+  expiresAt: l.expires_at, unlimited: !l.months || (typeof l.expires_at === "string" && l.expires_at.startsWith("9999")), revoked: bool(l.revoked), note: l.note || "", charges: J(l.charges, []),
 });
 const paymentOut = (p) => ({ id: p.id, coachId: p.coach_id, clientId: p.client_id, concept: p.concept, amount: +p.amount, dueDate: p.due_date, paidAt: p.paid_at, method: p.method || "" });
 const messageOut = (m) => ({ id: m.id, coachId: m.coach_id, clientId: m.client_id, from: m.from_id, text: m.text, at: m.at, read: bool(m.read), exId: m.ex_id || null, tag: m.tag || null });

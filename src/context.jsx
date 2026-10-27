@@ -11,6 +11,7 @@ export const NAV = {
     { id: "licencias", icon: "key", label: "Licencias" },
     { id: "entrenadores", icon: "users", label: "Entrenadores" },
     { id: "sistema", icon: "activity", label: "Sistema" },
+    { id: "cuenta", icon: "user", label: "Mi cuenta" },
   ],
   coach: [
     { id: "inicio", icon: "home", label: "Inicio" },

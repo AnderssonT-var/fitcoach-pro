@@ -9,7 +9,7 @@ import {
   LOCK_MINUTES, MAX_FAILS, authenticate, checkPassword, dummyCheck, hashPassword, issueTokens,
   passwordProblem, revokeAll, revokeRefresh, rotateRefresh,
 } from "../auth.js";
-import { HttpError, bad, h, nowISO, parse, addMonths } from "../util.js";
+import { HttpError, bad, h, nowISO, parse, addMonths, licenseEnd } from "../util.js";
 import { getLegal, getPricing, planPrice } from "../state.js";
 import { log, normalizeCode, slugFrom } from "./common.js";
 import { coachLicenseRow } from "../auth.js";
@@ -100,9 +100,9 @@ router.post("/activate", codeLimiter, h(async (req, res) => {
     const userId = typeof id === "object" ? id.id : id;
     // Se marca usada solo si sigue libre (evita que dos personas usen el mismo código a la vez)
     const n = await trx("licenses").where({ id: lic.id, revoked: false }).whereNull("coach_id")
-      .update({ coach_id: userId, activated_at: nowISO(), expires_at: addMonths(new Date(), lic.months).toISOString() });
+      .update({ coach_id: userId, activated_at: nowISO(), expires_at: licenseEnd(new Date(), lic.months) });
     if (n !== 1) throw bad("El código no es válido o ya fue usado.");
-    await log(trx, "coach", `${body.name} activó su licencia de ${lic.months} ${lic.months === 1 ? "mes" : "meses"}`);
+    await log(trx, "coach", `${body.name} activó su licencia ${lic.months ? `de ${lic.months} ${lic.months === 1 ? "mes" : "meses"}` : "indefinida"}`);
     return trx("users").where({ id: userId }).first();
   });
   res.status(201).json(await sessionResponse(user, req));

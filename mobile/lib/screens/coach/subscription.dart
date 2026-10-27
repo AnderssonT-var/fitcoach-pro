@@ -27,6 +27,7 @@ class SubscriptionPage extends StatelessWidget {
           final st = lic == null ? null : AppStore.licenseStatus(lic);
           final exp = lic?.d('expiresAt');
           final left = exp == null ? 0 : daysUntil(exp);
+          final unlimited = lic != null && st != 'revoked' && (lic.b('unlimited') || lic.s('expiresAt').startsWith('9999'));
           return PageList(onRefresh: store.reload, children: [
             Panel(
               child: Row(children: [
@@ -39,6 +40,8 @@ class SubscriptionPage extends StatelessWidget {
                     Text(
                       lic == null
                           ? 'Aún no tienes una licencia.'
+                          : unlimited
+                              ? 'Tu licencia es indefinida: no vence y no necesitas renovarla.'
                           : ['active', 'expiring'].contains(st)
                               ? 'Vigente hasta el ${shortDate(exp)} · quedan ${plural(left, 'día', 'días')}. Lo que pagues ahora se suma a esa fecha.'
                               : 'Venció el ${shortDate(exp)}. Paga un plan para volver a trabajar; tus asesorados y su historial siguen guardados.',
@@ -48,7 +51,7 @@ class SubscriptionPage extends StatelessWidget {
                 ),
               ]),
             ),
-            const SubscriptionPanel(),
+            if (!unlimited) const SubscriptionPanel(),
           ]);
         }),
       );

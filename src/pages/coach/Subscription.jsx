@@ -31,13 +31,13 @@ export default function Subscription() {
         <div className="grow" style={{ minWidth: 200 }}>
           <div className="row gap-sm wrap"><strong style={{ fontSize: 19 }}>Licencia</strong>{st && <Pill tone={LICENSE_TONE[st]}>{LICENSE_LABEL[st]}</Pill>}</div>
           <p className="ink2 small" style={{ marginTop: 4 }}>
-            {!lic ? "Aún no tienes una licencia." : ["active", "expiring"].includes(st)
+            {!lic ? "Aún no tienes una licencia." : lic.unlimited && st !== "revoked" ? <>Tu licencia es <strong>indefinida</strong>: no vence y no necesitas renovarla.</> : ["active", "expiring"].includes(st)
               ? <>Vigente hasta el <strong>{shortDate(lic.expiresAt)}</strong> · quedan {left} {left === 1 ? "día" : "días"}. Lo que pagues ahora se suma a esa fecha.</>
               : <>Venció el {shortDate(lic.expiresAt)}. Paga un plan para volver a trabajar; tus asesorados y su historial siguen guardados.</>}
           </p>
         </div>
       </section>
-      <SubscriptionPanel />
+      {!(lic?.unlimited && st !== "revoked") && <SubscriptionPanel />}
     </div>
   );
 }
