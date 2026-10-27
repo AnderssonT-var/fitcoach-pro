@@ -1,6 +1,6 @@
-# Compila la app Android (APK) y la publica en "Releases" del repositorio.
-# Se ejecuta al subir una etiqueta v* (por ejemplo v1.0.0), con un commit a main que diga [apk]
-# en el mensaje, o a mano desde la pestaña Actions.
+# Compila la app Android nativa (Flutter, carpeta mobile/) y la publica en "Releases".
+# Se ejecuta al subir una etiqueta v*, con un commit a main que diga [apk] en el mensaje,
+# o a mano desde la pestaña Actions.
 name: App Android
 
 on:
@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       api_url:
-        description: "Dirección del servidor (https://...). Vacío = se pregunta en la app la primera vez"
+        description: "Dirección del servidor (https://...)"
         required: false
 
 permissions:
@@ -20,38 +20,34 @@ jobs:
   apk:
     if: github.event_name != 'push' || github.ref_type == 'tag' || contains(github.event.head_commit.message, '[apk]')
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     env:
-      VITE_API_URL: ${{ inputs.api_url || vars.API_URL || 'https://vytra.fit' }}
-      VERSION: ${{ github.ref_type == 'tag' && github.ref_name || format('1.0.{0}', github.run_number) }}
+      API_URL: ${{ inputs.api_url || vars.API_URL || 'https://vytra.fit' }}
+      VERSION: ${{ github.ref_type == 'tag' && github.ref_name || format('2.0.{0}', github.run_number) }}
+      BUILD_NUMBER: ${{ 100 + github.run_number }}
+    defaults:
+      run:
+        working-directory: mobile
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Instalar dependencias
-        run: npm ci
-
-      - name: Compilar la app web
-        run: npm run build
-
-      - name: Firebase para notificaciones push (si existe el secreto)
-        env:
-          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
-        run: |
-          if [ -n "$GOOGLE_SERVICES_JSON" ]; then echo "$GOOGLE_SERVICES_JSON" > android/app/google-services.json; echo "Push con Firebase activado"; else echo "::notice::Sin GOOGLE_SERVICES_JSON: la app usa notificaciones locales (descanso y recordatorios)."; fi
-
-      - name: Copiar la app web a Android
-        run: npx cap sync android
 
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
+          java-version: 17
 
-      - name: Preparar firma (si existen los secretos)
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Paquetes y revisión del código
+        run: |
+          flutter config --no-analytics
+          flutter pub get
+          flutter analyze --no-fatal-infos
+
+      - name: Firma (clave de producción si existe; si no, una clave fija guardada en caché)
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
@@ -60,42 +56,30 @@ jobs:
             echo "FCP_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
             echo "Firmando con la clave de producción"
           else
-            echo "::warning::Sin secretos de firma: el APK se firma con la clave de depuración."
+            echo "::warning::Sin secretos de firma (ANDROID_KEYSTORE_BASE64…): se usa una clave de depuración. Para actualizar sin desinstalar entre versiones, agrega los secretos."
           fi
 
+      - name: Clave de depuración estable
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: vytrafit-debug-keystore-v1
+
       - name: Compilar APK
-        working-directory: android
         env:
           FCP_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           FCP_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           FCP_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          FCP_VERSION_CODE: ${{ github.run_number }}
-          FCP_VERSION_NAME: ${{ env.VERSION }}
         run: |
-          chmod +x gradlew
-          set +e
-          ./gradlew assembleRelease --no-daemon --stacktrace > build.log 2>&1
-          status=$?
-          if [ $status -ne 0 ]; then
-            # Muestra el error como anotación (visible en el resumen del workflow)
-            { grep -A6 "What went wrong" build.log; grep -E "Caused by|build.gradle'? line|\.gradle:[0-9]+" build.log | head -15; grep -E "^e: |error:" build.log | head -10; } | head -45 | while IFS= read -r l; do echo "::error::$l"; done
-            tail -30 build.log
-            exit $status
-          fi
-          set -e
-          if [ -n "$FCP_KEYSTORE_FILE" ]; then ./gradlew bundleRelease --no-daemon; fi
+          flutter build apk --release --build-name="${VERSION#v}" --build-number="$BUILD_NUMBER" --dart-define=API_URL="$API_URL"
+          mkdir -p ../out
+          cp build/app/outputs/flutter-apk/app-release.apk "../out/VYTRAFIT-${VERSION}.apk"
+          ls -la ../out
 
-      - name: Nombrar archivos
+      - name: Versión web de prueba (para revisar pantallas)
         run: |
-          mkdir -p out
-          cp android/app/build/outputs/apk/release/*.apk "out/VYTRAFIT-${VERSION}.apk"
-          if ls android/app/build/outputs/bundle/release/*.aab >/dev/null 2>&1; then cp android/app/build/outputs/bundle/release/*.aab "out/VYTRAFIT-${VERSION}.aab"; fi
-          ls -la out
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: VYTRAFIT-${{ env.VERSION }}
-          path: out/*
+          flutter build web --release --no-web-resources-cdn --dart-define=API_URL="$API_URL"
+          cd build && zip -qr ../../out/web-preview.zip web
 
       - name: Publicar en Releases
         uses: softprops/action-gh-release@v2
@@ -103,6 +87,6 @@ jobs:
           tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('android-{0}', github.run_number) }}
           name: VYTRAFIT ${{ env.VERSION }} (Android)
           body: |
-            App Android de VYTRAFIT.
+            App Android nativa de VYTRAFIT (Flutter).
             Descarga **VYTRAFIT-${{ env.VERSION }}.apk** en el teléfono y ábrelo para instalar (Android pedirá permitir "instalar apps desconocidas").
-          files: out/*
+          files: out/VYTRAFIT-*.apk
