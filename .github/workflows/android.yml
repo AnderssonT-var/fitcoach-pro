@@ -74,7 +74,11 @@ jobs:
           FCP_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           BUILD_NUMBER=$((100 + GITHUB_RUN_NUMBER))
-          flutter build apk --release --build-name="${VERSION#v}" --build-number="$BUILD_NUMBER" --dart-define=API_URL="$API_URL"
+          if ! flutter build apk --release --build-name="${VERSION#v}" --build-number="$BUILD_NUMBER" --dart-define=API_URL="$API_URL" > build.log 2>&1; then
+            { grep -A8 "What went wrong" build.log; grep -E "^e: |error:|Error:|FAILURE|Exception" build.log | head -25; } | head -50 | while IFS= read -r l; do echo "::error::$l"; done
+            tail -40 build.log | while IFS= read -r l; do echo "::warning::$l"; done
+            exit 1
+          fi
           mkdir -p ../out
           cp build/app/outputs/flutter-apk/app-release.apk "../out/VYTRAFIT-${VERSION}.apk"
           ls -la ../out
