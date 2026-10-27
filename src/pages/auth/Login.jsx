@@ -103,10 +103,11 @@ function LoginForm({ slug, coach, loading, unknownSlug, onBrand, onActivate, onS
           <button className="link-btn" style={{ fontSize: 13 }} onClick={() => onBrand?.("")}>Ir al acceso general</button>
         </p>
       ) : (
-        <p className="small muted" style={{ textAlign: "center" }}>
-          ¿Eres entrenador y tienes un código de licencia?{" "}
-          <button className="link-btn" style={{ fontSize: 13 }} onClick={onActivate}>Activa tu cuenta</button>
-        </p>
+        <button type="button" className="auth-link" onClick={onActivate}>
+          <span className="ico-badge"><Icon name="key" size={18} /></span>
+          <span className="grow"><small>¿Eres entrenador y tienes un código?</small><strong>Activa tu cuenta</strong></span>
+          <Icon name="right" size={18} />
+        </button>
       )}
       <LegalLinks />
       <DevCredit />

@@ -36,8 +36,9 @@ export default function ClientHome() {
 
   return (
     <div className="page" style={{ maxWidth: 900 }}>
-      <div className="page-head">
-        <div><h1>Hola, {me.name.split(" ")[0]}</h1><p>{today}</p></div>
+      <div className="hello">
+        <div><div className="hello-date">{today}</div><h1>Hola, {me.name.split(" ")[0]}</h1></div>
+        <button className="hello-btn" onClick={() => go("perfil")} aria-label="Mi perfil"><Avatar name={me.name} id={me.id} photo={me.photo} /></button>
       </div>
       <NotifyPrompt />
 
@@ -67,23 +68,24 @@ export default function ClientHome() {
         </section>
       ) : !active && (
         <section className="panel" style={{ overflow: "hidden" }}>
-          <div className="panel-pad stack hero-card">
-            <div className="row spread wrap gap-sm">
-              <span className="small" style={{ opacity: .75 }}>{trainedToday ? "Ya entrenaste hoy. Si quieres, registra otra sesión" : dayId ? "Elegiste" : "Te toca hoy"}</span>
-              <span className="small num" style={{ opacity: .75 }}>{day.exercises.length} ejercicios · ~{estimateMin(day)} min</span>
+          <div className="stack hero-card" style={{ gap: 10 }}>
+            <span className="hero-kicker">{trainedToday ? "Ya entrenaste hoy" : dayId ? "Elegiste" : "Te toca hoy"}</span>
+            <h2 className="hero-title">{day.name}</h2>
+            <div className="hero-meta">
+              {c.routine.name && <span><Icon name="dumbbell" size={16} />{c.routine.name}</span>}
+              <span><Icon name="layers" size={16} />{day.exercises.length} ejercicios</span>
+              <span><Icon name="timer" size={16} />~{estimateMin(day)} min</span>
             </div>
-            <h2 style={{ fontSize: 44, lineHeight: 1.05 }}>{day.name}</h2>
-            <div className="small" style={{ opacity: .8 }}>{c.routine.name}</div>
           </div>
-          <div className="list">
+          <div className="list hero-list">
             {day.exercises.map((e) => (
               <div key={e.uid} className="list-row">
                 <span className="grow strong ellipsis">{exerciseById(db, e.exId).name}</span>
-                <span className="num small muted">{e.sets} × {e.reps} · {clock(parseRest(e.rest))}</span>
+                <span className="num">{e.sets} × {e.reps}</span>
               </div>
             ))}
           </div>
-          <div className="panel-pad stack" style={{ borderTop: "1px solid var(--line)" }}>
+          <div className="panel-pad stack" style={{ paddingTop: 6 }}>
             {c.routine.days.length > 1 && (
               <div className="chips" role="group" aria-label="Elegir día">
                 {c.routine.days.map((d) => <button key={d.id} className="chip" aria-pressed={d.id === day.id} onClick={() => setDayId(d.id)}>{d.name}{d.id === suggested.id && <span className="chip-n">sugerido</span>}</button>)}

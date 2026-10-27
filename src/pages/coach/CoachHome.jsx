@@ -53,9 +53,9 @@ export default function CoachHome() {
 
   return (
     <div className="page">
-      <div className="page-head">
-        <div><h1>Hola, {me.name.split(" ")[0]}</h1><p>{today}</p></div>
-        <button className="btn btn-primary" onClick={() => go("clientes", { create: true })}><Icon name="plus" size={18} />Nuevo cliente</button>
+      <div className="hello">
+        <div><div className="hello-date">{today}</div><h1>Hola, {me.name.split(" ")[0]}</h1></div>
+        <button className="btn btn-primary" onClick={() => go("clientes", { create: true })}><Icon name="plus" size={18} />Nuevo</button>
       </div>
 
       <NotifyPrompt />
@@ -81,12 +81,12 @@ export default function CoachHome() {
             <div className="list">
               {todo.map((t) => (
                 <div key={t.key} className="list-row">
-                  <span className="avatar sm" style={{ background: `var(--${{ bad: "red", warn: "yellow", info: "blue" }[t.tone]}-soft)`, color: `var(--${{ bad: "red", warn: "yellow", info: "blue" }[t.tone]}-ink)` }}><Icon name={t.icon} size={16} /></span>
+                  <span className={`ico-badge ${t.tone}`}><Icon name={t.icon} size={18} /></span>
                   <div className="grow">
                     <div className="strong ellipsis">{t.who?.name}</div>
                     <div className="small muted" style={{ overflowWrap: "anywhere" }}>{t.text}</div>
                   </div>
-                  <button className="btn btn-quiet btn-sm" onClick={t.run}>{t.action}</button>
+                  <button className="btn btn-text" onClick={t.run}>{t.action}</button>
                 </div>
               ))}
             </div>

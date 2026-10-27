@@ -5,11 +5,13 @@ import { initials, sameDay, weekStart, addDays } from "../lib/format";
 import { useDB, userById } from "../store/db";
 
 /* ---------- Avatar: monograma como en Contactos ---------- */
+const AVATAR_HUES = [212, 262, 330, 24, 152, 190, 284, 8];
 export function Avatar({ name, id, size, photo }) {
   const db = useDB();
   const src = photo !== undefined ? photo : id ? userById(db, id)?.photo : null;
+  const hue = AVATAR_HUES[Math.abs(+id || 0) % AVATAR_HUES.length];
   return (
-    <span className={`avatar ${size || ""}`} aria-hidden="true">
+    <span className={`avatar ${size || ""}`} aria-hidden="true" style={{ "--av-h": hue }}>
       {src ? <img src={src} alt="" /> : initials(name)}
     </span>
   );
@@ -119,7 +121,7 @@ export function CopyButton({ text, label = "Copiar", small }) {
 export function Stat({ label, value, sub, tone, icon }) {
   return (
     <div className="stat">
-      <span className={`stat-label ${tone || ""}`}>{icon && <Icon name={icon} size={15} stroke={2.2} />}{label}</span>
+      <span className={`stat-label ${tone || ""}`}>{icon && <span className={`stat-ico ${tone || ""}`}><Icon name={icon} size={16} stroke={2.2} /></span>}<span>{label}</span></span>
       <span className={`stat-value ${tone || ""}`}>{value}</span>
       {sub && <span className="stat-sub">{sub}</span>}
     </div>
@@ -149,7 +151,7 @@ export function WeekStrip({ workouts }) {
         const today = sameDay(d, new Date());
         return (
           <div key={w} className={`week-day ${done ? "done" : ""} ${today ? "today" : ""}`} aria-label={`${w} ${d.getDate()}${done ? ", entrenado" : ""}`}>
-            <div className="wd">{today ? "Hoy" : w}</div>
+            <div className="wd">{w[0] === "M" && w.startsWith("Mi") ? "X" : w[0]}</div>
             <div className="dn">{done ? <Icon name="check" size={18} stroke={3} /> : d.getDate()}</div>
           </div>
         );
