@@ -11,3 +11,6 @@ android/app/release/
 *.keystore
 *.jks
 android/app/google-services.json
+
+# La app Flutter sí incluye sus datos (biblioteca de ejercicios y siluetas)
+!mobile/assets/data/
