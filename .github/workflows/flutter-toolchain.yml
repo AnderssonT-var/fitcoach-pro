@@ -14,11 +14,13 @@ jobs:
   bundle:
     if: contains(github.event.head_commit.message, '[toolchain]')
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
       - name: Versiones
         run: flutter --version && dart --version
       - name: Proyecto base y paquetes
