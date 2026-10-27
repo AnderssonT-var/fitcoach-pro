@@ -1,0 +1,62 @@
+# Prepara Flutter y los paquetes de la app (mobile/) y los publica como descarga
+# para poder revisar y compilar la app web de prueba fuera de GitHub.
+# Se ejecuta con un commit a main que diga [toolchain] en el mensaje.
+name: Flutter toolchain
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  bundle:
+    if: contains(github.event.head_commit.message, '[toolchain]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Versiones
+        run: flutter --version && dart --version
+      - name: Proyecto base y paquetes
+        run: |
+          flutter config --no-analytics
+          mkdir -p /tmp/scaffold && cd /tmp/scaffold
+          flutter create --org com.atdev --project-name vytrafit --platforms android,ios,web vytrafit
+          cd vytrafit
+          flutter pub add provider http shared_preferences flutter_secure_storage intl fl_chart cached_network_image image_picker \
+            flutter_local_notifications timezone flutter_timezone connectivity_plus url_launcher share_plus path_provider \
+            wakelock_plus flutter_svg package_info_plus
+          flutter pub add --dev flutter_launcher_icons flutter_lints
+          flutter pub get
+          flutter precache --web --no-android --no-ios
+          cat pubspec.yaml
+      - name: Fuentes (Sora + Inter, TTF)
+        run: |
+          mkdir -p /tmp/fonts && cd /tmp/fonts
+          for fam in "Sora:wght@400;500;600;700;800" "Inter:wght@400;500;600;700;800"; do
+            curl -s "https://fonts.googleapis.com/css2?family=${fam}" -A "Mozilla/4.0" > css.txt
+            name=${fam%%:*}
+            grep -o "font-weight: [0-9]*\|url([^)]*)" css.txt | paste - - | while read -r _ w u; do
+              url=$(echo "$u" | sed 's/url(//;s/)//'); curl -sL "$url" -o "${name}-${w%;}.ttf"; done
+          done
+          ls -la
+      - name: Empaquetar
+        run: |
+          cd /tmp
+          tar -C "$(dirname $FLUTTER_ROOT)" -cf - "$(basename $FLUTTER_ROOT)" | zstd -T0 -10 -o flutter-sdk.tar.zst
+          tar -C "$(dirname $PUB_CACHE)" -cf - "$(basename $PUB_CACHE)" | zstd -T0 -10 -o pub-cache.tar.zst
+          tar -C /tmp/scaffold -czf scaffold.tar.gz --exclude=vytrafit/.dart_tool --exclude=vytrafit/build vytrafit
+          tar -C /tmp -czf fonts.tar.gz fonts
+          echo "FLUTTER_ROOT=$FLUTTER_ROOT PUB_CACHE=$PUB_CACHE" > paths.txt
+          ls -la /tmp/*.zst /tmp/*.gz
+      - name: Publicar
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete flutter-toolchain -y --cleanup-tag || true
+          gh release create flutter-toolchain /tmp/flutter-sdk.tar.zst /tmp/pub-cache.tar.zst /tmp/scaffold.tar.gz /tmp/fonts.tar.gz /tmp/paths.txt \
+            --title "Flutter toolchain (uso interno)" --notes "Herramientas para compilar la app Flutter. No es una versión de la app." --prerelease
