@@ -59,6 +59,7 @@ class _WorkoutSessionState extends State<WorkoutSession> with WidgetsBindingObse
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     WakelockPlus.enable().catchError((_) {});
+    Notify.I.ensureRestPermission();
     tick = Timer.periodic(const Duration(milliseconds: 250), (_) => _onTick());
   }
 
@@ -90,9 +91,8 @@ class _WorkoutSessionState extends State<WorkoutSession> with WidgetsBindingObse
     final rest = store.active(cid).inn('restEndsAt');
     if (rest == null || now.millisecondsSinceEpoch < rest || notified == rest) return;
     notified = rest;
-    HapticFeedback.heavyImpact();
-    Future.delayed(const Duration(milliseconds: 180), HapticFeedback.heavyImpact);
-    SystemSound.play(SystemSoundType.alert);
+    // Alarma: suena y vibra (aunque las notificaciones estén apagadas)
+    Notify.I.ringRest();
     setState(() => flash = true);
     Future.delayed(const Duration(milliseconds: 2600), () {
       if (mounted) setState(() => flash = false);

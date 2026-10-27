@@ -120,7 +120,7 @@ self.addEventListener("push", (e) => {
   try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data && e.data.text() }; }
   e.waitUntil(self.registration.showNotification(d.title || "VYTRAFIT", {
     body: d.body || "", tag: d.tag, renotify: !!d.tag, icon: "icon-192.png", badge: "icon-192.png",
-    vibrate: d.kind === "rest" ? [300, 150, 300, 150, 300] : [200, 100, 200],
+    vibrate: d.kind === "rest" ? [450, 180, 450, 180, 700] : [200, 100, 200],
     requireInteraction: d.kind === "rest", data: { page: d.page || "", params: d.params || null },
   }));
 });

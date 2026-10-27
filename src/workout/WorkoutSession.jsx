@@ -76,7 +76,8 @@ export default function WorkoutSession({ clientId, onClose }) {
   useEffect(() => {
     if (!live?.restEndsAt || now < live.restEndsAt || notified.current === live.restEndsAt) return;
     notified.current = live.restEndsAt;
-    try { navigator.vibrate?.([220, 120, 220]); } catch { /* nada */ }
+    // Alarma: suena y vibra (en iPhone el navegador no permite vibrar: solo suena)
+    try { navigator.vibrate?.([450, 180, 450, 180, 700]); } catch { /* nada */ }
     beep(audio.current);
     setFlash(true); setTimeout(() => setFlash(false), 2600);
     updateWorkout(clientId, (a) => { a.restEndsAt = null; });
@@ -94,6 +95,8 @@ export default function WorkoutSession({ clientId, onClose }) {
 
   const upd = (fn) => updateWorkout(clientId, fn);
   function ensureAudio() {
+    // En iPhone: que la alarma suene aunque el interruptor de silencio esté activado
+    try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch { /* nada */ }
     if (audio.current) { audio.current.resume?.(); return; }
     try { audio.current = new (window.AudioContext || window.webkitAudioContext)(); } catch { /* sin audio */ }
   }
@@ -399,17 +402,27 @@ function ExitSheet({ onClose, onLeave, onDiscard }) {
   );
 }
 
+/** Alarma de fin de descanso: tres pares de tonos fuertes (~2 s), igual que en la app Android. */
 function beep(ctx) {
   if (!ctx) return;
   try {
-    [0, 0.22].forEach((t) => {
-      const o = ctx.createOscillator(), g = ctx.createGain();
-      o.frequency.value = 880;
-      g.gain.setValueAtTime(0.0001, ctx.currentTime + t);
-      g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + t + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t + 0.16);
-      o.connect(g).connect(ctx.destination);
-      o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.18);
-    });
+    ctx.resume?.();
+    const t0 = ctx.currentTime + 0.02;
+    const master = ctx.createGain();
+    master.gain.value = 0.9;
+    master.connect(ctx.destination);
+    for (let k = 0; k < 3; k++) {
+      [[988, 0, 0.13], [1319, 0.19, 0.18]].forEach(([f, at, dur]) => {
+        const start = t0 + k * 0.69 + at;
+        const o = ctx.createOscillator(), o2 = ctx.createOscillator(), g = ctx.createGain();
+        o.type = "square"; o.frequency.value = f; o2.frequency.value = f * 2;
+        g.gain.setValueAtTime(0.0001, start);
+        g.gain.exponentialRampToValueAtTime(0.5, start + 0.01);
+        g.gain.setValueAtTime(0.5, start + dur - 0.03);
+        g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+        o.connect(g); o2.connect(g); g.connect(master);
+        o.start(start); o2.start(start); o.stop(start + dur + 0.02); o2.stop(start + dur + 0.02);
+      });
+    }
   } catch { /* nada */ }
 }

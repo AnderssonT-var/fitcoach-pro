@@ -1,6 +1,9 @@
 // Notificaciones en el celular: fin del descanso con la pantalla apagada y
 // recordatorios para entrenar. Si algo no está disponible, la app sigue sin avisos.
+import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -73,6 +76,47 @@ class Notify {
     await _p.show(id: 9000, title: '¡Notificaciones activadas!', body: 'Así te avisaremos del descanso y de tus entrenamientos.', notificationDetails: _details('avisos', 'Avisos'));
   }
 
+  /// Fin del descanso con la app abierta: suena (volumen de alarma) y vibra.
+  static const _alarm = MethodChannel('vytrafit/alarm');
+  Future<void> ringRest() async {
+    if (kIsWeb) return;
+    try {
+      await _alarm.invokeMethod('ring', {'sound': true, 'vibrate': true});
+    } catch (_) {
+      HapticFeedback.heavyImpact();
+    }
+  }
+
+  /// La primera vez que entrena, pide permiso de notificaciones para avisar el fin del
+  /// descanso con la pantalla apagada (una sola vez).
+  Future<void> ensureRestPermission() async {
+    if (kIsWeb || !_ready) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool('vytrafit.restAsked') == true) return;
+      await prefs.setBool('vytrafit.restAsked', true);
+      if (await _android?.areNotificationsEnabled() == true) return;
+      await _android?.requestNotificationsPermission();
+    } catch (_) {}
+  }
+
+  Future<void> stopRing() async {
+    if (kIsWeb) return;
+    try {
+      await _alarm.invokeMethod('stop');
+    } catch (_) {}
+  }
+
+  /// Canal propio para el fin del descanso: sonido de alarma de la app y vibración larga.
+  NotificationDetails _restDetails() => NotificationDetails(
+        android: AndroidNotificationDetails('descanso_alarma', 'Fin de descanso',
+            channelDescription: 'Suena y vibra cuando termina el descanso entre series.',
+            importance: Importance.max, priority: Priority.max, icon: 'ic_stat_vytrafit', category: AndroidNotificationCategory.alarm,
+            sound: const RawResourceAndroidNotificationSound('descanso'), playSound: true, audioAttributesUsage: AudioAttributesUsage.alarm,
+            enableVibration: true, vibrationPattern: Int64List.fromList([0, 450, 180, 450, 180, 700]), timeoutAfter: 60000),
+        iOS: const DarwinNotificationDetails(presentSound: true),
+      );
+
   NotificationDetails _details(String channel, String name, {bool loud = false}) => NotificationDetails(
         android: AndroidNotificationDetails(channel, name,
             importance: loud ? Importance.max : Importance.high, priority: loud ? Priority.max : Priority.high, icon: 'ic_stat_vytrafit',
@@ -99,7 +143,7 @@ class Notify {
         title: '¡Descanso terminado!',
         body: 'A por la siguiente serie 💪',
         scheduledDate: tz.TZDateTime.from(at, tz.local),
-        notificationDetails: _details('descanso', 'Fin de descanso', loud: true),
+        notificationDetails: _restDetails(),
         androidScheduleMode: await _mode(),
       );
     } catch (e) {
