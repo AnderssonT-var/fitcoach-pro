@@ -2,6 +2,6 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/splash_bg" />
     <item android:width="112dp" android:height="112dp" android:gravity="center">
-        <bitmap android:gravity="fill" android:src="@mipmap/launcher_icon" />
+        <bitmap android:gravity="fill" android:src="@drawable/splash_logo" />
     </item>
 </layer-list>
