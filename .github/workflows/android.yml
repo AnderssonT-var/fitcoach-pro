@@ -24,7 +24,6 @@ jobs:
     env:
       API_URL: ${{ inputs.api_url || vars.API_URL || 'https://vytra.fit' }}
       VERSION: ${{ github.ref_type == 'tag' && github.ref_name || format('2.0.{0}', github.run_number) }}
-      BUILD_NUMBER: ${{ 100 + github.run_number }}
     defaults:
       run:
         working-directory: mobile
@@ -71,6 +70,7 @@ jobs:
           FCP_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           FCP_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          BUILD_NUMBER=$((100 + GITHUB_RUN_NUMBER))
           flutter build apk --release --build-name="${VERSION#v}" --build-number="$BUILD_NUMBER" --dart-define=API_URL="$API_URL"
           mkdir -p ../out
           cp build/app/outputs/flutter-apk/app-release.apk "../out/VYTRAFIT-${VERSION}.apk"
