@@ -127,11 +127,15 @@ El administrador fija el **precio por mes** y los descuentos de 3, 6 y 12 meses,
 4. Activa **HTTPS** en el dominio. Al arrancar, el servidor crea las tablas y el administrador.
 5. Entra con el administrador, ve a **Cobros** y define el precio, tus datos bancarios y los datos legales. Luego genera la primera licencia en **Licencias**.
 
-### Rendimiento y mantenimiento
+### Rendimiento y mucha gente conectada a la vez
 
-- La app consulta cambios cada 20 s; si nada cambió, el servidor responde `304` sin datos (ahorra batería y megas).
+- **Sin rearmar si nada cambió:** cada cambio marca qué parte de los datos cambió (versiones en la tabla `state_versions`). La app pregunta cada 20 s y, si nada cambió, el servidor responde `304` sin tocar el resto de la base.
+- **Historial sin reenviar:** el historial de entrenamientos (lo más pesado) solo se envía cuando cambia; la app guarda el que ya tiene.
+- **Contraseñas en hilos aparte:** bcrypt corre en hilos de trabajo (`PW_THREADS`, 2 por defecto): muchos inicios de sesión a la vez ya no congelan el servidor.
+- **Fila con cupo:** como mucho `STATE_BUILDS` (6) estados se arman a la vez; si el servidor se satura, les pide a las apps consultar con menos frecuencia (`X-Poll-Interval`: 20 → 45 → 90 s) y, en el peor caso, que esperen unos segundos. Los cambios siempre se atienden.
+- **Límite por persona, no por conexión:** un gimnasio entero puede compartir el mismo wifi sin bloquearse.
 - Se envía el detalle por serie de los últimos 4 meses y un resumen de los anteriores; los récords de todos los tiempos se guardan aparte. La exportación de datos siempre incluye el historial completo.
-- Cada 6 horas se limpian sesiones vencidas y entrenamientos abandonados (más de 14 días sin terminar).
+- Cada 6 horas se limpian sesiones vencidas, entrenamientos abandonados (más de 14 días sin terminar) y registros viejos.
 - El servidor se apaga de forma ordenada (`SIGTERM`) y la tipografía va incluida en la app (sin depender de Google Fonts).
 
 ### Notificaciones
@@ -150,9 +154,20 @@ El administrador fija el **precio por mes** y los descuentos de 3, 6 y 12 meses,
 - Para asegurar las tareas aunque el servidor esté sin visitas, define `CRON_KEY` (un texto largo aleatorio) en el servidor **y** como secreto del repositorio con el mismo valor: el monitor llamará a `/api/cron` en cada revisión. También sirve un cron de hPanel: `curl -s -X POST -H "X-Cron-Key: TU_CLAVE" https://vytra.fit/api/cron`.
 - Los errores del servidor y de la app (pantallas) quedan en **Sistema** (administrador), agrupados, y el administrador recibe una notificación cuando falla el servidor.
 
-### Sin conexión
+### Sin conexión (web, web instalada en iPhone/Android y app Android)
 
-El entrenamiento en curso se guarda en el celular en cada cambio. Si no hay señal, la app abre igual (con lo último que recibió), se puede seguir entrenando y terminar: el entrenamiento queda en el celular y se sube solo al volver la conexión. El servidor ignora los duplicados, así que reintentar es seguro. Al cerrar sesión se borran los datos guardados para usar sin conexión.
+Con la sesión iniciada, la app funciona sin internet:
+
+- **Abre sin señal:** la web instalada (también desde Safari en iPhone) guarda todos sus archivos al instalarse; la app Android es nativa. Ambas guardan en el equipo lo último que llegó del servidor.
+- **Todo se puede hacer sin señal:** entrenar y terminar, mensajes, peso, medidas, notas, rutinas, pagos, plantillas, perfil, comunidad, fotos… Cada cambio se guarda en el equipo, se ve al instante y queda en una cola.
+- **Se sincroniza solo:** al volver la señal la cola se sube en orden. Cada acción lleva un identificador (`Idempotency-Key`): si llega dos veces, el servidor no la repite. La hora registrada es la real (`X-Op-At`).
+- Si el servidor rechaza una acción (por ejemplo, datos que ya no existen) la app lo avisa y el administrador lo ve en **Sistema**.
+- Necesitan conexión: iniciar sesión, crear cuentas de asesorados, restablecer contraseñas, generar mensualidades, crear ejercicios nuevos y todo lo del administrador.
+- Al cerrar sesión a propósito se borran los datos guardados en el equipo (la app avisa si quedan cambios sin subir).
+
+### Monitor del sistema (administrador → Sistema)
+
+Se actualiza cada 10 s y guarda la historia en la base (tabla `metrics_log`, 30 días): solicitudes por minuto, tiempos de respuesta, errores, CPU, memoria, retraso del servidor, base de datos (consultas lentas, conexiones, tamaño), personas y equipos conectados (rol, plataforma, versión de la app), equipos con cambios sin subir, seguridad (inicios fallidos, bloqueos, reuso de sesión), notificaciones, tareas programadas, reinicios y errores agrupados. Revisa la salud cada 30 s y abre **alertas** (con notificación al administrador) si algo se sale de lo normal.
 
 ### Copias de seguridad
 

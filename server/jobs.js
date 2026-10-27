@@ -25,7 +25,7 @@ export async function runJobs() {
       out.trials = await trials();
       out.licenses = await licenses();
     }
-  } catch (e) { console.error("[jobs]", e.message); }
+  } catch (e) { console.error("[jobs]", e.message); out.error = e.message; }
   finally { running = false; }
   return out;
 }

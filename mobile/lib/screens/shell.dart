@@ -123,7 +123,8 @@ class _ShellState extends State<Shell> {
           },
           child: Scaffold(
             body: Column(children: [
-              if (store.offline || store.pendingUploads > 0) _NetBar(offline: store.offline, pending: store.pendingUploads),
+              if (store.offline || store.busy || store.pendingUploads > 0) _NetBar(offline: store.offline, busy: store.busy, pending: store.pendingOps, client: !store.isCoach),
+              if (store.syncErrors.isNotEmpty) _SyncErrors(errors: store.syncErrors),
               Expanded(
                 child: locked
                     ? const LicenseLock()
@@ -165,28 +166,86 @@ class _ShellState extends State<Shell> {
 }
 
 class _NetBar extends StatelessWidget {
-  final bool offline;
-  final int pending;
-  const _NetBar({required this.offline, required this.pending});
+  final bool offline, busy, client;
+  final List<J> pending;
+  const _NetBar({required this.offline, required this.busy, required this.pending, required this.client});
   @override
   Widget build(BuildContext context) {
     final t = context.tok;
+    final n = pending.length;
+    final count = n == 0 ? '' : ' ${n == 1 ? '1 cambio' : '$n cambios'} por subir.';
     final text = offline
-        ? 'Sin conexión. Puedes entrenar: todo se guarda en tu celular.${pending > 0 ? ' $pending ${pending == 1 ? 'entrenamiento' : 'entrenamientos'} por subir.' : ''}'
-        : 'Subiendo $pending ${pending == 1 ? 'entrenamiento guardado' : 'entrenamientos guardados'} sin conexión…';
+        ? '${client ? 'Sin conexión. Puedes seguir usando la app: todo se guarda en tu celular.' : 'Sin conexión. Puedes seguir trabajando: los cambios se suben solos al volver la señal.'}$count'
+        : busy
+            ? 'Mucha gente conectada: tus datos se actualizan en unos segundos.$count'
+            : 'Subiendo ${n == 1 ? '1 cambio guardado' : '$n cambios guardados'} sin conexión…';
     return Material(
       color: t.warnSoft,
       child: SafeArea(
         bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: Row(children: [
-            Icon(offline ? Icons.wifi_off_rounded : Icons.cloud_upload_rounded, size: 18, color: t.warn),
-            const SizedBox(width: 10),
-            Expanded(child: Text(text, style: TextStyle(fontSize: 13, color: t.ink, fontWeight: FontWeight.w500))),
-            if (!offline) const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
-          ]),
+        child: InkWell(
+          onTap: n == 0
+              ? null
+              : () => showModalBottomSheet<void>(
+                    context: context,
+                    showDragHandle: true,
+                    builder: (_) => SafeArea(
+                      child: ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), children: [
+                        Text('Cambios por subir', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: t.ink)),
+                        const SizedBox(height: 6),
+                        Text('Se guardaron en tu celular y se suben solos, en orden, cuando haya señal.', style: TextStyle(fontSize: 13, color: t.muted)),
+                        const SizedBox(height: 10),
+                        for (final o in pending)
+                          ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(Icons.schedule_rounded, color: t.warn, size: 20),
+                            title: Text(o.s('label')),
+                            subtitle: o.sn('lastError') != null && o.i('tries') > 0 ? Text('Reintentos: ${o.i('tries')}') : null,
+                            trailing: Text(timeOf(o.d('at') ?? DateTime.now()), style: TextStyle(fontSize: 12, color: t.muted)),
+                          ),
+                        const SizedBox(height: 8),
+                        if (!offline) FilledButton(onPressed: () { store.flushOutbox(); Navigator.pop(context); }, child: const Text('Subir ahora')),
+                      ]),
+                    ),
+                  ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: Row(children: [
+              Icon(offline ? Icons.wifi_off_rounded : busy ? Icons.hourglass_top_rounded : Icons.cloud_upload_rounded, size: 18, color: t.warn),
+              const SizedBox(width: 10),
+              Expanded(child: Text(text, style: TextStyle(fontSize: 13, color: t.ink, fontWeight: FontWeight.w500))),
+              if (!offline && !busy && n > 0) const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+              if (n > 0 && (offline || busy)) Icon(Icons.chevron_right_rounded, size: 18, color: t.muted),
+            ]),
+          ),
         ),
+      ),
+    );
+  }
+}
+
+/// Cambios que el servidor no aceptó al sincronizar (por ejemplo, datos que ya no existen).
+class _SyncErrors extends StatelessWidget {
+  final List<J> errors;
+  const _SyncErrors({required this.errors});
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tok;
+    final last = errors.last;
+    final text = errors.length == 1
+        ? 'No se pudo guardar «${last.s('label')}»: ${last.s('error')}'
+        : '${errors.length} cambios no se pudieron guardar. El último: «${last.s('label')}»: ${last.s('error')}';
+    return Material(
+      color: t.badSoft,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 6, 6, 6),
+        child: Row(children: [
+          Icon(Icons.error_outline_rounded, size: 18, color: t.bad),
+          const SizedBox(width: 10),
+          Expanded(child: Text(text, style: TextStyle(fontSize: 13, color: t.ink, fontWeight: FontWeight.w500))),
+          TextButton(onPressed: store.dismissSyncErrors, child: const Text('Entendido')),
+        ]),
       ),
     );
   }
@@ -260,7 +319,11 @@ class MorePage extends StatelessWidget {
               title: 'Cerrar sesión',
               subtitle: me.s('email'),
               onTap: () async {
-                if (await confirm(context, title: 'Cerrar sesión', text: 'Tendrás que volver a escribir tu correo y contraseña.', confirmLabel: 'Salir', danger: false)) {
+                final n = store.pendingUploads;
+                final warn = n > 0
+                    ? 'Tienes ${n == 1 ? '1 cambio' : '$n cambios'} sin subir (se hicieron sin conexión). Si cierras sesión ahora se pierden.'
+                    : 'Tendrás que volver a escribir tu correo y contraseña.';
+                if (await confirm(context, title: 'Cerrar sesión', text: warn, confirmLabel: n > 0 ? 'Salir igual' : 'Salir', danger: n > 0)) {
                   final b = store.brand();
                   if (b?.sn('slug') != null) store.saveBrand(b!.s('slug'));
                   store.logout();

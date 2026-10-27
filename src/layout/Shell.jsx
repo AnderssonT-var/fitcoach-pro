@@ -2,7 +2,7 @@ import { useState } from "react";
 import Icon from "../ui/Icon";
 import { Avatar, BrandMark, Modal, DevCredit } from "../ui/kit";
 import { NAV, ROLE_LABEL, useApp } from "../context";
-import { brandOf, reload, unreadFor, useDB } from "../store/db";
+import { brandOf, dismissSyncError, flushOutbox, reload, unreadFor, useDB } from "../store/db";
 
 const MAX_TABS = 5;
 
@@ -42,7 +42,13 @@ export default function Shell({ children }) {
   const brandName = brand?.name || "";
 
   const [syncing, setSyncing] = useState(false);
-  async function sync() { setSyncing(true); await reload(); setSyncing(false); }
+  async function sync() { setSyncing(true); await flushOutbox(); await reload(); setSyncing(false); }
+  const pending = db.pendingOps?.length || 0;
+  const errors = db.syncErrors || [];
+  const [showPending, setShowPending] = useState(false);
+  const offlineText = me.role === "client"
+    ? "Sin conexión. Puedes seguir usando la app: todo se guarda en tu equipo y se sube solo."
+    : "Sin conexión. Puedes seguir trabajando: los cambios se guardan y se suben solos al volver la señal.";
 
   return (
     <div className="shell">
@@ -94,11 +100,30 @@ export default function Shell({ children }) {
         </header>
 
         <div className="content" id="content">
-          {(db.offline || db.pendingUploads > 0) && (
+          {(db.offline || db.busy || pending > 0) && (
             <div className={`net-bar ${db.offline ? "off" : ""}`} role="status">
               <Icon name="wifi" size={16} />
-              <span className="grow">{db.offline ? "Sin conexión. Puedes entrenar: todo se guarda en tu celular." : ""}{db.pendingUploads > 0 ? ` ${db.pendingUploads === 1 ? "1 entrenamiento" : `${db.pendingUploads} entrenamientos`} por subir${db.offline ? " cuando vuelva la señal" : "…"}.` : ""}</span>
-              {!db.offline && <button className="btn btn-quiet btn-sm" onClick={sync}>Subir ahora</button>}
+              <span className="grow">
+                {db.offline ? offlineText : db.busy ? "Mucha gente conectada: tus datos se actualizan en unos segundos." : ""}
+                {pending > 0 && <> {" "}<button className="link-btn" onClick={() => setShowPending((v) => !v)}>{pending === 1 ? "1 cambio" : `${pending} cambios`} por subir</button>{db.offline ? "." : "…"}</>}
+              </span>
+              {!db.offline && pending > 0 && <button className="btn btn-quiet btn-sm" onClick={sync} disabled={syncing}>Subir ahora</button>}
+            </div>
+          )}
+          {showPending && pending > 0 && (
+            <div className="net-list">
+              {db.pendingOps.map((o) => (
+                <div key={o.id} className="row gap-sm small"><span className="dot-pending" /><span className="grow ellipsis">{o.label}</span><span className="muted tiny">{new Date(o.at).toLocaleTimeString("es-EC", { hour: "2-digit", minute: "2-digit" })}</span></div>
+              ))}
+            </div>
+          )}
+          {errors.length > 0 && (
+            <div className="net-bar err" role="alert">
+              <Icon name="alert" size={16} />
+              <span className="grow">
+                {errors.length === 1 ? <>No se pudo guardar «{errors[0].label}»: {errors[0].error}</> : <>{errors.length} cambios no se pudieron guardar. El último: «{errors.at(-1).label}»: {errors.at(-1).error}</>}
+              </span>
+              <button className="btn btn-quiet btn-sm" onClick={() => dismissSyncError()}>Entendido</button>
             </div>
           )}
           {children}

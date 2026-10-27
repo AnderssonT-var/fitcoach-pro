@@ -4,7 +4,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { knex, bool, J, S } from "../db.js";
 import { checkPassword, requireClientAccess, requireConsent, requireLicense } from "../auth.js";
-import { bad, forbidden, h, notFound, nowISO, parse, uid } from "../util.js";
+import { bad, forbidden, h, notFound, nowISO, parse, stamp, uid } from "../util.js";
 import { checkInlineImage, deleteFile, saveFile } from "../files.js";
 import { buildState, userOut } from "../state.js";
 import { groupOf } from "./common.js";
@@ -57,7 +57,7 @@ async function editMine(userId, fn) {
 
 clientRouter.post("/weight", h(async (req, res) => {
   const { kg } = parse(z.object({ kg: z.number().min(20).max(400) }), req.body);
-  await editMine(req.user.id, (d) => { (d.weights ||= []).push({ date: nowISO(), kg }); });
+  await editMine(req.user.id, (d) => { (d.weights ||= []).push({ date: stamp(), kg }); });
   res.json({ ok: true });
 }));
 
@@ -67,7 +67,7 @@ clientRouter.post("/photos", h(async (req, res) => {
   for (const p of photos) {
     const fileId = await saveFile("photos", req.user.id, p.src, 4 * 1024 * 1024);
     await knex("photos").insert({ id: uid("ph-"), client_id: req.user.id, file_id: fileId, pose: p.pose, note: p.note || "",
-      date: p.date ? new Date(`${p.date}T08:00:00`).toISOString() : nowISO(), by_id: req.user.id, at: nowISO() });
+      date: p.date ? new Date(`${p.date}T08:00:00`).toISOString() : stamp(), by_id: req.user.id, at: stamp() });
   }
   res.status(201).json({ ok: true });
 }));
@@ -122,10 +122,11 @@ clientRouter.post("/workout/finish", h(async (req, res) => {
   const finishedAt = Number.isFinite(fin) && fin <= Date.now() + 60e3 && fin > Date.now() - 14 * 864e5 && (!Number.isFinite(started0) || fin >= started0)
     ? new Date(Math.min(fin, Date.now())).toISOString() : nowISO();
 
-  // Récords contra el historial guardado en el servidor
-  const history = (await knex("workouts").where({ client_id: req.user.id }).select("data")).map((w) => J(w.data, {}));
-  const best = (exId) => Math.max(0, ...history.flatMap((w) => (w.exercises || []).filter((e) => e.exId === exId)
-    .flatMap((e) => e.sets.filter((x) => x.done && x.reps > 0).map((x) => +x.weight || 0))));
+  // Récords: se usan los guardados en el asesorado (no se recorre todo el historial en cada entrenamiento)
+  const bests = J((await knex("clients").where({ user_id: req.user.id }).select("data").first())?.data, {}).bests;
+  const history = bests ? null : (await knex("workouts").where({ client_id: req.user.id }).select("data")).map((w) => J(w.data, {}));
+  const best = (exId) => (bests ? Math.max(0, bests[exId]?.w ?? 0) : Math.max(0, ...history.flatMap((w) => (w.exercises || []).filter((e) => e.exId === exId)
+    .flatMap((e) => e.sets.filter((x) => x.done && x.reps > 0).map((x) => +x.weight || 0)))));
   const prs = [];
   const exercises = a.exercises.map((e) => {
     const clean = (x) => ({ weight: Math.max(0, Math.min(1000, +x.weight || 0)), reps: Math.max(0, Math.min(500, Math.round(+x.reps || 0))), done: !!x.done });
@@ -214,7 +215,7 @@ sharedRouter.post("/messages", h(async (req, res) => {
   const p = await pair(req, body.clientId);
   // Solo se puede etiquetar un ejercicio de la biblioteca general o de este entrenador
   if (body.exId && body.exId >= 100000 && !(await knex("exercises").where({ id: body.exId, coach_id: p.coachId }).first())) throw notFound("No encontramos ese ejercicio.");
-  const m = { id: uid("m-"), coach_id: p.coachId, client_id: p.clientId, from_id: req.user.id, text: body.text, at: nowISO(), read: false,
+  const m = { id: uid("m-"), coach_id: p.coachId, client_id: p.clientId, from_id: req.user.id, text: body.text, at: stamp(), read: false,
     ...(body.exId ? { ex_id: body.exId, tag: body.tag || "comentario" } : {}) };
   await knex("messages").insert(m);
   // Aviso al otro lado de la conversación
@@ -240,7 +241,7 @@ sharedRouter.post("/posts", h(async (req, res) => {
   const body = parse(z.object({ text: z.string().trim().min(1, "Escribe algo para publicar.").max(1000), kind: z.enum(["post", "challenge"]).default("post") }), req.body);
   if (body.kind === "challenge" && req.user.role !== "coach") throw forbidden("Solo el entrenador puede publicar retos.");
   const group = await groupOf(req.user);
-  await knex("posts").insert({ id: uid("p-"), coach_id: group, author_id: req.user.id, kind: body.kind, text: body.text, at: nowISO(), likes: S([]), comments: S([]) });
+  await knex("posts").insert({ id: uid("p-"), coach_id: group, author_id: req.user.id, kind: body.kind, text: body.text, at: stamp(), likes: S([]), comments: S([]) });
   res.status(201).json({ ok: true });
 }));
 sharedRouter.post("/posts/:id/like", h(async (req, res) => {
@@ -253,7 +254,7 @@ sharedRouter.post("/posts/:id/like", h(async (req, res) => {
 sharedRouter.post("/posts/:id/comments", h(async (req, res) => {
   const { text } = parse(z.object({ text: z.string().trim().min(1).max(500) }), req.body);
   const p = await visiblePost(req, req.params.id);
-  const comments = [...J(p.comments, []), { id: uid("c-"), authorId: req.user.id, text, at: nowISO() }];
+  const comments = [...J(p.comments, []), { id: uid("c-"), authorId: req.user.id, text, at: stamp() }];
   await knex("posts").where({ id: p.id }).update({ comments: S(comments) });
   res.status(201).json({ ok: true });
 }));

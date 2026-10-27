@@ -1,16 +1,20 @@
-// Estado de la app conectado al servidor.
-// Los datos vienen de /api/state (solo lo que el usuario puede ver) y cada acción
-// llama a la API; el servidor valida permisos. Sin conexión se usa lo último
-// guardado en el celular, y los entrenamientos terminados se suben solos después.
+// Estado de la app conectado al servidor, pensado para trabajar SIN CONEXIÓN.
+// - Los datos vienen de /api/state y se guardan en el celular: con la sesión iniciada
+//   la app abre y funciona aunque no haya internet.
+// - Cada cambio se guarda primero en el celular (cola de acciones), se ve al instante y
+//   se sube al servidor apenas hay señal, en orden y sin duplicarse (Idempotency-Key).
+// - Si el servidor rechaza una acción (datos no válidos), se avisa.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api.dart';
 import 'catalog.dart';
+import 'disk.dart';
 import 'format.dart';
 import 'json.dart';
 import 'techniques.dart';
@@ -25,18 +29,24 @@ class AppStore extends ChangeNotifier {
   Status status = Status.boot;
   J s = _blank();
   bool offline = false;
+  bool busy = false; // servidor ocupado: se reintenta solo
   String? bootError;
-  int pendingUploads = 0;
 
   J? _lastRaw;
-  bool _localDirty = false;
   Future<void>? _loading;
   Timer? _poll;
   Timer? _saveTimer;
+  Timer? _activeRetry;
   J? _pendingActive;
   bool _foreground = true;
+  int _backoff = 0;
 
-  static const _kState = 'vytrafit.state', _kActive = 'vytrafit.active', _kOutbox = 'vytrafit.outbox', _kBrand = 'vytrafit.brand';
+  List<J> _ops = []; // acciones hechas en este celular que faltan subir (en orden)
+  final List<J> _confirmed = []; // ya subidas, se muestran hasta que llegue el estado nuevo
+  List<J> _errors = []; // acciones que el servidor no aceptó
+
+  static const _kActive = 'vytrafit.active', _kOutbox = 'vytrafit.outbox', _kBrand = 'vytrafit.brand', _kStateOld = 'vytrafit.state';
+  static const _fState = 'state.json', _fOps = 'ops.json', _fErrors = 'sync-errors.json';
 
   static J _blank() => {
         'users': <dynamic>[], 'clients': <dynamic>[], 'licenses': <dynamic>[], 'payments': <dynamic>[], 'workouts': <dynamic>[],
@@ -44,35 +54,115 @@ class AppStore extends ChangeNotifier {
         'active': <String, dynamic>{}, 'subscriptions': <dynamic>[], 'settings': <String, dynamic>{}, 'ranking': null, 'access': null, 'sessionUserId': null,
       };
 
+  int? get _uid => _lastRaw?.inn('sessionUserId') ?? s.inn('sessionUserId');
+  List<J> get _mine => _ops.where((o) => o.inn('userId') == _uid).toList();
+
+  /// Cambios hechos sin conexión que faltan subir (de esta cuenta).
+  List<J> get pendingOps => _mine;
+  int get pendingUploads => _mine.length;
+  List<J> get syncErrors => _errors.where((e) => e.inn('userId') == _uid).toList();
+
   /* ============================================================ Arranque */
   Future<void> init() async {
     prefs = await SharedPreferences.getInstance();
     await Api.I.init();
+    Api.I.syncInfo = () => (pending: _mine.length, failed: syncErrors.length);
     Api.I.onSessionLost = () {
+      // La cola se conserva: se sube cuando esa persona vuelva a entrar
       _pendingActive = null;
       _lastRaw = null;
-      prefs.remove(_kState);
+      _confirmed.clear();
+      Disk.write(_fState, null);
       Api.I.setTokens(null);
+      Api.I.resetStateTag();
       _set(Status.guest, _blank());
     };
+    await _loadLocal();
     if (!Api.I.hasSession) {
       status = Status.guest;
       notifyListeners();
+    } else if (_lastRaw != null) {
+      // Abre al instante con lo guardado; se actualiza en segundo plano
+      _render();
+      status = Status.ready;
+      notifyListeners();
+      unawaited(reload());
     } else {
       await reload();
     }
-    _poll = Timer.periodic(const Duration(seconds: 20), (_) {
-      if (status == Status.ready && _foreground) reload();
-    });
-    Timer.periodic(const Duration(seconds: 30), (_) {
-      if (status == Status.ready && outbox().isNotEmpty) flushOutbox();
-    });
+    _schedulePoll();
+    try {
+      Connectivity().onConnectivityChanged.listen((r) {
+        if (r.any((x) => x != ConnectivityResult.none) && status == Status.ready) {
+          _backoff = 0;
+          reload();
+          _kick();
+        }
+      });
+    } catch (_) {/* sin datos de conectividad */}
+  }
+
+  Future<void> _loadLocal() async {
+    try {
+      final o = await Disk.read(_fOps);
+      if (o != null) _ops = (jsonDecode(o) as List).cast<Map>().map((e) => e.cast<String, dynamic>()).toList();
+    } catch (_) {}
+    try {
+      final e = await Disk.read(_fErrors);
+      if (e != null) _errors = (jsonDecode(e) as List).cast<Map>().map((x) => x.cast<String, dynamic>()).toList();
+    } catch (_) {}
+    // Cola antigua (solo entrenamientos terminados) → cola nueva
+    try {
+      final raw = prefs.getString(_kOutbox);
+      if (raw != null) {
+        for (final it in (jsonDecode(raw) as List).cast<Map>()) {
+          final body = Map<String, dynamic>.from(it.cast<String, dynamic>());
+          final userId = body.remove('userId');
+          if (_ops.any((x) => x.s('kind') == 'finish' && x.m('body')?.m('session')?.s('id') == body.m('session')?.s('id'))) continue;
+          _ops.add(_mkOp(userId as int?, 'finish', 'POST', '/api/client/workout/finish', body,
+              label: 'Entrenamiento ${body.m('session')?.s('dayName') ?? ''}'.trim(), at: body.sn('finishedAt')));
+        }
+        await prefs.remove(_kOutbox);
+        _saveOps();
+      }
+    } catch (_) {}
+    if (!Api.I.hasSession) return;
+    try {
+      String? txt = await Disk.read(_fState);
+      txt ??= prefs.getString(_kStateOld);
+      if (txt != null) {
+        final snap = ((await decodeJson(txt)) as Map).cast<String, dynamic>();
+        Api.I.stateTag = snap.sn('__etag');
+        snap.remove('__etag');
+        _lastRaw = snap;
+      }
+      await prefs.remove(_kStateOld);
+    } catch (_) {}
   }
 
   void setForeground(bool v) {
     _foreground = v;
-    if (v && status == Status.ready) reload();
+    if (v && status == Status.ready) {
+      reload();
+      _kick();
+    }
     if (!v && _pendingActive != null) _flushActive();
+  }
+
+  /// Actualización periódica: lo que pida el servidor (20 s normal; más con mucha gente),
+  /// con variación para que no consulten todos a la vez; sin señal se espera más.
+  void _schedulePoll() {
+    _poll?.cancel();
+    final base = (offline || busy) && _backoff > 0 ? _backoff : Api.I.pollSeconds * 1000;
+    final ms = (base * (0.85 + math.Random().nextDouble() * 0.3)).round();
+    _poll = Timer(Duration(milliseconds: ms), () async {
+      if (status == Status.ready && _foreground) {
+        try {
+          await reload();
+        } catch (_) {}
+      }
+      _schedulePoll();
+    });
   }
 
   @override
@@ -87,26 +177,32 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _patch(void Function(J d) fn) {
-    final d = copyJ(s);
-    fn(d);
-    _localDirty = true;
-    s = d;
+  /// Cambio local del entrenamiento en curso (no pasa por la cola).
+  void _patchActive(int clientId, J? a) {
+    final act = Map<String, dynamic>.from(s.m('active') ?? {});
+    if (a == null) {
+      act.remove('$clientId');
+    } else {
+      act['$clientId'] = a;
+    }
+    s = {...s, 'active': act};
     notifyListeners();
   }
 
-  /* ============================================================ Carga */
-  List<J> outbox() {
-    try {
-      final raw = prefs.getString(_kOutbox);
-      if (raw == null) return [];
-      return (jsonDecode(raw) as List).cast<Map>().map((e) => e.cast<String, dynamic>()).toList();
-    } catch (_) {
-      return [];
-    }
+  /* ============================================================ Guardado local */
+  void _saveOps() => Disk.write(_fOps, jsonEncode(_ops));
+  void _saveErrors() => Disk.write(_fErrors, jsonEncode(_errors));
+  Timer? _snapTimer;
+  void _saveSnapshot() {
+    _snapTimer?.cancel();
+    _snapTimer = Timer(const Duration(milliseconds: 1500), () async {
+      final raw = _lastRaw;
+      if (raw == null || !Api.I.hasSession) return;
+      try {
+        Disk.write(_fState, await encodeJson({...raw, '__etag': Api.I.stateTag}));
+      } catch (_) {}
+    });
   }
-
-  void _setOutbox(List<J> v) => v.isEmpty ? prefs.remove(_kOutbox) : prefs.setString(_kOutbox, jsonEncode(v));
 
   void _saveLocalActive(J? a) {
     if (a == null) {
@@ -126,30 +222,64 @@ class AppStore extends ChangeNotifier {
     }
   }
 
+  /// Compatibilidad: entrenamientos terminados sin conexión que faltan subir.
+  List<J> outbox() => _mine.where((o) => o.s('kind') == 'finish').map((o) => <String, dynamic>{'userId': o['userId'], ...?o.m('body')}).toList();
+
+  /* ============================================================ Cómo se ve el estado
+     lo del servidor + las acciones aún sin subir */
   J _normalize(J raw) {
-    final st = copyJ(raw);
+    // El historial puede ser grande: se copia la lista, no cada entrenamiento (las acciones solo agregan)
+    final workouts = raw['workouts'];
+    final st = copyJ({...raw, 'workouts': null});
+    st['workouts'] = workouts is List ? List<dynamic>.from(workouts) : <dynamic>[];
     final mine = st.lm('exercises').map((e) => {...e, 'photo': absUrl(e.sn('photo'))}).toList();
     st['exercises'] = [...Catalog.library, ...mine];
     st['clients'] = st.lm('clients').map((c) => {...c, 'photos': c.lm('photos').map((p) => {...p, 'src': absUrl(p.sn('src'))}).toList()}).toList();
     st['subscriptions'] = st.lm('subscriptions').map((x) => {...x, 'receipt': absUrl(x.sn('receipt'))}).toList();
-    final active = (st.m('active') ?? <String, dynamic>{});
+    final active = Map<String, dynamic>.from(st.m('active') ?? <String, dynamic>{});
     st['active'] = active;
     if (_pendingActive != null) active['${_pendingActive!.i('clientId')}'] = _pendingActive;
     final local = _localActive();
     if (local != null && local.i('clientId') == st.i('sessionUserId')) {
-      final finished = st.lm('workouts').any((w) => w.s('ref') == local.s('id')) || outbox().any((o) => o.m('session')?.s('id') == local.s('id'));
+      final finished = st.lm('workouts').any((w) => w.s('ref') == local.s('id')) ||
+          _ops.any((o) => o.s('kind') == 'finish' && o.m('body')?.m('session')?.s('id') == local.s('id'));
+      final discarded = _ops.any((o) => o.s('kind') == 'discard' && o.m('args')?.s('id') == local.s('id'));
       final server = active['${local.i('clientId')}'] as Map?;
-      if (finished) {
+      if (finished || discarded) {
         _saveLocalActive(null);
       } else if (server == null || server['id'] == local.s('id')) {
         active['${local.i('clientId')}'] = local;
         if (server == null || jsonEncode(server) != jsonEncode(local)) Future.microtask(() => _queueActiveSave(local));
       }
     }
-    pendingUploads = outbox().where((o) => o.i('userId') == st.i('sessionUserId')).length;
     return st;
   }
 
+  void _render() {
+    final raw = _lastRaw;
+    if (raw == null) return;
+    final d = _normalize(raw);
+    final me = d.inn('sessionUserId');
+    for (final op in [..._confirmed, ..._ops]) {
+      if (op.inn('userId') != me) continue;
+      try {
+        _reduce(d, op);
+      } catch (e) {
+        debugLog('[sin conexión] ${op['kind']}: $e');
+      }
+    }
+    s = d;
+  }
+
+  void _show({bool? off, bool? isBusy}) {
+    if (off != null) offline = off;
+    if (isBusy != null) busy = isBusy;
+    _render();
+    if (_lastRaw != null) status = Status.ready;
+    notifyListeners();
+  }
+
+  /* ============================================================ Carga */
   /// Vuelve a pedir los datos al servidor.
   Future<void> reload() {
     if (!Api.I.hasSession) {
@@ -158,30 +288,20 @@ class AppStore extends ChangeNotifier {
     }
     return _loading ??= () async {
       try {
-        final ready = status == Status.ready && _lastRaw != null;
-        final r = await Api.I.call('GET', '/api/state', null, ready);
+        final started = DateTime.now().millisecondsSinceEpoch;
+        final haveHistory = _lastRaw != null && _lastRaw!['workouts'] is List ? _lastRaw!.sn('historyKey') : null;
+        final r = await Api.I.call('GET', '/api/state', null, _lastRaw != null, null, null, haveHistory);
         if (r.notModified) {
-          if (_localDirty || offline) {
-            _localDirty = false;
-            offline = false;
-            _set(Status.ready, _normalize(_lastRaw!));
-          }
+          _confirmed.removeWhere((c) => c.i('confirmedAt') <= started);
+          _backoff = 0;
+          if (offline || busy || status != Status.ready) _show(off: false, isBusy: false);
           return;
         }
         if (!r.ok) {
-          if (r.offline && status == Status.ready) {
-            if (!offline) {
-              offline = true;
-              notifyListeners();
-            }
-            return;
-          }
-          if (r.offline) {
-            final cached = prefs.getString(_kState);
-            if (cached != null) {
-              _lastRaw = (jsonDecode(cached) as Map).cast<String, dynamic>();
-              offline = true;
-              _set(Status.ready, _normalize(_lastRaw!));
+          if (r.offline || r.status >= 500 || r.status == 429) {
+            _backoff = math.min(60000, math.max(5000, _backoff * 2));
+            if (_lastRaw != null) {
+              _show(off: r.offline, isBusy: !r.offline);
               return;
             }
             bootError = r.error;
@@ -191,32 +311,316 @@ class AppStore extends ChangeNotifier {
           if (!Api.I.hasSession) _set(Status.guest, _blank());
           return;
         }
+        _backoff = 0;
         final data = r.json;
+        if (data.b('historyKept') && _lastRaw?['workouts'] is List) data['workouts'] = _lastRaw!['workouts'];
+        if (data['workouts'] is! List) {
+          data['workouts'] = <dynamic>[];
+          data['historyKey'] = null;
+          Api.I.resetStateTag();
+        }
+        data.remove('historyKept');
         _lastRaw = data;
-        _localDirty = false;
-        offline = false;
-        try {
-          final txt = jsonEncode(data);
-          if (txt.length < 4e6) prefs.setString(_kState, txt);
-        } catch (_) {}
-        _set(Status.ready, _normalize(data));
-        if (outbox().any((o) => o.i('userId') == data.i('sessionUserId'))) Future.microtask(flushOutbox);
+        _confirmed.removeWhere((c) => c.i('confirmedAt') <= started);
+        _saveSnapshot();
+        _show(off: false, isBusy: false);
+        if (_mine.isNotEmpty) _kick();
+        if (_pendingActive != null) _flushActive();
       } finally {
         _loading = null;
       }
     }();
   }
 
-  Future<ApiResult> _act(String method, String path, [Object? body]) async {
-    final r = await Api.I.call(method, path, body);
-    if (r.ok) {
-      await reload();
-    } else if (r.status == 402 || ['consent_required', 'password_change', 'client_inactive', 'coach_license'].contains(r.code)) {
-      await reload();
-    }
-    return r;
+  /* ============================================================ Cola de acciones */
+  static String _newOpId() {
+    final r = math.Random.secure();
+    return '${DateTime.now().millisecondsSinceEpoch.toRadixString(36)}${List.generate(8, (_) => r.nextInt(36).toRadixString(36)).join()}';
   }
 
+  static J _mkOp(int? userId, String kind, String method, String path, Object? body, {Object? args, String? label, String? at}) => {
+        'id': _newOpId(), 'userId': userId, 'kind': kind, 'method': method, 'path': path, 'body': body, 'args': args,
+        'label': label ?? 'Cambio', 'at': at ?? DateTime.now().toUtc().toIso8601String(), 'tries': 0,
+      };
+
+  static const _blocked = ['consent_required', 'password_change', 'client_inactive', 'coach_license', 'license_required'];
+  final Map<String, Completer<ApiResult>> _waiters = {};
+  Timer? _kickTimer;
+  Future<void>? _flushing;
+
+  void _kick([int delayMs = 0]) {
+    _kickTimer?.cancel();
+    _kickTimer = Timer(Duration(milliseconds: delayMs), () => flushOutbox());
+  }
+
+  void _settle(String id, ApiResult r) {
+    final c = _waiters.remove(id);
+    if (c != null && !c.isCompleted) c.complete(r);
+  }
+
+  /// Sube las acciones pendientes, una por una y en orden.
+  Future<void> flushOutbox() => _flushing ??= () async {
+        try {
+          if (!Api.I.hasSession || _uid == null) return;
+          final done = <(String, ApiResult)>[];
+          while (true) {
+            final i = _ops.indexWhere((o) => o.inn('userId') == _uid);
+            if (i < 0) break;
+            final op = _ops[i];
+            final r = await Api.I.call(op.s('method'), op.s('path'), op['body'], false, op.s('id'), op.sn('at'));
+            if (!r.ok && (r.transient || r.status == 402 || _blocked.contains(r.code))) {
+              op['tries'] = op.i('tries') + 1;
+              op['lastError'] = r.error;
+              _saveOps();
+              for (final o in _ops) {
+                _settle(o.s('id'), const ApiResult(data: {'ok': true, 'queued': true}));
+              }
+              final wait = r.retryAfter > 0 ? r.retryAfter * 1000 : math.min(60000, 2000 * math.pow(2, math.min(op.i('tries'), 5)).toInt());
+              _kick(wait);
+              _show(off: r.offline ? true : null);
+              if (!r.offline && !r.transient) unawaited(reload()); // falta aceptar algo: se muestra la pantalla
+              break;
+            }
+            _ops.removeAt(i);
+            _saveOps();
+            if (!r.ok) {
+              _errors = [..._errors, {'id': op['id'], 'userId': op['userId'], 'label': op['label'], 'error': r.error, 'at': DateTime.now().toUtc().toIso8601String()}];
+              if (_errors.length > 20) _errors = _errors.sublist(_errors.length - 20);
+              _saveErrors();
+              unawaited(Api.I.call('POST', '/api/sync/report', {
+                'failed': [{'label': op['label'], 'path': op['path'], 'error': r.error}]
+              }));
+            } else {
+              _confirmed.add({...op, 'confirmedAt': DateTime.now().millisecondsSinceEpoch});
+            }
+            done.add((op.s('id'), r));
+          }
+          if (done.isNotEmpty) {
+            await reload();
+            for (final (id, r) in done) {
+              _settle(id, r);
+            }
+          }
+        } finally {
+          _flushing = null;
+        }
+      }();
+
+  /// Quita el aviso de las acciones que el servidor no aceptó.
+  void dismissSyncErrors() {
+    _errors = _errors.where((e) => e.inn('userId') != _uid).toList();
+    _saveErrors();
+    notifyListeners();
+  }
+
+  /// Hace una acción.
+  /// - Con [kind] se guarda en la cola: se ve al instante y se sube cuando hay señal.
+  ///   Devuelve la respuesta del servidor o {queued: true} si quedó guardada para después.
+  /// - Sin [kind] necesita conexión (crear cuentas, generar cobros…).
+  Future<ApiResult> _act(String method, String path, [Object? body, String? kind, Object? args, String? label, int waitMs = 4000, String? at]) async {
+    if (kind == null) {
+      final r = await Api.I.call(method, path, body);
+      if (r.ok) {
+        await reload();
+      } else if (r.status == 402 || _blocked.contains(r.code)) {
+        await reload();
+      }
+      if (r.offline) return const ApiResult(error: 'Necesitas conexión a internet para hacer esto.', status: 0, offline: true);
+      return r;
+    }
+    final op = _mkOp(_uid, kind, method, path, body, args: args, label: label, at: at);
+    _ops.add(op);
+    _saveOps();
+    _show();
+    final c = Completer<ApiResult>();
+    _waiters[op.s('id')] = c;
+    _kick();
+    // La pantalla no espera a una red lenta: la acción sigue guardada y se sube sola
+    return Future.any([c.future, Future.delayed(Duration(milliseconds: waitMs), () => const ApiResult(data: {'ok': true, 'queued': true, 'slow': true}))]);
+  }
+
+  /* ============================================================ Cómo se ve cada acción sin subir
+     (idempotente: si el servidor ya la tiene, no se duplica) */
+  static J? _find(List<dynamic> l, String key, Object? v) {
+    for (final x in l) {
+      if (x is Map && x[key] == v) return x.cast<String, dynamic>();
+    }
+    return null;
+  }
+
+  void _reduce(J d, J op) {
+    final a = op.m('args') ?? <String, dynamic>{};
+    final id = op.s('id');
+    final at = op.s('at');
+    List<dynamic> list(String k) => (d[k] as List?) ?? (d[k] = <dynamic>[]);
+    J? client(int? cid) => _find(list('clients'), 'userId', cid);
+    List<dynamic> sub(J c, String k) {
+      final l = List<dynamic>.from(c[k] as List? ?? const []);
+      c[k] = l;
+      return l;
+    }
+
+    switch (op.s('kind')) {
+      case 'msg':
+        if (_find(list('messages'), 'id', 'm-$id') == null) {
+          list('messages').add({'id': 'm-$id', 'coachId': a['coachId'], 'clientId': a['clientId'], 'from': a['from'], 'text': a['text'], 'at': at, 'read': false,
+            'pending': true, 'exId': a['exId'], 'tag': a['tag']});
+        }
+      case 'read':
+        for (final m in list('messages').cast<Map>()) {
+          if (m['coachId'] == a['coachId'] && m['clientId'] == a['clientId'] && m['from'] != a['reader']) m['read'] = true;
+        }
+      case 'like':
+        final p = _find(list('posts'), 'id', a['postId']);
+        if (p != null) {
+          final likes = List<dynamic>.from(p['likes'] as List? ?? const []);
+          final on = likes.contains(a['userId']);
+          if (a['value'] == true && !on) likes.add(a['userId']);
+          if (a['value'] != true && on) likes.remove(a['userId']);
+          p['likes'] = likes;
+        }
+      case 'post':
+        if (_find(list('posts'), 'id', 'p-$id') == null) {
+          list('posts').insert(0, {'id': 'p-$id', 'coachId': a['coachId'], 'authorId': a['authorId'], 'kind': a['kind'], 'text': a['text'], 'at': at,
+            'likes': <dynamic>[], 'comments': <dynamic>[], 'workoutId': null, 'pending': true});
+        }
+      case 'comment':
+        final p = _find(list('posts'), 'id', a['postId']);
+        if (p != null && _find(p.l('comments'), 'id', 'c-$id') == null) {
+          sub(p, 'comments').add({'id': 'c-$id', 'authorId': a['authorId'], 'text': a['text'], 'at': at, 'pending': true});
+        }
+      case 'delPost':
+        list('posts').removeWhere((p) => p is Map && p['id'] == a['postId']);
+      case 'weight':
+        final c = client(a['clientId'] as int?);
+        if (c != null && !c.l('weights').any((w) => w is Map && w['date'] == at && w['kg'] == a['kg'])) {
+          sub(c, 'weights').add({'date': at, 'kg': a['kg'], 'pending': true});
+        }
+      case 'measure':
+        final c = client(a['clientId'] as int?);
+        if (c == null || _find(c.l('measurements'), 'id', 'ms-$id') != null) break;
+        final date = a.sn('date') != null ? DateTime.parse('${a.s('date')}T08:00:00').toUtc().toIso8601String() : at;
+        final row = <String, dynamic>{'id': 'ms-$id', 'date': date, 'note': a.s('note'), 'pending': true};
+        for (final k in ['weight', 'fat', 'waist', 'hip', 'chest', 'arm', 'thigh']) {
+          if (a.nn(k) != null) row[k] = a.nn(k);
+        }
+        sub(c, 'measurements')
+          ..add(row)
+          ..sort((x, y) => '${(x as Map)['date']}'.compareTo('${(y as Map)['date']}'));
+        if (row['weight'] != null) sub(c, 'weights').add({'date': date, 'kg': row['weight']});
+      case 'delMeasure':
+        final c = client(a['clientId'] as int?);
+        if (c != null) sub(c, 'measurements').removeWhere((m) => m is Map && m['id'] == a['id']);
+      case 'note':
+        final c = client(a['clientId'] as int?);
+        if (c != null && _find(c.l('notes'), 'id', 'nt-$id') == null) {
+          sub(c, 'notes').add({'id': 'nt-$id', 'at': at, 'category': a['category'], 'text': a['text'], 'pinned': false, 'pending': true});
+        }
+      case 'noteUpd':
+        final c = client(a['clientId'] as int?);
+        final n = c == null ? null : _find(sub(c, 'notes'), 'id', a['id']);
+        if (n != null) n.addAll(a.m('patch') ?? {});
+      case 'noteDel':
+        final c = client(a['clientId'] as int?);
+        if (c != null) sub(c, 'notes').removeWhere((n) => n is Map && n['id'] == a['id']);
+      case 'routine':
+        final c = client(a['clientId'] as int?);
+        if (c != null) c[a['slot'] == 'plan' ? 'planRoutine' : 'routine'] = a['routine'];
+      case 'clientUpd':
+        final c = client(a['clientId'] as int?);
+        final u = _find(list('users'), 'id', a['clientId']);
+        final p = a.m('patch') ?? {};
+        if (u != null && p['name'] != null) u['name'] = p['name'];
+        if (u != null && p['email'] != null) u['email'] = p['email'];
+        if (c != null) {
+          for (final k in ['goal', 'phone', 'heightCm', 'fee', 'billingDay', 'active']) {
+            if (p.containsKey(k)) c[k] = p[k];
+          }
+        }
+      case 'profile':
+        final u = _find(list('users'), 'id', a['userId']);
+        if (u == null) break;
+        final p = a.m('patch') ?? {};
+        for (final e in p.entries) {
+          if (e.key != 'notif') u[e.key] = e.value;
+        }
+        if (p['notif'] is Map) u['notif'] = {...?(u['notif'] as Map?)?.cast<String, dynamic>(), ...(p['notif'] as Map).cast<String, dynamic>()};
+        if (p.containsKey('phone')) client(a['userId'] as int?)?['phone'] = p['phone'];
+      case 'brand':
+        final u = _find(list('users'), 'id', a['userId']);
+        if (u != null) u['brand'] = {...?(u['brand'] as Map?)?.cast<String, dynamic>(), ...?a.m('patch')};
+      case 'pay':
+        if (_find(list('payments'), 'id', 'pay-$id') != null) break;
+        list('payments').add({'id': 'pay-$id', 'coachId': a['coachId'], 'clientId': a['clientId'], 'concept': a['concept'], 'amount': a['amount'],
+          'dueDate': DateTime.parse('${a.s('dueDate')}T09:00:00').toUtc().toIso8601String(), 'paidAt': a.b('paid') ? at : null,
+          'method': a.b('paid') ? a.s('method') : '', 'pending': true});
+      case 'paid':
+        final p = _find(list('payments'), 'id', a['id']);
+        if (p != null && p['paidAt'] == null) {
+          p['paidAt'] = at;
+          p['method'] = a['method'] ?? '';
+        }
+      case 'unpaid':
+        final p = _find(list('payments'), 'id', a['id']);
+        if (p != null) {
+          p['paidAt'] = null;
+          p['method'] = '';
+        }
+      case 'payDel':
+        list('payments').removeWhere((p) => p is Map && p['id'] == a['id']);
+      case 'tpl':
+        if (_find(list('templates'), 'id', 't-$id') == null) {
+          list('templates').insert(0, {...?a.m('routine'), 'name': a['name'], 'id': 't-$id', 'coachId': a['coachId'], 'createdAt': at, 'pending': true});
+        }
+      case 'tplDel':
+        list('templates').removeWhere((t) => t is Map && t['id'] == a['id']);
+      case 'exUpd':
+        final e = _find(list('exercises'), 'id', a['id']);
+        if (e != null) {
+          final p = Map<String, dynamic>.from(a.m('patch') ?? {});
+          final photo = p.remove('photo');
+          e.addAll(p);
+          if ((a.m('patch') ?? {}).containsKey('photo')) e['photo'] = photo;
+        }
+      case 'exDel':
+        list('exercises').removeWhere((x) => x is Map && x['id'] == a['id']);
+      case 'photos':
+        final c = client(a['clientId'] as int?);
+        if (c == null) break;
+        final photos = a.lm('photos');
+        for (var k = 0; k < photos.length; k++) {
+          final pid = k == 0 ? 'ph-$id' : 'ph-$id-$k';
+          if (_find(c.l('photos'), 'id', pid) != null) continue;
+          final p = photos[k];
+          sub(c, 'photos').insert(0, {'id': pid, 'src': p['src'], 'pose': p['pose'], 'note': p.s('note'),
+            'date': p.sn('date') != null ? DateTime.parse('${p.s('date')}T08:00:00').toUtc().toIso8601String() : at, 'by': a['by'], 'at': at, 'pending': true});
+        }
+      case 'photoDel':
+        final c = client(a['clientId'] as int?);
+        if (c != null) sub(c, 'photos').removeWhere((p) => p is Map && p['id'] == a['id']);
+      case 'finish':
+        final b = op.m('body') ?? {};
+        final ses = b.m('session') ?? {};
+        (d['active'] as Map).remove('${ses['clientId']}');
+        if (list('workouts').any((w) => w is Map && w['ref'] == ses['id'])) break;
+        final fin = b.sn('finishedAt') ?? at;
+        final started = ses.d('startedAt');
+        final exercises = ses.lm('exercises').map((e) => {
+              'exId': e['exId'], 'target': e['target'],
+              'sets': e.lm('sets').map((x) {
+                final drops = x.lm('drops').where((dd) => dd.b('done')).map((dd) => {'weight': dd.n('weight'), 'reps': dd.i('reps'), 'done': true}).toList();
+                return {'weight': x.n('weight'), 'reps': x.n('reps').round(), 'done': x.b('done'), if (drops.isNotEmpty) 'drops': drops};
+              }).toList(),
+            }).toList();
+        list('workouts').add({'id': 'w-$id', 'ref': ses['id'], 'clientId': ses['clientId'], 'finishedAt': fin, 'dayId': ses['dayId'], 'dayName': ses['dayName'],
+          'routineName': ses['routineName'], 'startedAt': ses['startedAt'],
+          'durationSec': started == null ? 0 : math.max(0, (DateTime.tryParse(fin) ?? DateTime.now()).difference(started).inSeconds),
+          'difficulty': b['difficulty'], 'comment': b.s('comment'), 'prs': <dynamic>[], 'exercises': exercises, 'pending': true});
+      case 'discard':
+        final act = d['active'] as Map;
+        if ((act['${a['clientId']}'] as Map?)?['id'] == a['id']) act.remove('${a['clientId']}');
+    }
+  }
   /* ============================================================ Selectores */
   int? get meId => s.inn('sessionUserId');
   J? get me => meId == null ? null : userById(meId!);
@@ -434,39 +838,61 @@ class AppStore extends ChangeNotifier {
     }).toList();
   }
 
+
   /* ============================================================ Sesión */
   String? get savedBrand => prefs.getString(_kBrand);
   void saveBrand(String? slug) => slug == null || slug.isEmpty ? prefs.remove(_kBrand) : prefs.setString(_kBrand, slug);
 
-  Future<ApiResult> login(String email, String password, [String? brandSlug]) async {
-    final r = await Api.I.call('POST', '/api/auth/login', {'email': email.trim(), 'password': password, if (brandSlug != null && brandSlug.isNotEmpty) 'brandSlug': brandSlug});
-    if (!r.ok) return r;
+  void _freshSession() {
+    _lastRaw = null;
+    _confirmed.clear();
+    Api.I.resetStateTag();
+    Disk.write(_fState, null);
+  }
+
+  Future<ApiResult> _enter(ApiResult r) async {
+    _freshSession();
     await Api.I.setTokens(r.json);
     status = Status.boot;
     await reload();
     return r;
   }
 
+  Future<ApiResult> login(String email, String password, [String? brandSlug]) async {
+    final r = await Api.I.call('POST', '/api/auth/login', {'email': email.trim(), 'password': password, if (brandSlug != null && brandSlug.isNotEmpty) 'brandSlug': brandSlug});
+    if (!r.ok) {
+      return r.offline ? const ApiResult(error: 'Para entrar necesitas conexión a internet. Después puedes usar la app sin señal.', status: 0, offline: true) : r;
+    }
+    return _enter(r);
+  }
+
+  /// Al salir a propósito se borra lo guardado en el celular (datos y cambios sin subir de esta cuenta).
   Future<void> logout() async {
     final rt = Api.I.refreshToken;
+    final me = _uid;
     _pendingActive = null;
-    _lastRaw = null;
-    await prefs.remove(_kState);
+    _ops.removeWhere((o) => o.inn('userId') == me);
+    _saveOps();
+    _errors.removeWhere((e) => e.inn('userId') == me);
+    _saveErrors();
+    _saveLocalActive(null);
+    _freshSession();
     Api.I.call('POST', '/api/auth/logout', {'refreshToken': rt});
     await Api.I.setTokens(null);
-    Api.I.resetStateTag();
     _set(Status.guest, _blank());
   }
 
   Future<void> logoutAll() async {
-    await Api.I.call('POST', '/api/auth/logout-all', {});
+    final r = await Api.I.call('POST', '/api/auth/logout-all', {});
+    if (!r.ok) return;
+    _freshSession();
     await Api.I.setTokens(null);
     _set(Status.guest, _blank());
   }
 
   Future<ApiResult> changePassword(String current, String next) async {
     final r = await Api.I.call('POST', '/api/auth/password', {'current': current, 'next': next});
-    if (!r.ok) return r;
+    if (!r.ok) return r.offline ? const ApiResult(error: 'Necesitas conexión a internet para cambiar la contraseña.', status: 0, offline: true) : r;
     await Api.I.setTokens(r.json);
     await reload();
     return r;
@@ -495,31 +921,33 @@ class AppStore extends ChangeNotifier {
   Future<ApiResult> activateLicense(J f) async {
     final r = await Api.I.call('POST', '/api/auth/activate', f);
     if (!r.ok) return r;
-    await Api.I.setTokens(r.json);
-    status = Status.boot;
-    await reload();
-    return r;
+    return _enter(r);
   }
 
   Future<ApiResult> signupWithCoach(J data) async {
     final r = await Api.I.call('POST', '/api/public/signup', data);
     if (!r.ok) return r;
-    await Api.I.setTokens(r.json);
-    status = Status.boot;
-    await reload();
-    return r;
+    return _enter(r);
   }
 
   Future<ApiResult> redeemCode(String code) => _act('POST', '/api/coach/redeem', {'code': code});
   Future<ApiResult> requestSubscription(J data) => _act('POST', '/api/coach/subscriptions', data);
 
   /* ============================================================ Entrenador */
+  String _first(int id) => (userById(id)?.s('name') ?? '').split(' ').first;
+
+  // Crear cuentas, contraseñas y borrar asesorados necesitan conexión
   Future<ApiResult> addClient(J d) => _act('POST', '/api/coach/clients', d);
-  Future<ApiResult> updateClient(int id, J p) => _act('PATCH', '/api/coach/clients/$id', p);
+  Future<ApiResult> updateClient(int id, J p) => _act('PATCH', '/api/coach/clients/$id', p, 'clientUpd', {'clientId': id, 'patch': p}, 'Datos de ${_first(id)}');
   Future<ApiResult> resetClientPassword(int id) => _act('POST', '/api/coach/clients/$id/reset-password', {});
   Future<ApiResult> deleteClient(int id) => _act('DELETE', '/api/coach/clients/$id');
-  Future<ApiResult> addBodyWeight(int clientId, double kgValue) =>
-      isCoach ? _act('POST', '/api/coach/clients/$clientId/weight', {'kg': kgValue}) : _act('POST', '/api/client/weight', {'kg': kgValue});
+  Future<ApiResult> addBodyWeight(int clientId, double kgValue) {
+    final args = {'clientId': clientId, 'kg': kgValue};
+    final label = 'Peso ${kg(kgValue)} kg';
+    return isCoach
+        ? _act('POST', '/api/coach/clients/$clientId/weight', {'kg': kgValue}, 'weight', args, label)
+        : _act('POST', '/api/client/weight', {'kg': kgValue}, 'weight', args, label);
+  }
 
   static J cleanRoutine(J r) => {
         'name': r.s('name'), 'goal': r.s('goal'), 'frequency': r.i('frequency', 3) == 0 ? 3 : r.i('frequency', 3), 'notes': r.s('notes'),
@@ -540,14 +968,23 @@ class AppStore extends ChangeNotifier {
             }).toList(),
       };
 
-  Future<ApiResult> saveRoutine(int clientId, J? routine, [String slot = 'current']) =>
-      _act('PUT', '/api/coach/clients/$clientId/routine', {'routine': routine == null ? null : cleanRoutine(routine), 'slot': slot});
-  Future<ApiResult> startTrial(int id, int days, double fee) => _act('POST', '/api/coach/clients/$id/trial', {'days': days, 'fee': fee});
-  Future<ApiResult> extendTrial(int id, int days) => _act('POST', '/api/coach/clients/$id/trial/extend', {'days': days});
-  Future<ApiResult> convertTrial(int id) => _act('POST', '/api/coach/clients/$id/trial/convert', {});
-  Future<ApiResult> cancelTrial(int id) => _act('POST', '/api/coach/clients/$id/trial/cancel', {'pause': true});
-  Future<ApiResult> saveTemplate(J routine, String name) => _act('POST', '/api/coach/templates', {'routine': cleanRoutine(routine), 'name': name});
-  Future<ApiResult> deleteTemplate(String id) => _act('DELETE', '/api/coach/templates/$id');
+  Future<ApiResult> saveRoutine(int clientId, J? routine, [String slot = 'current']) {
+    final clean = routine == null ? null : cleanRoutine(routine);
+    return _act('PUT', '/api/coach/clients/$clientId/routine', {'routine': clean, 'slot': slot}, 'routine', {'clientId': clientId, 'routine': clean, 'slot': slot},
+        'Rutina de ${_first(clientId)}');
+  }
+
+  // Plan de prueba: se guarda sin conexión y el servidor lo aplica al volver la señal
+  Future<ApiResult> startTrial(int id, int days, double fee) => _act('POST', '/api/coach/clients/$id/trial', {'days': days, 'fee': fee}, 'trial', null, 'Prueba de ${_first(id)}');
+  Future<ApiResult> extendTrial(int id, int days) => _act('POST', '/api/coach/clients/$id/trial/extend', {'days': days}, 'trial', null, 'Extender prueba de ${_first(id)}');
+  Future<ApiResult> convertTrial(int id) => _act('POST', '/api/coach/clients/$id/trial/convert', {}, 'trial', null, 'Plan completo de ${_first(id)}');
+  Future<ApiResult> cancelTrial(int id) => _act('POST', '/api/coach/clients/$id/trial/cancel', {'pause': true}, 'trial', null, 'Cancelar prueba de ${_first(id)}');
+  Future<ApiResult> saveTemplate(J routine, String name) {
+    final clean = cleanRoutine(routine);
+    return _act('POST', '/api/coach/templates', {'routine': clean, 'name': name}, 'tpl', {'routine': clean, 'name': name, 'coachId': meId}, 'Plantilla «$name»');
+  }
+
+  Future<ApiResult> deleteTemplate(String id) => _act('DELETE', '/api/coach/templates/$id', null, 'tplDel', {'id': id}, 'Borrar plantilla');
 
   Future<ApiResult> upsertExercise(J data) {
     final id = data.inn('id');
@@ -555,78 +992,90 @@ class AppStore extends ChangeNotifier {
     final body = <String, dynamic>{
       for (final k in ['name', 'muscle', 'equipment', 'level', 'primary', 'secondary', 'steps', 'cues', 'reps']) k: data[k],
       'sets': data.i('sets', 3), 'rest': data.i('rest', 60),
-      'photo': photo != null && photo.startsWith('data:') ? photo : (photo != null ? null : null),
+      'photo': photo != null && photo.startsWith('data:') ? photo : null,
     };
     if (photo != null && !photo.startsWith('data:')) body.remove('photo');
-    return id != null ? _act('PUT', '/api/coach/exercises/$id', body) : _act('POST', '/api/coach/exercises', body);
+    // Un ejercicio nuevo necesita conexión (el servidor le da su número); editarlo, no
+    return id != null
+        ? _act('PUT', '/api/coach/exercises/$id', body, 'exUpd', {'id': id, 'patch': body}, 'Ejercicio «${data.s('name')}»')
+        : _act('POST', '/api/coach/exercises', body);
   }
 
-  Future<ApiResult> deleteExercise(int id) => _act('DELETE', '/api/coach/exercises/$id');
-  Future<ApiResult> addPayment(J p) => _act('POST', '/api/coach/payments', p);
-  Future<ApiResult> markPaid(String id, String method) => _act('POST', '/api/coach/payments/$id/paid', {'method': method});
-  Future<ApiResult> markUnpaid(String id) => _act('POST', '/api/coach/payments/$id/unpaid', {});
-  Future<ApiResult> deletePayment(String id) => _act('DELETE', '/api/coach/payments/$id');
+  Future<ApiResult> deleteExercise(int id) => _act('DELETE', '/api/coach/exercises/$id', null, 'exDel', {'id': id}, 'Borrar ejercicio');
+  Future<ApiResult> addPayment(J p) => _act('POST', '/api/coach/payments', p, 'pay', {...p, 'coachId': meId}, 'Pago «${p.s('concept')}»');
+  Future<ApiResult> markPaid(String id, String method) => _act('POST', '/api/coach/payments/$id/paid', {'method': method}, 'paid', {'id': id, 'method': method}, 'Marcar pagado');
+  Future<ApiResult> markUnpaid(String id) => _act('POST', '/api/coach/payments/$id/unpaid', {}, 'unpaid', {'id': id}, 'Marcar pendiente');
+  Future<ApiResult> deletePayment(String id) => _act('DELETE', '/api/coach/payments/$id', null, 'payDel', {'id': id}, 'Borrar pago');
   Future<int> generateMonthly() async {
     final r = await _act('POST', '/api/coach/payments/generate-monthly', {});
     return r.ok ? r.json.i('created') : 0;
   }
 
-  Future<ApiResult> updateBrand(J p) => _act('PUT', '/api/coach/brand', p);
-  Future<ApiResult> addMeasurement(int clientId, J m) => _act('POST', '/api/coach/clients/$clientId/measurements', m);
-  Future<ApiResult> deleteMeasurement(int clientId, String id) => _act('DELETE', '/api/coach/clients/$clientId/measurements/$id');
-  Future<ApiResult> addPhotos(int clientId, List<J> photos) => isCoach
-      ? _act('POST', '/api/coach/clients/$clientId/photos', {'photos': photos})
-      : _act('POST', '/api/client/photos', {'photos': photos});
-  Future<ApiResult> deletePhoto(int clientId, String id) =>
-      isCoach ? _act('DELETE', '/api/coach/clients/$clientId/photos/$id') : _act('DELETE', '/api/client/photos/$id');
-  Future<ApiResult> addNote(int clientId, J n) => _act('POST', '/api/coach/clients/$clientId/notes', n);
-  Future<ApiResult> updateNote(int clientId, String id, J p) => _act('PATCH', '/api/coach/clients/$clientId/notes/$id', p);
-  Future<ApiResult> deleteNote(int clientId, String id) => _act('DELETE', '/api/coach/clients/$clientId/notes/$id');
+  Future<ApiResult> updateBrand(J p) => _act('PUT', '/api/coach/brand', p, 'brand', {'userId': meId, 'patch': p}, 'Marca');
+  Future<ApiResult> addMeasurement(int clientId, J m) =>
+      _act('POST', '/api/coach/clients/$clientId/measurements', m, 'measure', {'clientId': clientId, ...m}, 'Medidas de ${_first(clientId)}');
+  Future<ApiResult> deleteMeasurement(int clientId, String id) =>
+      _act('DELETE', '/api/coach/clients/$clientId/measurements/$id', null, 'delMeasure', {'clientId': clientId, 'id': id}, 'Borrar medidas');
+  Future<ApiResult> addPhotos(int clientId, List<J> photos) {
+    final args = {'clientId': clientId, 'photos': photos, 'by': meId};
+    final label = photos.length == 1 ? 'Foto de progreso' : '${photos.length} fotos de progreso';
+    return isCoach
+        ? _act('POST', '/api/coach/clients/$clientId/photos', {'photos': photos}, 'photos', args, label)
+        : _act('POST', '/api/client/photos', {'photos': photos}, 'photos', args, label);
+  }
+
+  Future<ApiResult> deletePhoto(int clientId, String id) => isCoach
+      ? _act('DELETE', '/api/coach/clients/$clientId/photos/$id', null, 'photoDel', {'clientId': clientId, 'id': id}, 'Borrar foto')
+      : _act('DELETE', '/api/client/photos/$id', null, 'photoDel', {'clientId': clientId, 'id': id}, 'Borrar foto');
+  Future<ApiResult> addNote(int clientId, J n) => _act('POST', '/api/coach/clients/$clientId/notes', n, 'note', {'clientId': clientId, ...n}, 'Nota de ${_first(clientId)}');
+  Future<ApiResult> updateNote(int clientId, String id, J p) =>
+      _act('PATCH', '/api/coach/clients/$clientId/notes/$id', p, 'noteUpd', {'clientId': clientId, 'id': id, 'patch': p}, 'Editar nota');
+  Future<ApiResult> deleteNote(int clientId, String id) =>
+      _act('DELETE', '/api/coach/clients/$clientId/notes/$id', null, 'noteDel', {'clientId': clientId, 'id': id}, 'Borrar nota');
 
   /* ============================================================ Compartido */
-  Future<ApiResult> updateProfile(J p) => _act('PUT', '/api/profile', p);
-  Future<ApiResult> saveReminder(J reminder) => _act('PUT', '/api/profile', {'notif': {'reminder': reminder}});
+  Future<ApiResult> updateProfile(J p) => _act('PUT', '/api/profile', p, 'profile', {'userId': meId, 'patch': p}, 'Perfil');
+  Future<ApiResult> saveReminder(J reminder) => _act('PUT', '/api/profile', {'notif': {'reminder': reminder}}, 'profile', {
+        'userId': meId,
+        'patch': {'notif': {'reminder': reminder}}
+      }, 'Recordatorio');
 
   Future<ApiResult> sendMessage(int coachId, int clientId, String text, [J? ref]) {
     final tagged = ref?.inn('exId') != null ? {'exId': ref!.i('exId'), 'tag': ref.s('tag', 'comentario')} : <String, dynamic>{};
-    _patch((d) => (d['messages'] as List).add({
-          'id': 'tmp-${DateTime.now().microsecondsSinceEpoch}', 'coachId': coachId, 'clientId': clientId, 'from': meId, 'text': text.trim(),
-          'at': DateTime.now().toUtc().toIso8601String(), 'read': false, 'pending': true, 'exId': null, 'tag': null, ...tagged,
-        }));
-    return _act('POST', '/api/messages', {'text': text.trim(), ...tagged, if (isCoach) 'clientId': clientId});
+    final clean = text.trim();
+    return _act('POST', '/api/messages', {'text': clean, ...tagged, if (isCoach) 'clientId': clientId}, 'msg',
+        {'coachId': coachId, 'clientId': clientId, 'from': meId, 'text': clean, ...tagged}, 'Mensaje: «${clean.length > 40 ? clean.substring(0, 40) : clean}»');
   }
 
   void markThreadRead(int coachId, int clientId) {
     final reader = meId;
     if (!messages.any((m) => m.i('coachId') == coachId && m.i('clientId') == clientId && m.i('from') != reader && !m.b('read'))) return;
-    _patch((d) {
-      for (final m in (d['messages'] as List).cast<Map>()) {
-        if (m['coachId'] == coachId && m['clientId'] == clientId && m['from'] != reader) m['read'] = true;
-      }
-    });
-    Api.I.call('POST', '/api/messages/read', isCoach ? {'clientId': clientId} : {});
+    if (_mine.any((o) => o.s('kind') == 'read' && o.m('args')?.i('coachId') == coachId && o.m('args')?.i('clientId') == clientId)) return;
+    _act('POST', '/api/messages/read', isCoach ? {'clientId': clientId} : {}, 'read', {'coachId': coachId, 'clientId': clientId, 'reader': reader}, 'Mensajes leídos');
   }
 
-  Future<ApiResult> addPost(String text, String kind) => _act('POST', '/api/posts', {'text': text, 'kind': kind});
+  Future<ApiResult> addPost(String text, String kind) {
+    final coachId = isCoach ? meId : myClient?.inn('coachId');
+    return _act('POST', '/api/posts', {'text': text, 'kind': kind}, 'post', {'coachId': coachId, 'authorId': meId, 'text': text.trim(), 'kind': kind},
+        kind == 'challenge' ? 'Reto' : 'Publicación');
+  }
+
   Future<ApiResult> toggleLike(String postId) {
-    _patch((d) {
-      for (final p in (d['posts'] as List).cast<Map>()) {
-        if (p['id'] == postId) {
-          final likes = (p['likes'] as List? ?? []).toList();
-          likes.contains(meId) ? likes.remove(meId) : likes.add(meId);
-          p['likes'] = likes;
-        }
-      }
-    });
-    return _act('POST', '/api/posts/$postId/like', {});
+    final p = posts.firstWhere((x) => x.s('id') == postId, orElse: () => <String, dynamic>{});
+    final value = !p.l('likes').contains(meId);
+    return _act('POST', '/api/posts/$postId/like', {}, 'like', {'postId': postId, 'userId': meId, 'value': value}, value ? 'Me gusta' : 'Quitar me gusta');
   }
 
-  Future<ApiResult> addComment(String postId, String text) => _act('POST', '/api/posts/$postId/comments', {'text': text});
-  Future<ApiResult> deletePost(String postId) => _act('DELETE', '/api/posts/$postId');
+  Future<ApiResult> addComment(String postId, String text) =>
+      _act('POST', '/api/posts/$postId/comments', {'text': text}, 'comment', {'postId': postId, 'authorId': meId, 'text': text.trim()}, 'Comentario');
+  Future<ApiResult> deletePost(String postId) => _act('DELETE', '/api/posts/$postId', null, 'delPost', {'postId': postId}, 'Borrar publicación');
   Future<ApiResult> exportMyData() => Api.I.call('GET', '/api/account/export');
   Future<ApiResult> deleteMyAccount(String password) async {
     final r = await Api.I.call('DELETE', '/api/account', {'password': password});
     if (!r.ok) return r;
+    _ops.removeWhere((o) => o.inn('userId') == _uid);
+    _saveOps();
+    _freshSession();
     await Api.I.setTokens(null);
     _set(Status.guest, _blank());
     return r;
@@ -635,8 +1084,8 @@ class AppStore extends ChangeNotifier {
   Future<J> pushConfig() async => (await Api.I.call('GET', '/api/push/config')).json;
 
   /* ============================================================ Entrenamiento en vivo
-     Se edita al instante y se guarda en el servidor cada pocos segundos
-     (si se cierra la app, se retoma). */
+     Se edita al instante, queda guardado en el celular y se copia al servidor cada
+     pocos segundos (si se cierra la app, se retoma; sin señal se sube después). */
   void _queueActiveSave(J a) {
     _pendingActive = a;
     _saveTimer?.cancel();
@@ -646,12 +1095,17 @@ class AppStore extends ChangeNotifier {
   Future<void> _flushActive() async {
     final a = _pendingActive;
     if (a == null) return;
-    final r = await Api.I.call('PUT', '/api/client/workout/active', a);
-    if (r.ok && identical(_pendingActive, a)) _pendingActive = null;
+    _activeRetry?.cancel();
+    final r = await Api.I.call('PUT', '/api/client/workout/active', a, false, null, null, null, const Duration(seconds: 15));
+    if (r.ok) {
+      if (identical(_pendingActive, a)) _pendingActive = null;
+      return;
+    }
+    if (r.transient) _activeRetry = Timer(const Duration(seconds: 30), () => _pendingActive != null ? _flushActive() : null);
   }
 
-  String _uid(String p) => '$p${DateTime.now().millisecondsSinceEpoch.toRadixString(36)}${math.Random().nextInt(1 << 20).toRadixString(36)}';
-  String newUid() => _uid('re-');
+  String _uidGen(String p) => '$p${DateTime.now().millisecondsSinceEpoch.toRadixString(36)}${math.Random().nextInt(1 << 20).toRadixString(36)}';
+  String newUid() => _uidGen('re-');
 
   void startWorkout(int clientId, [String? dayId]) {
     if (hasActive(clientId)) return;
@@ -661,7 +1115,7 @@ class AppStore extends ChangeNotifier {
     if (days.isEmpty) return;
     final day = days.firstWhere((x) => x.s('id') == dayId, orElse: () => days.first);
     final a = <String, dynamic>{
-      'id': _uid('w-'), 'clientId': clientId, 'dayId': day.s('id'), 'dayName': day.s('name'), 'routineName': routine!.s('name'),
+      'id': _uidGen('w-'), 'clientId': clientId, 'dayId': day.s('id'), 'dayName': day.s('name'), 'routineName': routine!.s('name'),
       'startedAt': DateTime.now().toUtc().toIso8601String(), 'restEndsAt': null, 'restTotal': 0,
       'exercises': day.lm('exercises').map((e) {
         final last = lastPerformance(clientId, e.i('exId'));
@@ -688,7 +1142,7 @@ class AppStore extends ChangeNotifier {
         };
       }).toList(),
     };
-    _patch((d) => (d['active'] as Map)['$clientId'] = a);
+    _patchActive(clientId, a);
     _saveLocalActive(a);
     _pendingActive = a;
     _flushActive();
@@ -696,21 +1150,23 @@ class AppStore extends ChangeNotifier {
 
   void updateWorkout(int clientId, void Function(J a) fn) {
     if (!hasActive(clientId)) return;
-    _patch((d) => fn(((d['active'] as Map)['$clientId'] as Map).cast<String, dynamic>()));
-    final a = active(clientId);
-    _saveLocalActive(a);
-    _queueActiveSave(a);
+    final next = copyJ(active(clientId));
+    fn(next);
+    _patchActive(clientId, next);
+    _saveLocalActive(next);
+    _queueActiveSave(next);
   }
 
   Future<void> discardWorkout(int clientId) async {
+    final a = active(clientId);
     _saveTimer?.cancel();
     _pendingActive = null;
     _saveLocalActive(null);
-    _patch((d) => (d['active'] as Map).remove('$clientId'));
-    await _act('DELETE', '/api/client/workout/active');
+    _patchActive(clientId, null);
+    await _act('DELETE', '/api/client/workout/active', null, 'discard', {'clientId': clientId, 'id': a['id']}, 'Descartar entrenamiento');
   }
 
-  /// Guarda el entrenamiento. Sin señal queda en el celular y se sube solo después.
+  /// Guarda el entrenamiento. Sin señal queda en el celular (ya aparece en el historial) y se sube solo después.
   Future<ApiResult> finishWorkout(int clientId, {required int difficulty, String comment = '', bool share = false}) async {
     final a = active(clientId);
     if (a.isEmpty) return const ApiResult(error: 'No hay un entrenamiento en curso.');
@@ -725,53 +1181,20 @@ class AppStore extends ChangeNotifier {
         break;
       }
     }
-    final body = <String, dynamic>{'session': a, 'difficulty': difficulty, 'comment': comment, 'share': share, if (prName != null) 'prName': prName, 'finishedAt': DateTime.now().toUtc().toIso8601String()};
-    final r = await Api.I.call('POST', '/api/client/workout/finish', body);
-    if (!r.ok && (r.offline || r.status >= 500)) {
-      _setOutbox([...outbox().where((o) => o.m('session')?.s('id') != a.s('id')), {'userId': clientId, ...body}]);
-      _pendingActive = null;
-      _saveLocalActive(null);
-      _patch((d) => (d['active'] as Map).remove('$clientId'));
-      pendingUploads = outbox().where((o) => o.i('userId') == clientId).length;
+    final finishedAt = DateTime.now().toUtc().toIso8601String();
+    final body = <String, dynamic>{'session': a, 'difficulty': difficulty, 'comment': comment, 'share': share, if (prName != null) 'prName': prName, 'finishedAt': finishedAt};
+    _pendingActive = null;
+    _saveLocalActive(null);
+    final r = await _act('POST', '/api/client/workout/finish', body, 'finish', null, 'Entrenamiento ${a.s('dayName')}'.trim(), 9000, finishedAt);
+    if (r.queued) {
       final started = a.d('startedAt') ?? DateTime.now();
       return ApiResult(data: {
-        'queued': true, 'durationSec': DateTime.now().difference(started).inSeconds,
+        'queued': true, 'slow': r.json.b('slow'), 'durationSec': DateTime.now().difference(started).inSeconds,
         'done': a.lm('exercises').fold<int>(0, (t, e) => t + e.lm('sets').where((x) => x.b('done')).length),
         'volume': sessionVolume(a), 'prs': <dynamic>[], 'comment': comment,
       });
     }
-    if (!r.ok) return r;
-    _pendingActive = null;
-    _saveLocalActive(null);
-    _patch((d) => (d['active'] as Map).remove('$clientId'));
-    await reload();
     return r;
-  }
-
-  bool _flushing = false;
-  Future<void> flushOutbox() async {
-    if (_flushing || status != Status.ready) return;
-    final mine = outbox().where((o) => o.i('userId') == meId).toList();
-    if (mine.isEmpty) return;
-    _flushing = true;
-    var sent = 0;
-    try {
-      for (final item in mine) {
-        final body = Map<String, dynamic>.from(item)..remove('userId');
-        final r = await Api.I.call('POST', '/api/client/workout/finish', body);
-        if (!r.ok && (r.offline || r.status >= 500 || r.status == 401)) break;
-        _setOutbox(outbox().where((o) => o.m('session')?.s('id') != item.m('session')?.s('id')).toList());
-        if (r.ok) sent++;
-      }
-    } finally {
-      _flushing = false;
-    }
-    if (sent > 0) {
-      await reload();
-    } else {
-      pendingUploads = outbox().where((o) => o.i('userId') == meId).length;
-      notifyListeners();
-    }
   }
 }
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppCtx } from "./context";
 import Shell from "./layout/Shell";
 import { Toasts } from "./ui/kit";
-import { brandOf, coachCanWork, fetchBrand, logout, startWorkout, useDB, userById } from "./store/db";
+import { brandOf, coachCanWork, fetchBrand, logout, pendingCount, startWorkout, useDB, userById } from "./store/db";
 import { isNative, needsServer } from "./store/api";
 import { applyBrandColor } from "./lib/brand";
 
@@ -68,6 +68,9 @@ export default function App() {
 
   // Al salir, se vuelve al acceso con la marca del entrenador
   const signOut = useCallback(() => {
+    // Si quedan cambios hechos sin conexión, se avisa antes de borrarlos del equipo
+    const n = pendingCount();
+    if (n > 0 && !window.confirm(`Tienes ${n === 1 ? "1 cambio" : `${n} cambios`} sin subir (se hicieron sin conexión). Si cierras sesión ahora se pierden. ¿Cerrar sesión igual?`)) return;
     const b = brandOf(db, me);
     const next = b?.slug && (b.name || b.logo) ? b.slug : "";
     writeHash(next); setHash(next);

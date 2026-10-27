@@ -660,7 +660,11 @@ Future<bool> runAct(BuildContext context, Future<ApiResult> f, [String? okMsg, I
     toast(context, r.error!, error: true);
     return false;
   }
-  if (okMsg != null) toast(context, okMsg, icon: icon);
+  if (r.queued && !r.json.b('slow')) {
+    toast(context, 'Guardado en tu celular: se sube solo cuando vuelva la señal.', icon: Icons.cloud_upload_rounded);
+  } else if (okMsg != null) {
+    toast(context, okMsg, icon: icon);
+  }
   return true;
 }
 

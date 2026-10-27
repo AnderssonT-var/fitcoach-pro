@@ -88,7 +88,8 @@ const MSG_FROM = () => new Date(Date.now() - 365 * 864e5).toISOString();
 
 const empty = () => ({ version: 1, users: [], clients: [], licenses: [], payments: [], workouts: [], messages: [], posts: [], templates: [], exercises: [], activity: [], active: {}, subscriptions: [], ranking: null });
 
-export async function buildState(me) {
+/** opts.history = false: no se incluye el historial de entrenamientos (la app ya lo tiene). */
+export async function buildState(me, { history = true } = {}) {
   const s = empty();
   s.sessionUserId = me.id;
   const pricing = await getPricing();
@@ -119,7 +120,7 @@ export async function buildState(me) {
     s.licenses = (await knex("licenses").where({ coach_id: me.id })).map(licenseOut);
     s.subscriptions = (await knex("subscriptions").where({ coach_id: me.id }).orderBy("created_at", "desc")).map(subscriptionOut);
     s.payments = (await knex("payments").where({ coach_id: me.id })).map(paymentOut);
-    s.workouts = await historyFor((q) => q.where({ coach_id: me.id }));
+    s.workouts = history ? await historyFor((q) => q.where({ coach_id: me.id })) : null;
     s.messages = (await knex("messages").where({ coach_id: me.id }).where("at", ">=", MSG_FROM())).map(messageOut);
     s.posts = (await knex("posts").where({ coach_id: me.id }).orderBy("at", "desc").limit(200)).map(postOut);
     s.templates = (await knex("templates").where({ coach_id: me.id }).orderBy("created_at", "desc")).map(templateOut);
@@ -136,7 +137,7 @@ export async function buildState(me) {
   const photos = await knex("photos").where({ client_id: me.id }).orderBy("date", "desc");
   s.clients = [clientOut(c, photos, me, { withNotes: false })]; // las notas del entrenador son privadas
   s.payments = (await knex("payments").where({ client_id: me.id })).map(paymentOut);
-  s.workouts = await historyFor((q) => q.where({ client_id: me.id }));
+  s.workouts = history ? await historyFor((q) => q.where({ client_id: me.id })) : null;
   s.messages = (await knex("messages").where({ client_id: me.id, coach_id: c.coach_id }).where("at", ">=", MSG_FROM())).map(messageOut);
   s.posts = (await knex("posts").where({ coach_id: c.coach_id }).orderBy("at", "desc").limit(200)).map(postOut);
   s.exercises = (await knex("exercises").where({ coach_id: c.coach_id })).map(exerciseOut);

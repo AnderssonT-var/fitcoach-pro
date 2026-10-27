@@ -8,6 +8,7 @@ import jwt from "jsonwebtoken";
 import { knex, J, S } from "./db.js";
 import { getLegal } from "./state.js";
 import { nowISO, uid } from "./util.js";
+import { count } from "./metrics.js";
 
 const sha = (t) => crypto.createHash("sha256").update(t).digest("hex");
 
@@ -97,15 +98,15 @@ export async function notify(userId, msg) {
           await webpush.sendNotification({ endpoint: d.endpoint, keys: d.keys },
             JSON.stringify({ title: msg.title, body: msg.body, page: msg.page, params: msg.params, tag: msg.tag, kind: msg.kind }),
             { TTL: msg.kind === "rest" ? 120 : 24 * 3600, urgency: msg.kind === "rest" || msg.kind === "message" ? "high" : "normal" });
-          sent++;
+          sent++; count("push.ok");
         } else if (s.kind === "fcm" && fcmEnabled()) {
           const r = await sendFcm(d.token, msg);
-          if (r.ok) sent++; else if (r.gone) await knex("push_subs").where({ id: s.id }).delete();
+          if (r.ok) { sent++; count("push.ok"); } else if (r.gone) { count("push.gone"); await knex("push_subs").where({ id: s.id }).delete(); } else count("push.fail");
         }
       } catch (e) {
         // 404/410: el navegador dio de baja la suscripción
-        if (e?.statusCode === 404 || e?.statusCode === 410) await knex("push_subs").where({ id: s.id }).delete();
-        else console.warn("[push]", e?.statusCode || "", e?.body || e?.message);
+        if (e?.statusCode === 404 || e?.statusCode === 410) { count("push.gone"); await knex("push_subs").where({ id: s.id }).delete(); }
+        else { count("push.fail"); console.warn("[push]", e?.statusCode || "", e?.body || e?.message); }
       }
     }
     return sent;

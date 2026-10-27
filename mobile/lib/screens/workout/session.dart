@@ -226,7 +226,10 @@ class _WorkoutSessionState extends State<WorkoutSession> with WidgetsBindingObse
       toast(context, '${r.error} Tus series no se perdieron: vuelve a tocar Guardar.', error: true);
       return;
     }
-    if (r.json.b('queued')) toast(context, 'Sin conexión: el entrenamiento quedó guardado en tu celular y se subirá solo.', icon: Icons.wifi_off_rounded);
+    if (r.json.b('queued')) {
+      toast(context, r.json.b('slow') ? 'La señal está lenta: el entrenamiento ya quedó guardado y se termina de subir solo.' : 'Sin conexión: el entrenamiento quedó guardado en tu celular y se subirá solo.',
+          icon: Icons.wifi_off_rounded);
+    }
     HapticFeedback.mediumImpact();
     setState(() {
       result = r.json;

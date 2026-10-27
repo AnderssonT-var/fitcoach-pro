@@ -6,6 +6,7 @@ import { knex, J, S } from "./db.js";
 import { monthlyConcept, nowISO, uid } from "./util.js";
 import { hasMonthly } from "./history.js";
 import { notifyLater } from "./notify.js";
+import { bump } from "./versions.js";
 
 export const TRIAL_DAYS = [7, 14, 21, 30];
 
@@ -39,6 +40,7 @@ export async function settleTrials(rows) {
   for (const c of rows) {
     const d = J(c.data, {});
     if (d.trial?.status !== "active" || Date.parse(d.trial.end) > Date.now()) continue;
+    let mine = false;
     await knex.transaction(async (trx) => {
       const fresh = await trx("clients").where({ user_id: c.user_id }).first();
       const fd = J(fresh.data, {});
@@ -48,8 +50,9 @@ export async function settleTrials(rows) {
         fd.trial = { ...fd.trial, status: "ended" };
         await trx("clients").where({ user_id: c.user_id }).update({ data: S(fd) });
       }
-      changed = true;
+      changed = mine = true;
     });
+    if (mine) await bump(`u:${c.user_id}`, `u:${c.coach_id}`, `c:${c.coach_id}`);
   }
   return changed;
 }

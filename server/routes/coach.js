@@ -3,7 +3,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { knex, bool, J, S } from "../db.js";
 import { hashPassword, requireConsent, requireLicense, revokeAll, tempPassword } from "../auth.js";
-import { bad, h, notFound, nowISO, parse, uid, addMonths, monthlyConcept, round2 } from "../util.js";
+import { bad, h, notFound, nowISO, parse, stamp, uid, addMonths, monthlyConcept, round2 } from "../util.js";
 import { hasMonthly } from "../history.js";
 import { checkInlineImage, deleteFile, saveFile } from "../files.js";
 import { PLAN_MONTHS, getPricing, planPrice } from "../state.js";
@@ -159,7 +159,7 @@ async function editClient(coachId, clientId, fn) {
 
 router.post("/clients/:id/weight", h(async (req, res) => {
   const { kg } = parse(z.object({ kg: z.number().min(20).max(400) }), req.body);
-  await editClient(req.user.id, req.params.id, (d) => { (d.weights ||= []).push({ date: nowISO(), kg }); });
+  await editClient(req.user.id, req.params.id, (d) => { (d.weights ||= []).push({ date: stamp(), kg }); });
   res.json({ ok: true });
 }));
 
@@ -223,7 +223,7 @@ router.post("/clients/:id/trial/cancel", h(async (req, res) => {
 router.post("/clients/:id/measurements", h(async (req, res) => {
   const m = parse(measurementSchema, req.body);
   await editClient(req.user.id, req.params.id, (d) => {
-    const row = { id: uid("ms-"), date: m.date ? new Date(`${m.date}T08:00:00`).toISOString() : nowISO(), note: m.note || "" };
+    const row = { id: uid("ms-"), date: m.date ? new Date(`${m.date}T08:00:00`).toISOString() : stamp(), note: m.note || "" };
     for (const k of ["weight", "fat", "waist", "hip", "chest", "arm", "thigh"]) if (m[k] != null) row[k] = m[k];
     (d.measurements ||= []).push(row);
     d.measurements.sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -245,7 +245,7 @@ router.post("/clients/:id/photos", h(async (req, res) => {
   for (const p of photos) {
     const fileId = await saveFile("photos", c.user_id, p.src, 4 * 1024 * 1024);
     await knex("photos").insert({ id: uid("ph-"), client_id: c.user_id, file_id: fileId, pose: p.pose, note: p.note || "",
-      date: p.date ? new Date(`${p.date}T08:00:00`).toISOString() : nowISO(), by_id: req.user.id, at: nowISO() });
+      date: p.date ? new Date(`${p.date}T08:00:00`).toISOString() : stamp(), by_id: req.user.id, at: stamp() });
   }
   res.status(201).json({ ok: true });
 }));
@@ -262,7 +262,7 @@ router.delete("/clients/:id/photos/:pid", h(async (req, res) => {
 const noteSchema = z.object({ text: z.string().trim().min(1).max(2000), category: z.string().trim().max(30) });
 router.post("/clients/:id/notes", h(async (req, res) => {
   const n = parse(noteSchema, req.body);
-  await editClient(req.user.id, req.params.id, (d) => { (d.notes ||= []).push({ id: uid("nt-"), at: nowISO(), category: n.category, text: n.text, pinned: false }); });
+  await editClient(req.user.id, req.params.id, (d) => { (d.notes ||= []).push({ id: uid("nt-"), at: stamp(), category: n.category, text: n.text, pinned: false }); });
   res.status(201).json({ ok: true });
 }));
 router.patch("/clients/:id/notes/:nid", h(async (req, res) => {
@@ -344,12 +344,12 @@ router.post("/payments", h(async (req, res) => {
     dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), paid: z.boolean().optional(), method: z.string().trim().max(40).optional() }), req.body);
   await ownClient(req.user.id, p.clientId);
   await knex("payments").insert({ id: uid("pay-"), coach_id: req.user.id, client_id: p.clientId, concept: p.concept, amount: round2(p.amount),
-    due_date: new Date(`${p.dueDate}T09:00:00`).toISOString(), paid_at: p.paid ? nowISO() : null, method: p.paid ? p.method || "" : "" });
+    due_date: new Date(`${p.dueDate}T09:00:00`).toISOString(), paid_at: p.paid ? stamp() : null, method: p.paid ? p.method || "" : "" });
   res.status(201).json({ ok: true });
 }));
 router.post("/payments/:id/paid", h(async (req, res) => {
   const { method } = parse(z.object({ method: z.string().trim().max(40) }), req.body);
-  const n = await knex("payments").where({ id: req.params.id, coach_id: req.user.id }).update({ paid_at: nowISO(), method });
+  const n = await knex("payments").where({ id: req.params.id, coach_id: req.user.id }).update({ paid_at: stamp(), method });
   if (!n) throw notFound();
   res.json({ ok: true });
 }));

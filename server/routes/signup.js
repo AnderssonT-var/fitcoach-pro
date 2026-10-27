@@ -1,5 +1,7 @@
 /* Inscripción de un asesorado desde el enlace de su entrenador (si el entrenador la abrió). */
 import { Router } from "express";
+import { bump } from "../versions.js";
+import { count } from "../metrics.js";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { knex, J } from "../db.js";
@@ -52,6 +54,8 @@ signupRouter.post("/", limiter, h(async (req, res) => {
   });
   notifyLater(coach.id, { title: "Nuevo asesorado inscrito", body: `${b.name}${s.trialDays ? ` empezó su prueba de ${s.trialDays} días` : " se inscribió"}.${routine ? "" : " Crea su rutina."}`,
     page: "clientes", params: { id: userId }, kind: "signup" });
+  await bump(`u:${coach.id}`, `c:${coach.id}`);
+  count("auth.signup");
   const user = await knex("users").where({ id: userId }).first();
   res.status(201).json({ ...(await issueTokens(user, req)), userId });
 }));

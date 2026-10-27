@@ -1,7 +1,25 @@
 import crypto from "node:crypto";
+import { AsyncLocalStorage } from "node:async_hooks";
 
-export const uid = (p = "") => `${p}${crypto.randomBytes(9).toString("base64url")}`;
+/* Contexto de la solicitud en curso. Las acciones hechas sin conexión llegan con su
+   identificador (Idempotency-Key) y la hora real en que se hicieron (X-Op-At):
+   - los registros que crean usan ese identificador, así la app ya conoce su id y
+     un reintento nunca duplica nada;
+   - las fechas de lo registrado son las del momento en que se hizo, no las de la subida. */
+export const reqCtx = new AsyncLocalStorage();
+
+export function uid(p = "") {
+  const ctx = reqCtx.getStore();
+  if (ctx?.op) {
+    const n = ctx.ids.get(p) || 0;
+    ctx.ids.set(p, n + 1);
+    return n ? `${p}${ctx.op}-${n}` : `${p}${ctx.op}`;
+  }
+  return `${p}${crypto.randomBytes(9).toString("base64url")}`;
+}
 export const nowISO = () => new Date().toISOString();
+/** Hora de un registro: la de la acción original si llegó sin conexión. */
+export const stamp = () => reqCtx.getStore()?.at || nowISO();
 
 /** Error con código HTTP y mensaje para el usuario. */
 export class HttpError extends Error {

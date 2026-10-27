@@ -160,7 +160,7 @@ export default function WorkoutSession({ clientId, onClose }) {
     const r = await finishWorkout(clientId, { difficulty, comment, share });
     setSaving(false);
     if (r?.error) return toast(`${r.error} Tus series no se perdieron: vuelve a tocar Guardar.`, "alert");
-    if (r?.queued) toast("Sin conexión: el entrenamiento quedó guardado en tu celular y se subirá solo.", "wifi");
+    if (r?.queued) toast(r.slow ? "La señal está lenta: el entrenamiento ya quedó guardado y se termina de subir solo." : "Sin conexión: el entrenamiento quedó guardado en tu celular y se subirá solo.", "wifi");
     setResult(r); setStage("done");
   }
 

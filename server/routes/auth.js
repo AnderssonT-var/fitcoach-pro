@@ -14,6 +14,7 @@ import { getLegal, getPricing, planPrice } from "../state.js";
 import { log, normalizeCode, slugFrom } from "./common.js";
 import { coachLicenseRow } from "../auth.js";
 import { signupSettings } from "./signup.js";
+import { count } from "../metrics.js";
 
 export const router = Router();
 
@@ -35,12 +36,14 @@ router.post("/login", ipLimiter, loginLimiter, h(async (req, res) => {
   const body = parse(z.object({ email, password: z.string().min(1).max(200), brandSlug: z.string().max(80).optional().nullable() }), req.body);
   const user = await knex("users").where({ email: body.email }).first();
   const generic = new HttpError(401, "Correo o contraseña incorrectos.");
-  if (!user) { await dummyCheck(body.password); throw generic; }
+  if (!user) { count("auth.fail"); await dummyCheck(body.password); throw generic; }
   if (user.locked_until && +user.locked_until > Date.now()) {
+    count("auth.locked");
     const min = Math.ceil((+user.locked_until - Date.now()) / 60e3);
     throw new HttpError(429, `Bloqueamos la cuenta por varios intentos fallidos. Intenta en ${min} ${min === 1 ? "minuto" : "minutos"}.`);
   }
   if (!(await checkPassword(body.password, user.password_hash))) {
+    count("auth.fail");
     const fails = user.failed_logins + 1;
     await knex("users").where({ id: user.id }).update(fails >= MAX_FAILS
       ? { failed_logins: 0, locked_until: Date.now() + LOCK_MINUTES * 60e3 }
@@ -59,12 +62,14 @@ router.post("/login", ipLimiter, loginLimiter, h(async (req, res) => {
     }
   }
   await knex("users").where({ id: user.id }).update({ failed_logins: 0, locked_until: null, last_login_at: nowISO() });
+  count("auth.ok");
   res.json(await sessionResponse(user, req));
 }));
 
 /* ---------- renovar sesión ---------- */
 router.post("/refresh", ipLimiter, h(async (req, res) => {
-  const { user, accessToken, refreshToken } = await rotateRefresh(req.body?.refreshToken, req);
+  const { user, accessToken, refreshToken } = await rotateRefresh(req.body?.refreshToken, req).catch((e) => { count("auth.refreshFail"); throw e; });
+  count("auth.refresh");
   res.json({ accessToken, refreshToken, userId: user.id });
 }));
 

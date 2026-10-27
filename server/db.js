@@ -214,6 +214,42 @@ const MIGRATIONS = [
     await k.schema.alterTable("messages", (t) => t.index(["coach_id", "at"], "messages_coach_at_idx"));
     await k.schema.alterTable("payments", (t) => t.index(["paid_at", "due_date"], "payments_paid_due_idx"));
   }],
+  // Rendimiento y sincronización: versiones de datos (para no rearmar el estado si nada cambió),
+  // acciones ya procesadas (reintentos sin duplicar), métricas del sistema y estado de cada equipo
+  ["007_sincronizacion_monitor", async (k) => {
+    const long = (t, name) => (config.db.client === "mysql2" ? t.text(name, "longtext") : t.text(name));
+    await k.schema.createTable("state_versions", (t) => {
+      t.string("scope", 40).primary();
+      t.string("v", 24).notNullable();
+    });
+    await k.schema.createTable("idem_keys", (t) => {
+      t.string("key", 40).notNullable();
+      t.integer("user_id").unsigned().notNullable();
+      t.integer("status").notNullable().defaultTo(0); // 0 = en proceso
+      long(t, "body");
+      t.string("at", 30).notNullable().index();
+      t.primary(["user_id", "key"]);
+    });
+    await k.schema.createTable("metrics_log", (t) => {
+      t.increments("id").primary();
+      t.string("at", 30).notNullable().index();
+      t.string("kind", 12).notNullable(); // min | boot | alert
+      t.string("proc", 40).notNullable();
+      long(t, "data");
+    });
+    await k.schema.createTable("devices", (t) => {
+      t.integer("user_id").unsigned().notNullable();
+      t.string("device", 40).notNullable();
+      t.string("platform", 20).nullable();
+      t.string("app_version", 30).nullable();
+      t.string("seen_at", 30).notNullable().index();
+      t.integer("pending").notNullable().defaultTo(0);
+      t.integer("failed").notNullable().defaultTo(0);
+      t.string("last_sync_at", 30).nullable();
+      t.string("last_error", 300).nullable();
+      t.primary(["user_id", "device"]);
+    });
+  }],
 ];
 
 /* Varios procesos pueden arrancar a la vez (el hosting levanta más de uno): en MySQL se toma un candado */

@@ -2,6 +2,7 @@
    así que se resumen una vez y se guardan en memoria. Los récords de todos
    los tiempos se guardan en el asesorado para no recorrer todo el historial. */
 import { knex, J, S } from "./db.js";
+import { bump } from "./versions.js";
 
 export const FULL_DAYS = 120;   // detalle completo (series) de los últimos 4 meses
 export const SUMMARY_DAYS = 430; // resumen (fecha, volumen, series) para rachas y listados
@@ -67,6 +68,7 @@ export async function backfillBests(rows) {
     const fresh = J((await knex("clients").where({ user_id: c.user_id }).first())?.data, {});
     if (fresh.bests) continue;
     await knex("clients").where({ user_id: c.user_id }).update({ data: S({ ...fresh, bests }) });
+    await bump(`u:${c.user_id}`, `u:${c.coach_id}`);
     changed = true;
   }
   return changed;

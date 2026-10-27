@@ -6,6 +6,8 @@ import jwt from "jsonwebtoken";
 import { knex, bool } from "./db.js";
 import { config } from "./config.js";
 import { HttpError, forbidden, nowISO, uid } from "./util.js";
+import { compareInPool, hashInPool } from "./pwpool.js";
+import { count } from "./metrics.js";
 
 const COST = 12;
 const ACCESS_TTL = "15m";
@@ -13,11 +15,12 @@ const REFRESH_DAYS = 30;
 export const MAX_FAILS = 5;
 export const LOCK_MINUTES = 15;
 
-export const hashPassword = (pw) => bcrypt.hash(pw, COST);
-export const checkPassword = (pw, hash) => bcrypt.compare(pw, hash);
+// Se calculan en hilos aparte para no congelar el servidor (ver pwpool.js)
+export const hashPassword = (pw) => hashInPool(pw, COST);
+export const checkPassword = (pw, hash) => compareInPool(pw, hash);
 /* Hash de relleno para que el tiempo de respuesta no revele si el correo existe */
 const DUMMY = bcrypt.hashSync("dummy-password-for-timing", COST);
-export const dummyCheck = (pw) => bcrypt.compare(pw || "x", DUMMY);
+export const dummyCheck = (pw) => compareInPool(pw || "x", DUMMY);
 
 /** Reglas de contraseña. Devuelve un mensaje de error o null. */
 export function passwordProblem(pw, email = "") {
@@ -62,6 +65,7 @@ export async function rotateRefresh(token, req) {
   // Reuso de un token ya rotado: posible robo. Se cierran todas las sesiones (fuera de la transacción para que persista).
   const prior = await knex("refresh_tokens").where({ token_hash: sha(token) }).first();
   if (prior && bool(prior.revoked)) {
+    count("auth.reuse");
     await revokeAll(prior.user_id);
     throw new HttpError(401, "Por seguridad cerramos tu sesión en todos los dispositivos. Vuelve a entrar.");
   }
