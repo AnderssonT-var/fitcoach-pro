@@ -20,7 +20,12 @@ async function slowFacts() {
   if (Date.now() - slowChecks.at < 120e3) return slowChecks.data;
   const d = {};
   const hourAgo = new Date(Date.now() - 3600e3).toISOString();
-  try { d.boots = +(await knex("metrics_log").where({ kind: "boot" }).where("at", ">=", hourAgo).count({ n: "*" }).first()).n; } catch { d.boots = 0; }
+  // Caídas: arranques sin un apagado ordenado antes (publicar una versión nueva no cuenta)
+  try {
+    const rows = await knex("metrics_log").whereIn("kind", ["boot", "stop"]).where("at", ">=", hourAgo).select("kind");
+    const boots = rows.filter((r) => r.kind === "boot").length, stops = rows.filter((r) => r.kind === "stop").length;
+    d.boots = Math.max(0, boots - stops - 1);
+  } catch { d.boots = 0; }
   try {
     d.subsWaiting = +(await knex("subscriptions").where({ status: "pending" }).where("created_at", "<", new Date(Date.now() - 24 * 3600e3).toISOString()).count({ n: "*" }).first()).n;
   } catch { d.subsWaiting = 0; }
@@ -98,7 +103,7 @@ export async function evaluate() {
   const upMin = (Date.now() - STARTED) / 60e3;
   if (upMin > 15 && (!d.job || Date.now() - Date.parse(d.job.at) > 20 * 60e3)) add("jobs_stale", "warning", "Las tareas programadas no corren", d.job ? `La última fue ${new Date(d.job.at).toLocaleString("es-EC")}.` : "Aún no se registra ninguna ejecución.");
   if (d.job && d.job.fails >= 3) add("jobs_fail", "warning", "Las tareas programadas fallan", d.job.error || "");
-  if (d.boots >= 3) add("restarts", "warning", "El servidor se reinició varias veces", `${d.boots} arranques en la última hora: revisa los registros del hosting.`);
+  if (d.boots >= 2) add("restarts", "warning", "El servidor se cayó y reinició", `${d.boots} reinicios inesperados en la última hora (sin contar publicaciones): revisa los registros del hosting.`);
   if (d.diskFreePct != null && d.diskFreePct < 3) add("disk", "critical", "Disco casi lleno", `Quedan ${d.diskFreeMb} MB (${d.diskFreePct}%).`);
   else if (d.diskFreePct != null && d.diskFreePct < 10) add("disk", "warning", "Poco espacio en disco", `Quedan ${d.diskFreeMb} MB (${d.diskFreePct}%).`);
   if (d.subsWaiting > 0) add("subs_waiting", "info", "Pagos de suscripción por revisar", `${d.subsWaiting} ${d.subsWaiting === 1 ? "lleva" : "llevan"} más de un día esperando.`);

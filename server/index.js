@@ -20,7 +20,7 @@ import { router as coachRouter } from "./routes/coach.js";
 import { accountRouter, clientRouter, sharedRouter } from "./routes/client.js";
 import { cronRouter, logError, pushRouter, reportRouter, systemRouter } from "./routes/system.js";
 import { runJobs } from "./jobs.js";
-import { APP_VERSION, count, addTime, httpMetrics, recordBoot, trackJob } from "./metrics.js";
+import { APP_VERSION, count, addTime, httpMetrics, recordBoot, recordStop, trackJob } from "./metrics.js";
 import { startAlerts } from "./alerts.js";
 import { bumpAfterChange, coachIdOf, versions } from "./versions.js";
 import { idempotency, syncReport, trackDevice } from "./sync.js";
@@ -29,6 +29,7 @@ import { FULL_DAYS } from "./history.js";
 import { signupRouter } from "./routes/signup.js";
 
 const VERSION = APP_VERSION;
+const DB_CONN_ERR = /ECONNRESET|EPIPE|PROTOCOL_CONNECTION_LOST|ETIMEDOUT|Connection lost|Can't add new command when connection is in closed state/;
 /* Cambia cuando cambia la forma del estado: así las apps no reciben un 304 de un formato viejo */
 const STATE_FORMAT = "s3";
 
@@ -217,6 +218,13 @@ export function createApp() {
       if (err.status === 503) res.setHeader("Retry-After", String(err.extra?.retryAfter || 10));
       return res.status(err.status).json({ error: err.message, ...err.extra });
     }
+    // Conexión a la base cortada por el hosting (ECONNRESET): una consulta de lectura se repite una vez
+    // con otra conexión, así la persona no ve el error
+    if (DB_CONN_ERR.test(String(err?.code || err?.message)) && req.method === "GET" && !res.headersSent && !req._dbRetry) {
+      req._dbRetry = true;
+      count("db.err");
+      return app.handle(req, res, () => {});
+    }
     // Reintento de una acción hecha sin conexión que ya se había guardado (mismo id): no es un error
     if (reqCtx.getStore()?.op && /duplicate|unique|UNIQUE constraint/i.test(String(err?.message || err?.code))) {
       count("sync.replay");
@@ -294,7 +302,8 @@ export async function start() {
   // Apagado ordenado: termina las solicitudes en curso y cierra la base de datos
   const stop = (sig) => {
     console.log(`[VYTRAFIT] ${sig}: cerrando…`);
-    server.close(() => knex.destroy().finally(() => process.exit(0)));
+    const done = () => knex.destroy().finally(() => process.exit(0));
+    server.close(() => { recordStop(sig).finally(done); });
     server.closeIdleConnections?.(); // conexiones keep-alive sin uso no deben retrasar el apagado
     setTimeout(() => process.exit(1), 10e3).unref();
   };

@@ -273,6 +273,8 @@ export function processInfo() {
 export function recordBoot() {
   persist("boot", { t: Date.now(), version: APP_VERSION, node: process.version, pid: process.pid });
 }
+/** Apagado ordenado (publicación nueva o reinicio del hosting): no cuenta como caída. */
+export const recordStop = (sig) => persist("stop", { t: Date.now(), sig, pid: process.pid });
 
 /* ---------- estado de las tareas programadas (visible desde cualquier proceso) ---------- */
 export async function trackJob(name, fn) {
