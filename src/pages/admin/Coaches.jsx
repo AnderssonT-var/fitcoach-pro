@@ -51,7 +51,7 @@ export default function Coaches() {
                 <span className="num m-hide" style={{ width: 90 }}>{clients.length}</span>
                 <span className="num m-hide" style={{ width: 130 }}>{week}</span>
                 <span className="stack gap-xs coach-status">
-                  <Pill tone={LICENSE_TONE[st]}>{LICENSE_LABEL[st]}</Pill>
+                  <Pill tone={l ? LICENSE_TONE[st] : "bad"}>{l ? LICENSE_LABEL[st] : "Sin licencia"}</Pill>
                   {l?.expiresAt && <span className="tiny muted num">{l.unlimited ? "Indefinida" : shortDate(l.expiresAt)}</span>}
                 </span>
                 <Icon name="right" size={18} />

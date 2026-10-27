@@ -29,6 +29,15 @@ window.addEventListener("error", (e) => { if (e.message && !/ResizeObserver|Scri
 window.addEventListener("unhandledrejection", (e) => report(e.reason?.message || String(e.reason), e.reason?.stack));
 window.__vytrafitReport = report;
 
+/* iPhone: al cerrar el teclado, Safari a veces deja la pantalla desplazada y la barra de pestañas
+   queda flotando más arriba. Se vuelve a acomodar la vista cuando el teclado se cierra. */
+if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+  const fix = () => { if (window.scrollY !== 0 || (window.visualViewport && window.visualViewport.offsetTop > 0)) window.scrollTo(0, 0); };
+  document.addEventListener("focusout", () => setTimeout(fix, 60));
+  window.visualViewport?.addEventListener("resize", () => setTimeout(fix, 60));
+  window.addEventListener("orientationchange", () => setTimeout(fix, 300));
+}
+
 /* Service worker: abrir sin conexión y recibir notificaciones (solo en la web publicada) */
 if (import.meta.env.PROD && !isNative() && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
   window.addEventListener("load", () => { navigator.serviceWorker.register("./sw.js", { scope: "./" }).catch(() => {}); });
