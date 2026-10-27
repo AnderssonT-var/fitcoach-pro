@@ -31,7 +31,7 @@ jobs:
           cd vytrafit
           flutter pub add provider http shared_preferences flutter_secure_storage intl fl_chart cached_network_image image_picker \
             flutter_local_notifications timezone flutter_timezone connectivity_plus url_launcher share_plus path_provider \
-            wakelock_plus flutter_svg package_info_plus
+            wakelock_plus flutter_svg package_info_plus path_drawing collection
           flutter pub add --dev flutter_launcher_icons flutter_lints
           flutter pub get
           flutter precache --web --no-android --no-ios
