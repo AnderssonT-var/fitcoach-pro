@@ -43,8 +43,11 @@ jobs:
       - name: Paquetes y revisión del código
         run: |
           flutter config --no-analytics
-          flutter pub get
-          flutter analyze --no-fatal-infos
+          flutter --version | head -1 | sed 's/^/::notice::/'
+          flutter pub get 2>&1 | tail -20 | sed 's/^/::notice::/'
+          flutter analyze --no-fatal-infos --no-fatal-warnings > analyze.txt 2>&1 || true
+          grep -E "error|warning" analyze.txt | head -30 | sed 's/^/::warning::/' || true
+          if grep -q " error " analyze.txt; then echo "::error::El código tiene errores"; exit 1; fi
 
       - name: Firma (clave de producción si existe; si no, una clave fija guardada en caché)
         env:
