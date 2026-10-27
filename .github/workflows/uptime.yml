@@ -12,6 +12,8 @@ jobs:
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 3
+    env:
+      CRON_KEY: ${{ secrets.CRON_KEY }}
     steps:
       - name: ¿Responde el servidor?
         run: |
@@ -21,7 +23,5 @@ jobs:
           done
           echo "::error::vytra.fit no responde"; exit 1
       - name: Tareas programadas
-        env:
-          CRON_KEY: ${{ secrets.CRON_KEY }}
-        if: env.CRON_KEY != ''
+        if: ${{ env.CRON_KEY != '' }}
         run: curl -fsS -m 60 -X POST -H "X-Cron-Key: $CRON_KEY" https://vytra.fit/api/cron
