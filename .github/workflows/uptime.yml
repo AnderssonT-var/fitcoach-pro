@@ -24,4 +24,5 @@ jobs:
           echo "::error::vytra.fit no responde"; exit 1
       - name: Tareas programadas
         if: ${{ env.CRON_KEY != '' }}
-        run: curl -fsS -m 60 -X POST -H "X-Cron-Key: $CRON_KEY" https://vytra.fit/api/cron
+        run: |
+          curl -fsS -m 60 -X POST -H "X-Cron-Key: $CRON_KEY" https://vytra.fit/api/cron
