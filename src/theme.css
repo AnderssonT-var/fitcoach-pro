@@ -241,8 +241,6 @@ button.panel { border: 1px solid var(--line); }
     background: var(--surface); backdrop-filter: none; -webkit-backdrop-filter: none;
     border-top: 1px solid var(--line); padding: 8px 4px calc(6px + env(safe-area-inset-bottom, 0px));
   }
-  /* El fondo de la barra se extiende hacia abajo: en iPhone nunca queda una franja vacía bajo las pestañas */
-  .bottom-nav::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 120px; background: var(--surface); }
   /* Encabezado de tabla oculto en celular: la primera fila visible no lleva línea arriba */
   .list-row.m-hide + .list-row::before { display: none; }
   .bottom-nav button { gap: 4px; color: var(--muted); font-size: 11.5px; font-weight: 500; }
@@ -269,3 +267,22 @@ button.panel { border: 1px solid var(--line); }
 .bubble.me .ex-chip { background: rgba(255, 255, 255, .96); color: #0D1220; }
 .bubble.me .ex-chip .ex-chip-name { color: #0D1220; }
 .bubble.me, .btn-primary { color: var(--on-accent, #fff); }
+
+/* ============================================================
+   Celular: la app ocupa la pantalla completa y la barra de pestañas va al final
+   del diseño (no "flotando" con position: fixed). En iPhone, la barra fija podía
+   quedar más arriba del borde con una franja vacía debajo, distinta en cada página.
+   ============================================================ */
+@media (max-width: 768px) {
+  html:has(.shell), body:has(.shell) { background: var(--surface); overflow: hidden; overscroll-behavior: none; }
+  .shell { position: fixed; inset: 0; height: auto; background: var(--bg); }
+  .shell > .main { flex: 1; min-height: 0; }
+  .content { padding-bottom: 20px; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  .bottom-nav { position: relative; left: auto; right: auto; bottom: auto; flex-shrink: 0; z-index: 900; }
+  .chat { height: calc(100dvh - 235px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
+}
+@media (max-width: 768px) {
+  .content:has(.chat) { padding-bottom: 0; }
+  .page:has(.chat) { padding-bottom: 12px; }
+  .chat { height: calc(100dvh - 199px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
+}
