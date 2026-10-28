@@ -286,3 +286,12 @@ button.panel { border: 1px solid var(--line); }
   .page:has(.chat) { padding-bottom: 12px; }
   .chat { height: calc(100dvh - 199px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
 }
+
+/* App instalada (pantalla de inicio del iPhone): Safari calcula el borde inferior más arriba
+   del borde real (deja el espacio de la barra del navegador aunque no exista). Se usa el alto
+   total de la pantalla (100lvh) para que las pestañas queden pegadas abajo, sobre la barra de inicio. */
+@media (max-width: 768px) and (display-mode: standalone) {
+  .shell { inset: 0 0 auto 0; height: 100vh; height: 100lvh; }
+  .bottom-nav { padding-bottom: max(10px, env(safe-area-inset-bottom, 0px)); }
+  .chat { height: calc(100lvh - 199px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
+}
