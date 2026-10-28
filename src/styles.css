@@ -325,8 +325,8 @@ input[type=number] { -moz-appearance: textfield; }
 .post-actions button.liked svg { fill: currentColor; }
 .comment { background: var(--surface-2); border-radius: 14px; padding: 8px 12px; font-size: 14px; }
 .post-kind { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; }
-.post-kind.challenge { background: var(--yellow-soft); color: var(--yellow-ink); }
-.post-kind.workout { background: var(--green-soft); color: var(--green-ink); }
+.post-kind.k-challenge { background: var(--yellow-soft); color: var(--yellow-ink); }
+.post-kind.k-workout { background: var(--green-soft); color: var(--green-ink); }
 
 /* ---------- acceso ---------- */
 .auth { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 48px 20px; background: var(--bg); position: relative; overflow: hidden; }

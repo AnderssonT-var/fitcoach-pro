@@ -100,8 +100,8 @@ function Post({ p, board }) {
           <div className="strong small">{author?.name}{author?.role === "coach" && <span className="tag" style={{ marginLeft: 6 }}>Entrenador</span>}</div>
           <div className="tiny muted">{ago(p.at)}</div>
         </div>
-        {p.kind === "challenge" && <span className="post-kind challenge"><Icon name="trophy" size={14} />Reto</span>}
-        {p.kind === "workout" && <span className="post-kind workout"><Icon name="dumbbell" size={14} />Entrenamiento</span>}
+        {p.kind === "challenge" && <span className="post-kind k-challenge"><Icon name="trophy" size={14} />Reto</span>}
+        {p.kind === "workout" && <span className="post-kind k-workout"><Icon name="dumbbell" size={14} />Entrenamiento</span>}
         {canDelete && <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDel(true)} aria-label="Eliminar publicación"><Icon name="trash" size={16} /></button>}
       </div>
       <p className="post-text">{p.text}</p>

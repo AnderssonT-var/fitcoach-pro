@@ -17,7 +17,7 @@
   --line-strong: rgba(13, 19, 36, .16);
   --chrome: rgba(255, 255, 255, .86);
 
-  --blue: #0A5BFF; --blue-ink: #0050E0; --blue-soft: rgba(10, 91, 255, .11);
+  --blue: var(--brand, #0A5BFF); --blue-ink: color-mix(in srgb, var(--blue) 85%, #000); --blue-soft: color-mix(in srgb, var(--blue) 12%, transparent);
   --red: #FF3B30;  --red-ink: #D0261C;  --red-soft: rgba(255, 59, 48, .11);
   --yellow: #FF9F0A; --yellow-ink: #B35C00; --yellow-soft: rgba(255, 159, 10, .15);
   --green: #1FB45E; --green-ink: #138A47; --green-soft: rgba(31, 180, 94, .13);
@@ -39,7 +39,7 @@
     --ink: #F2F4F9; --ink-2: #C3C9D8; --muted: #8189A0;
     --line: rgba(255, 255, 255, .07); --line-strong: rgba(255, 255, 255, .14);
     --chrome: rgba(16, 20, 31, .86);
-    --blue: #3D7BFF; --blue-ink: #7FA6FF; --blue-soft: rgba(61, 123, 255, .16);
+    --blue: var(--brand-dk, #3D7BFF); --on-accent: var(--on-brand-dk, #fff); --blue-ink: color-mix(in srgb, var(--blue) 72%, #fff); --blue-soft: color-mix(in srgb, var(--blue) 18%, transparent);
     --red: #FF5B5B; --red-ink: #FF7B7B; --red-soft: rgba(255, 91, 91, .15);
     --yellow: #FFB020; --yellow-ink: #FFC24D; --yellow-soft: rgba(255, 176, 32, .15);
     --green: #34D17A; --green-ink: #4BDB8B; --green-soft: rgba(52, 209, 122, .15);
@@ -54,7 +54,7 @@
   --ink: #F2F4F9; --ink-2: #C3C9D8; --muted: #8189A0;
   --line: rgba(255, 255, 255, .07); --line-strong: rgba(255, 255, 255, .14);
   --chrome: rgba(16, 20, 31, .86);
-  --blue: #3D7BFF; --blue-ink: #7FA6FF; --blue-soft: rgba(61, 123, 255, .16);
+  --blue: var(--brand-dk, #3D7BFF); --on-accent: var(--on-brand-dk, #fff); --blue-ink: color-mix(in srgb, var(--blue) 72%, #fff); --blue-soft: color-mix(in srgb, var(--blue) 18%, transparent);
   --red: #FF5B5B; --red-ink: #FF7B7B; --red-soft: rgba(255, 91, 91, .15);
   --yellow: #FFB020; --yellow-ink: #FFC24D; --yellow-soft: rgba(255, 176, 32, .15);
   --green: #34D17A; --green-ink: #4BDB8B; --green-soft: rgba(52, 209, 122, .15);
@@ -257,3 +257,15 @@ button.panel { border: 1px solid var(--line); }
   .net-bar { margin: calc(10px + env(safe-area-inset-top, 0px)) 16px 0; }
   .net-bar + .page, .net-list + .page { padding-top: 14px; }
 }
+
+/* Chat en el celular: ocupa todo el alto disponible hasta las pestañas (sin hueco abajo) */
+@media (max-width: 768px) {
+  .chat { height: calc(100dvh - 205px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); min-height: 340px; }
+}
+
+/* Botón de enviar del chat: cuadrado, con el ícono visible */
+.chat-input .btn, .chat-input .btn-primary:not(.btn-sm):not(.btn-icon) { padding: 0; min-width: 46px; width: 46px; height: 46px; min-height: 46px; border-radius: 50%; flex-shrink: 0; }
+/* Ejercicio etiquetado dentro de un mensaje propio: texto oscuro sobre la tarjeta clara */
+.bubble.me .ex-chip { background: rgba(255, 255, 255, .96); color: #0D1220; }
+.bubble.me .ex-chip .ex-chip-name { color: #0D1220; }
+.bubble.me, .btn-primary { color: var(--on-accent, #fff); }
