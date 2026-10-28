@@ -38,6 +38,32 @@ if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
   window.addEventListener("orientationchange", () => setTimeout(fix, 300));
 }
 
+/* App instalada en la pantalla de inicio (iPhone): Safari reporta un alto menor al real y deja un
+   espacio bajo el menú. Se usa el alto físico de la pantalla para que el menú quede pegado abajo. */
+const standalone = window.navigator.standalone === true || window.matchMedia?.("(display-mode: standalone)").matches;
+if (standalone) {
+  const root = document.documentElement;
+  root.classList.add("standalone");
+  const setH = () => {
+    const portrait = window.innerHeight >= window.innerWidth;
+    const screenH = portrait ? Math.max(screen.height, screen.width) : Math.min(screen.height, screen.width);
+    root.style.setProperty("--app-h", `${Math.max(window.innerHeight, screenH)}px`);
+  };
+  setH();
+  window.addEventListener("resize", setH);
+  window.addEventListener("orientationchange", () => setTimeout(setH, 300));
+}
+/* Cuando hay una versión nueva, la app se recarga sola una vez para usarla */
+if ("serviceWorker" in navigator) {
+  let reloaded = false;
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloaded || !hadController) return;
+    reloaded = true;
+    window.location.reload();
+  });
+}
+
 /* Service worker: abrir sin conexión y recibir notificaciones (solo en la web publicada) */
 if (import.meta.env.PROD && !isNative() && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
   window.addEventListener("load", () => { navigator.serviceWorker.register("./sw.js", { scope: "./" }).catch(() => {}); });

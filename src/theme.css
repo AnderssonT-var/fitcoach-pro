@@ -295,3 +295,11 @@ button.panel { border: 1px solid var(--line); }
   .bottom-nav { padding-bottom: max(10px, env(safe-area-inset-bottom, 0px)); }
   .chat { height: calc(100lvh - 199px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
 }
+
+/* App instalada: alto físico de la pantalla (calculado en main.jsx) */
+@media (max-width: 768px) {
+  html.standalone .shell { inset: 0 0 auto 0; height: var(--app-h, 100lvh); }
+  html.standalone .bottom-nav { padding-bottom: max(10px, env(safe-area-inset-bottom, 0px)); }
+  html.standalone .chat { height: calc(var(--app-h, 100lvh) - 199px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
+  html.standalone, html.standalone body { height: var(--app-h, 100%); }
+}
