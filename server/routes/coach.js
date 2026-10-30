@@ -6,6 +6,7 @@ import { hashPassword, requireConsent, requireLicense, revokeAll, tempPassword }
 import { bad, h, notFound, nowISO, parse, stamp, uid, addMonths, monthlyConcept, round2, isForever, licenseEnd } from "../util.js";
 import { hasMonthly } from "../history.js";
 import { checkInlineImage, deleteFile, saveFile } from "../files.js";
+import { coachReviewRoutes, approvedReviews } from "../reviews.js";
 import { SCHEMA, cleanPage, loadPage, previewSig, renderPage, savePage, dropCache } from "../landing.js";
 import { PLAN_MONTHS, getPricing, planPrice } from "../state.js";
 import { codeLimiter } from "./auth.js";
@@ -99,8 +100,9 @@ router.post("/page/preview", h(async (req, res) => {
   const mine = new Set((await knex("files").where({ owner_id: req.user.id, kind: "page" }).select("id")).map((r) => r.id));
   const page = cleanPage(req.body || {}, mine);
   const origin = `${req.protocol}://${req.get("host")}`;
-  res.json({ html: renderPage({ page, coach: req.user, origin, slug: req.user.brand_slug || "", preview: true }) });
+  res.json({ html: renderPage({ page, coach: req.user, origin, slug: req.user.brand_slug || "", preview: true, clientReviews: await approvedReviews(req.user.id) }) });
 }));
+coachReviewRoutes(router);
 router.post("/page/image", h(async (req, res) => {
   const { data } = parse(z.object({ data: z.string().max(3_000_000) }), req.body);
   const n = +(await knex("files").where({ owner_id: req.user.id, kind: "page" }).count({ n: "*" }).first()).n;

@@ -259,6 +259,19 @@ const MIGRATIONS = [
       t.string("updated_at", 30);
     });
   }],
+  ["009_resenas", async (k) => {
+    await k.schema.createTable("reviews", (t) => {
+      t.string("id", 40).primary();
+      t.integer("coach_id").unsigned().notNullable().index();
+      t.integer("client_id").unsigned().notNullable().unique();
+      t.integer("rating").notNullable();
+      t.text("text").notNullable();
+      t.string("detail", 80).nullable();
+      t.string("status", 10).notNullable(); // pending | approved
+      t.string("created_at", 30).notNullable();
+      t.string("reviewed_at", 30).nullable();
+    });
+  }],
 ];
 
 /* Varios procesos pueden arrancar a la vez (el hosting levanta más de uno): en MySQL se toma un candado */

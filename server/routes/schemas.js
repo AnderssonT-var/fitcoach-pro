@@ -95,6 +95,7 @@ export async function deleteClientData(userId) {
     await trx("messages").where({ client_id: userId }).delete();
     await trx("payments").where({ client_id: userId }).delete();
     await trx("posts").where({ author_id: userId }).delete();
+    await trx("reviews").where({ client_id: userId }).delete();
     await trx("refresh_tokens").where({ user_id: userId }).delete();
     await trx("clients").where({ user_id: userId }).delete();
     await trx("users").where({ id: userId }).delete();

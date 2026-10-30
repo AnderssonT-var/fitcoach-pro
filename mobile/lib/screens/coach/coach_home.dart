@@ -14,6 +14,7 @@ import '../shared/progress_widgets.dart';
 import '../shell.dart';
 import 'client_detail.dart';
 import 'clients.dart';
+import 'page_editor.dart';
 import 'subscription.dart';
 
 class CoachHome extends StatelessWidget {
@@ -70,6 +71,13 @@ class CoachHome extends StatelessWidget {
           todo.add(('info', Icons.chat_bubble_rounded, c.m('user'), '${plural(unread.length, 'mensaje nuevo', 'mensajes nuevos')}: “${txt.length > 60 ? '${txt.substring(0, 60)}…' : txt}”', 'Responder',
               () => openChat(context, c.i('userId'))));
         }
+      }
+
+      for (final r in store.reviews.where((r) => r.s('status') == 'pending')) {
+        final c = clients.where((x) => x.i('userId') == r.i('clientId')).firstOrNull;
+        final txt = r.s('text');
+        todo.add(('info', Icons.star_rounded, c?.m('user'), 'Te dejó una reseña de ${plural(r.i('rating'), 'estrella', 'estrellas')}: “${txt.length > 60 ? '${txt.substring(0, 60)}…' : txt}”', 'Revisar',
+            () => push(context, const PageEditorPage())));
       }
 
       return TabPage(children: [

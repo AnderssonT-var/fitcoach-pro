@@ -329,7 +329,7 @@ input[type=number] { -moz-appearance: textfield; }
 .post-kind.k-workout { background: var(--green-soft); color: var(--green-ink); }
 
 /* ---------- acceso ---------- */
-.auth { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 48px 20px; background: var(--bg); position: relative; overflow: hidden; }
+.auth { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: calc(48px + env(safe-area-inset-top, 0px)) 20px calc(48px + env(safe-area-inset-bottom, 0px)); background: var(--bg); position: relative; overflow: hidden; }
 .auth::before { content: ""; position: absolute; inset: -20% -10% auto; height: 70%; background: radial-gradient(60% 60% at 30% 40%, color-mix(in srgb, var(--blue) 18%, transparent), transparent 70%), radial-gradient(50% 60% at 75% 30%, color-mix(in srgb, var(--indigo) 14%, transparent), transparent 70%); pointer-events: none; }
 .auth-card { position: relative; width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 22px; }
 .auth-hero { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 14px; }
@@ -450,7 +450,7 @@ input[type=number] { -moz-appearance: textfield; }
   .chat:not(.has-thread) .chat-thread { display: none; }
   .chat-list { border-right: 0; }
 
-  .auth { padding: 32px 16px; align-items: flex-start; }
+  .auth { padding: calc(32px + env(safe-area-inset-top, 0px)) 16px calc(32px + env(safe-area-inset-bottom, 0px)); align-items: flex-start; }
   .auth-hero h1 { font-size: 32px; }
   .auth-hero p { font-size: 16px; }
 }

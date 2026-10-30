@@ -1,5 +1,6 @@
 /* Arma los datos que ve cada usuario según su rol.
    Nada fuera de su alcance sale del servidor. */
+import { reviewOut } from "./reviews.js";
 import { knex, J, bool } from "./db.js";
 import { signedUrl } from "./files.js";
 import { config } from "./config.js";
@@ -86,7 +87,7 @@ export function clientOut(c, photos = [], user = null, { withNotes = true } = {}
 /* Mensajes del último año (el resto queda en la base y en la exportación de datos) */
 const MSG_FROM = () => new Date(Date.now() - 365 * 864e5).toISOString();
 
-const empty = () => ({ version: 1, users: [], clients: [], licenses: [], payments: [], workouts: [], messages: [], posts: [], templates: [], exercises: [], activity: [], active: {}, subscriptions: [], ranking: null });
+const empty = () => ({ version: 1, users: [], clients: [], licenses: [], payments: [], workouts: [], messages: [], posts: [], templates: [], exercises: [], activity: [], active: {}, subscriptions: [], ranking: null, reviews: [] });
 
 /** opts.history = false: no se incluye el historial de entrenamientos (la app ya lo tiene). */
 export async function buildState(me, { history = true } = {}) {
@@ -125,6 +126,7 @@ export async function buildState(me, { history = true } = {}) {
     s.posts = (await knex("posts").where({ coach_id: me.id }).orderBy("at", "desc").limit(200)).map(postOut);
     s.templates = (await knex("templates").where({ coach_id: me.id }).orderBy("created_at", "desc")).map(templateOut);
     s.exercises = (await knex("exercises").where({ coach_id: me.id })).map(exerciseOut);
+    s.reviews = (await knex("reviews").where({ coach_id: me.id }).orderBy("created_at", "desc")).map(reviewOut);
     for (const a of ids.length ? await knex("active_workouts").whereIn("client_id", ids) : []) s.active[a.client_id] = J(a.data);
     return s;
   }
@@ -141,6 +143,7 @@ export async function buildState(me, { history = true } = {}) {
   s.messages = (await knex("messages").where({ client_id: me.id, coach_id: c.coach_id }).where("at", ">=", MSG_FROM())).map(messageOut);
   s.posts = (await knex("posts").where({ coach_id: c.coach_id }).orderBy("at", "desc").limit(200)).map(postOut);
   s.exercises = (await knex("exercises").where({ coach_id: c.coach_id })).map(exerciseOut);
+  s.reviews = (await knex("reviews").where({ client_id: me.id })).map(reviewOut);
   const active = await knex("active_workouts").where({ client_id: me.id }).first();
   if (active) s.active[me.id] = J(active.data);
 

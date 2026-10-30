@@ -49,6 +49,11 @@ export default function CoachHome() {
     if (unread.length) todo.push({ key: `m${c.userId}`, tone: "info", icon: "chat", who: c.user, text: `${unread.length} ${unread.length === 1 ? "mensaje nuevo" : "mensajes nuevos"}: “${unread.at(-1).text.slice(0, 60)}${unread.at(-1).text.length > 60 ? "…" : ""}”`, action: "Responder", run: () => go("mensajes", { clientId: c.userId }) });
   });
 
+  (db.reviews || []).filter((r) => r.status === "pending").forEach((r) => {
+    const c = clients.find((x) => x.userId === r.clientId);
+    todo.push({ key: `rv${r.id}`, tone: "info", icon: "heart", who: c?.user, text: `Te dejó una reseña de ${r.rating} ${r.rating === 1 ? "estrella" : "estrellas"}: “${r.text.slice(0, 60)}${r.text.length > 60 ? "…" : ""}”`, action: "Revisar", run: () => go("pagina") });
+  });
+
   const today = capitalize(now.toLocaleDateString("es-EC", { weekday: "long", day: "numeric", month: "long" }));
 
   return (

@@ -18,6 +18,7 @@ class ClientProfilePage extends StatelessWidget {
         appBar: AppBar(title: const Text('Mi perfil')),
         body: Watch(builder: (context) => PageList(children: [
               const _ProfileForm(),
+              _ReviewPanel(key: ValueKey('rv-${store.reviews.isEmpty ? '' : '${store.reviews.first.s('status')}${store.reviews.first.s('text').hashCode}'}')),
               _CoachCard(coach: store.myCoach ?? {}, brand: store.brand()),
               const NotificationsPanel(),
               const PrivacyPanel(),
@@ -164,6 +165,91 @@ class _CoachCard extends StatelessWidget {
           if (coach.s('instagram').isNotEmpty) Expanded(child: Text(coach.s('instagram'), style: context.tt.bodySmall, overflow: TextOverflow.ellipsis)),
         ]),
       ]),
+    );
+  }
+}
+
+/// Reseña del asesorado: su entrenador la aprueba antes de publicarla en su página.
+class _ReviewPanel extends StatefulWidget {
+  const _ReviewPanel({super.key});
+  @override
+  State<_ReviewPanel> createState() => _ReviewPanelState();
+}
+
+class _ReviewPanelState extends State<_ReviewPanel> {
+  J? get review => store.reviews.isEmpty ? null : store.reviews.first;
+  late int rating = review?.i('rating', 5) ?? 5;
+  late final text = TextEditingController(text: review?.s('text') ?? '');
+  late final detail = TextEditingController(text: review?.s('detail') ?? '');
+  late bool editing = review == null;
+  bool busy = false;
+
+  String get coachName => (store.myCoach?.s('name') ?? 'tu entrenador').split(' ').first;
+
+  Future<void> _send() async {
+    if (text.text.trim().length < 10) return toast(context, 'Escribe al menos unas palabras sobre tu experiencia', error: true);
+    setState(() => busy = true);
+    final r = await store.saveMyReview({'rating': rating, 'text': text.text.trim(), 'detail': detail.text.trim()});
+    if (!mounted) return;
+    setState(() => busy = false);
+    if (!r.ok) return toast(context, r.error!, error: true);
+    setState(() => editing = false);
+    toast(context, '¡Gracias! $coachName la revisará antes de publicarla', icon: Icons.favorite_rounded);
+  }
+
+  Future<void> _delete() async {
+    if (!await confirm(context, title: '¿Borrar tu reseña?', text: 'Si ya estaba publicada, se quita de la página.', confirmLabel: 'Borrar')) return;
+    final r = await store.deleteMyReview();
+    if (!mounted) return;
+    if (!r.ok) return toast(context, r.error!, error: true);
+    toast(context, 'Reseña borrada');
+  }
+
+  Widget _stars(int n, {ValueChanged<int>? onTap, double size = 32}) => Row(children: [
+        for (var i = 1; i <= 5; i++)
+          onTap == null
+              ? Icon(Icons.star_rounded, size: size, color: i <= n ? const Color(0xFFF5B301) : context.tok.surface3)
+              : IconButton(visualDensity: VisualDensity.compact, onPressed: () => onTap(i), icon: Icon(Icons.star_rounded, size: size, color: i <= n ? const Color(0xFFF5B301) : context.tok.surface3)),
+      ]);
+
+  @override
+  Widget build(BuildContext context) {
+    final r = review;
+    final approved = r?.s('status') == 'approved';
+    return Section(
+      title: 'Tu reseña',
+      trailing: r == null ? null : Pill(approved ? 'Publicada' : 'Por aprobar', tone: approved ? 'ok' : 'warn'),
+      child: !editing && r != null
+          ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              _stars(r.i('rating'), size: 22),
+              const Gap(8),
+              Text('“${r.s('text')}”', style: context.tt.bodyLarge),
+              if (r.s('detail').isNotEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Text(r.s('detail'), style: context.tt.titleSmall?.copyWith(color: context.tok.accent))),
+              const Gap(8),
+              Text(approved ? 'Se ve en la página de $coachName. ¡Gracias por recomendarlo!' : '$coachName la revisará antes de publicarla en su página.', style: context.tt.bodySmall),
+              const Gap(10),
+              Wrap(spacing: 8, children: [
+                OutlinedButton.icon(onPressed: () => setState(() => editing = true), icon: const Icon(Icons.edit_rounded, size: 18), label: const Text('Editar')),
+                TextButton(onPressed: _delete, child: const Text('Borrar')),
+              ]),
+            ])
+          : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Text('Cuéntale a otras personas cómo te va entrenando con $coachName. Se publica en su página cuando la aprueba.', style: context.tt.bodySmall),
+              const Gap(6),
+              _stars(rating, onTap: (n) => setState(() => rating = n)),
+              const Gap(6),
+              Field('Tu experiencia', controller: text, maxLines: 5, maxLength: 700, caps: TextCapitalization.sentences, hint: 'Ej.: En 3 meses mejoré mi fuerza y me siento con más energía…'),
+              const Gap(12),
+              Field('Tu resultado (opcional)', controller: detail, maxLength: 70, hint: 'Ej.: -5 kg en 3 meses'),
+              const Gap(8),
+              Text('Se muestra tu nombre y la inicial de tu apellido${r != null ? '. Si la editas, vuelve a revisión.' : '.'}', style: context.tt.bodySmall),
+              const Gap(12),
+              Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                if (r != null) TextButton(onPressed: () => setState(() => editing = false), child: const Text('Cancelar')),
+                const SizedBox(width: 8),
+                FilledButton.icon(onPressed: busy ? null : _send, icon: const Icon(Icons.send_rounded, size: 18), label: Text(busy ? 'Enviando…' : r != null ? 'Enviar cambios' : 'Enviar reseña')),
+              ]),
+            ]),
     );
   }
 }

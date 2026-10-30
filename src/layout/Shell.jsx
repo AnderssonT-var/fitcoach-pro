@@ -34,7 +34,8 @@ export default function Shell({ children }) {
   const items = NAV[me.role];
   const unread = unreadFor(db, me.id);
   const pendingSubs = me.role === "admin" ? db.subscriptions.filter((x) => x.status === "pending").length : 0;
-  const badge = (it) => (it.badge === "unread" ? unread : it.badge === "pendingSubs" ? pendingSubs : 0);
+  const pendingReviews = me.role === "coach" ? (db.reviews || []).filter((r) => r.status === "pending").length : 0;
+  const badge = (it) => (it.badge === "unread" ? unread : it.badge === "pendingSubs" ? pendingSubs : it.badge === "reviews" ? pendingReviews : 0);
   const tabs = items.length > MAX_TABS ? items.slice(0, MAX_TABS - 1) : items;
   const extra = items.length > MAX_TABS ? items.slice(MAX_TABS - 1) : [];
   const dark = isDark(theme);
@@ -142,6 +143,7 @@ export default function Shell({ children }) {
         {extra.length > 0 && (
           <button aria-current={extra.some((e) => e.id === page) ? "page" : undefined} onClick={() => setSheet(true)}>
             <span className="ico"><Icon name="menu" size={21} /></span><span className="lbl">Más</span>
+            {extra.reduce((t, it) => t + badge(it), 0) > 0 && <span className="nav-count">{extra.reduce((t, it) => t + badge(it), 0)}</span>}
           </button>
         )}
       </nav>

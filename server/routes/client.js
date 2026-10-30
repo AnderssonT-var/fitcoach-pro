@@ -9,6 +9,7 @@ import { checkInlineImage, deleteFile, saveFile } from "../files.js";
 import { buildState, userOut } from "../state.js";
 import { groupOf } from "./common.js";
 import { addToBests } from "../history.js";
+import { clientReviewRoutes } from "../reviews.js";
 import { notifyLater, setRestAlarm } from "../notify.js";
 import { deleteClientData, MESSAGE_TAGS, photosSchema, profileSchema, sessionSchema } from "./schemas.js";
 
@@ -44,6 +45,7 @@ accountRouter.delete("/", h(async (req, res) => {
    ============================================================ */
 export const clientRouter = Router();
 clientRouter.use(requireClientAccess, requireConsent);
+clientReviewRoutes(clientRouter);
 
 async function editMine(userId, fn) {
   return knex.transaction(async (trx) => {

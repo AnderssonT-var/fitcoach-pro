@@ -106,6 +106,7 @@ function normalize(s) {
   s.clients = (s.clients || []).map((c) => ({ ...c, photos: (c.photos || []).map((p) => ({ ...p, src: abs(p.src) })) }));
   s.subscriptions = (s.subscriptions || []).map((x) => ({ ...x, receipt: abs(x.receipt) }));
   s.workouts ||= [];
+  s.reviews ||= [];
   s.active ||= {};
   if (pendingActive) s.active = { ...s.active, [pendingActive.clientId]: pendingActive };
   // Sesión guardada en este equipo (por ejemplo, se cerró la app sin señal)
@@ -732,6 +733,12 @@ export async function updateBrand(coachId, p) {
   const r = await act("PUT", "/api/coach/brand", p, { kind: "brand", args: { userId: coachId ?? me(), patch: p }, label: "Marca" });
   return r.error ? r : { ok: true };
 }
+
+/* Reseñas: el asesorado escribe la suya; el entrenador la aprueba (sale en su página) o la rechaza (se borra) */
+export const saveMyReview = (r) => act("PUT", "/api/client/review", r);
+export const deleteMyReview = () => act("DELETE", "/api/client/review");
+export const approveReview = (id) => act("POST", `/api/coach/reviews/${id}/approve`, {});
+export const rejectReview = (id) => act("DELETE", `/api/coach/reviews/${id}`);
 
 /* Seguimiento del asesorado */
 export const addMeasurement = (clientId, m) => act("POST", `/api/coach/clients/${clientId}/measurements`, m, { kind: "measure", args: { clientId, ...m }, label: `Medidas de ${nameOf(clientId)}` });

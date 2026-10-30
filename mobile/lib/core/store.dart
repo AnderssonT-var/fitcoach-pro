@@ -634,6 +634,7 @@ class AppStore extends ChangeNotifier {
   List<J> get messages => s.lm('messages');
   List<J> get posts => s.lm('posts');
   List<J> get templates => s.lm('templates');
+  List<J> get reviews => s.lm('reviews');
   List<J> get exercises => s.lm('exercises');
   List<J> get subscriptions => s.lm('subscriptions');
   List<J> get licenses => s.lm('licenses');
@@ -897,6 +898,12 @@ class AppStore extends ChangeNotifier {
     await reload();
     return r;
   }
+
+  // Reseñas: el asesorado escribe la suya; el entrenador la aprueba (sale en su página) o la rechaza (se borra)
+  Future<ApiResult> saveMyReview(J r) => _act('PUT', '/api/client/review', r);
+  Future<ApiResult> deleteMyReview() => _act('DELETE', '/api/client/review');
+  Future<ApiResult> approveReview(String id) => _act('POST', '/api/coach/reviews/$id/approve', <String, dynamic>{});
+  Future<ApiResult> rejectReview(String id) => _act('DELETE', '/api/coach/reviews/$id');
 
   Future<ApiResult> acceptConsent([bool? photos]) => _act('POST', '/api/auth/consent', {'accept': true, if (photos != null) 'photos': photos});
   Future<ApiResult> setPhotoConsent(bool v) => _act('POST', '/api/auth/photo-consent', {'value': v});

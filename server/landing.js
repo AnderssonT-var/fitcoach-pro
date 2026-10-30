@@ -71,7 +71,8 @@ export const SCHEMA = {
       item: { label: "Plan", max: 6, fields: [F("title", "Nombre del plan", "text", { max: 60 }), F("price", "Precio", "text", { max: 20, placeholder: "$40" }),
         F("period", "Periodo", "text", { max: 24, placeholder: "/mes" }), F("text", "Qué incluye (un punto por línea)", "textarea", { max: 900 }),
         F("button", "Texto del botón", "text", { max: 30, placeholder: "Lo quiero" }), F("highlight", "Destacar como recomendado", "toggle")] } },
-    reviews: { label: "Reseñas", icon: "star", hint: "Lo que dicen tus asesorados", fields: [TITLE, SUB, BG],
+    reviews: { label: "Reseñas", icon: "star", hint: "Lo que dicen tus asesorados (en carrusel)", fields: [TITLE, SUB,
+      F("fromClients", "Mostrar las reseñas que aprobaste de tus asesorados", "toggle", { default: true }), BG],
       item: { label: "Reseña", max: 24, fields: [F("image", "Foto (opcional)", "image", { square: true }), F("title", "Nombre", "text", { max: 60 }),
         F("detail", "Resultado o detalle", "text", { max: 70, placeholder: "-8 kg en 3 meses" }), F("rating", "Estrellas", "stars"), F("text", "Reseña", "textarea", { max: 700 })] } },
     gallery: { label: "Galería de fotos", icon: "image", hint: "Fotos de entrenos, resultados, tu espacio", fields: [TITLE, SUB, BG],
@@ -101,7 +102,7 @@ export function defaultPage(u) {
   ];
   if (p.years) sections.push({ id: sid(), type: "stats", visible: true, title: "", bg: "default", items: [{ id: sid(), value: `${p.years}+`, title: "Años de experiencia" }] });
   sections.push(
-    { id: sid(), type: "reviews", visible: true, title: "Lo que dicen mis asesorados", subtitle: "", bg: "alt", items: [] },
+    { id: sid(), type: "reviews", visible: true, title: "Lo que dicen mis asesorados", subtitle: "", bg: "alt", fromClients: true, items: [] },
     { id: sid(), type: "cta", visible: true, title: "¿Empezamos?", body: "Escríbeme y armamos tu plan.", button: "Trabajemos juntos", action: "whatsapp", link: "", bg: "brand" },
   );
   return {
@@ -122,7 +123,7 @@ export function defaultPage(u) {
 const IMG_ID = /^f-[\w-]{4,40}$/;
 function cleanField(f, v, imgs) {
   switch (f.type) {
-    case "toggle": return v === true;
+    case "toggle": return v === undefined && f.default !== undefined ? f.default : v === true;
     case "range": { const n = Number(v); return Number.isFinite(n) ? Math.max(f.min, Math.min(f.max, Math.round(n))) : f.min; }
     case "stars": { const n = Math.round(Number(v)); return n >= 1 && n <= 5 ? n : 5; }
     case "select": return f.options.some((o) => o.v === v) ? v : f.options[0].v;
@@ -254,7 +255,7 @@ const ICONS = {
  * @param {object} o
  *  page, coach (fila users), origin, slug, preview (vista del editor: sin iframes), draft (aviso «no publicada»)
  */
-export function renderPage({ page, coach, origin = "", slug, preview = false, draft = false }) {
+export function renderPage({ page, coach, origin = "", slug, preview = false, draft = false, clientReviews = [] }) {
   const p = J(coach.profile, {}), b = J(coach.brand, {});
   const name = b.businessName || coach.name;
   const t = page.theme || {}, hero = page.hero || {}, c = page.contact || {}, so = page.social || {}, seo = page.seo || {};
@@ -315,11 +316,18 @@ export function renderPage({ page, coach, origin = "", slug, preview = false, dr
       }).join("")}</div></div>`;
     },
     reviews(s) {
-      if (!s.items?.length) return "";
-      return `<div class="wrap">${head(s)}<div class="grid reviews cols-${Math.min(3, s.items.length)}">${s.items.map((it) => `<figure class="card review">
+      // Primero las de los asesorados (aprobadas por el entrenador), luego las que escribió él
+      const list = [...(s.fromClients !== false ? clientReviews.map((r) => ({ ...r, src: r.photo })) : []), ...(s.items || []).map((it) => ({ ...it, src: img(it.image) }))];
+      if (!list.length) return "";
+      const card = (it) => `<figure class="card review">
         ${stars(it.rating || 5)}<blockquote>${rich(it.text)}</blockquote>
-        <figcaption>${it.image ? `<img src="${img(it.image)}" alt="" loading="lazy">` : `<span class="av">${esc((it.title || "?").charAt(0).toUpperCase())}</span>`}
-        <span><b>${esc(it.title)}</b>${it.detail ? `<small>${esc(it.detail)}</small>` : ""}</span></figcaption></figure>`).join("")}</div></div>`;
+        <figcaption>${it.src ? `<img src="${esc(it.src)}" alt="" loading="lazy">` : `<span class="av">${esc((it.title || "?").charAt(0).toUpperCase())}</span>`}
+        <span><b>${esc(it.title)}</b>${it.detail ? `<small>${esc(it.detail)}</small>` : ""}</span></figcaption></figure>`;
+      // Carrusel de 2 filas × 2 columnas (en celular, 2 filas × 1 columna); se desliza con el dedo o con las flechas
+      return `<div class="wrap">${head(s)}<div class="carousel" data-carousel>
+        <div class="track ${list.length <= 2 ? "few" : ""} n${Math.min(list.length, 4)}" tabindex="0" aria-label="Reseñas">${list.map(card).join("")}</div>
+        <div class="car-nav"><button type="button" class="car-btn car-prev" aria-label="Anteriores">‹</button><div class="dots"></div><button type="button" class="car-btn car-next" aria-label="Siguientes">›</button></div>
+      </div></div>`;
     },
     gallery(s) {
       const items = (s.items || []).filter((it) => it.image);
@@ -387,7 +395,7 @@ body{margin:0;background:var(--bg);color:var(--text);font:400 16px/1.6 Inter,sys
 img{max-width:100%;display:block}a{color:inherit}
 h1,h2,h3{font-family:var(--hf);font-weight:var(--hw);text-transform:var(--ht);letter-spacing:var(--hl);line-height:1.12;margin:0 0 .5em}
 h1{font-size:clamp(2.1rem,6.4vw,4.2rem)}h2{font-size:clamp(1.6rem,4vw,2.5rem)}h3{font-size:1.18rem}
-.wrap{width:min(1120px,100% - 40px);margin-inline:auto}.narrow{width:min(760px,100% - 40px)}.center{text-align:center}
+.wrap{width:min(1120px,100% - 40px - env(safe-area-inset-left) - env(safe-area-inset-right));margin-inline:auto}.narrow{width:min(760px,100% - 40px)}.center{text-align:center}
 .prose p{margin:0 0 1em}.prose p:last-child{margin:0}.prose.sm{font-size:.95rem;color:var(--muted)}.lead{color:var(--muted);font-size:1.08rem;max-width:62ch}
 .center .lead,.sec-head.center .lead{margin-inline:auto}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:.55em;min-height:50px;padding:0 1.5em;border-radius:calc(var(--r) * .7 + 6px);font:600 1rem/1 Inter,system-ui,sans-serif;text-decoration:none;border:1.5px solid transparent;transition:transform .15s,filter .15s,background .15s;cursor:pointer;white-space:nowrap}
@@ -395,7 +403,7 @@ h1{font-size:clamp(2.1rem,6.4vw,4.2rem)}h2{font-size:clamp(1.6rem,4vw,2.5rem)}h3
 .btn-brand{background:var(--brand);color:var(--on);box-shadow:0 10px 30px -10px rgba(var(--rgb),.7)}
 .btn-ghost{background:transparent;color:var(--text);border-color:var(--line)}.btn-ghost:hover{background:var(--bg2)}
 .btn-light{background:var(--on);color:var(--brand)}
-.top{position:sticky;top:0;z-index:20;backdrop-filter:saturate(1.6) blur(14px);-webkit-backdrop-filter:saturate(1.6) blur(14px);background:color-mix(in srgb,var(--bg) 78%,transparent);border-bottom:1px solid var(--line)}
+.top{position:sticky;top:0;z-index:20;padding-top:env(safe-area-inset-top);backdrop-filter:saturate(1.6) blur(14px);-webkit-backdrop-filter:saturate(1.6) blur(14px);background:color-mix(in srgb,var(--bg) 78%,transparent);border-bottom:1px solid var(--line)}
 .top .wrap{display:flex;align-items:center;gap:12px;min-height:64px}.top .name{font-family:var(--hf);font-weight:700;font-size:1.05rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .top .btn{min-height:40px;padding:0 1em;font-size:.92rem}
 .mark{width:38px;height:38px;border-radius:calc(var(--r) * .5);object-fit:contain;flex:none}.mark-txt{display:grid;place-items:center;background:var(--brand);color:var(--on);font:800 1.1rem var(--hf)}
@@ -423,7 +431,16 @@ h1{font-size:clamp(2.1rem,6.4vw,4.2rem)}h2{font-size:clamp(1.6rem,4vw,2.5rem)}h3
 .badge{position:absolute;top:16px;right:16px;font:600 .72rem/1 Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;padding:.5em .8em;border-radius:99px;background:var(--brand);color:var(--on)}
 .price{font:800 2.4rem/1 var(--hf)}.price small{font:500 1rem Inter,sans-serif;color:var(--muted);margin-left:4px}
 .plan ul{list-style:none;margin:0;padding:0;display:grid;gap:10px;flex:1}.plan li{display:flex;gap:10px;align-items:flex-start;font-size:.97rem}.plan li svg{width:18px;height:18px;color:var(--accent);flex:none;margin-top:3px}
-.review{margin:0;padding:24px;display:flex;flex-direction:column;gap:14px}.review blockquote{margin:0;flex:1;font-size:1rem}
+.carousel{position:relative}
+.track{display:grid;grid-auto-flow:column;grid-template-rows:repeat(2,auto);grid-auto-columns:calc((100% - 18px) / 2);gap:18px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:2px}
+.track::-webkit-scrollbar{display:none}.track>*{scroll-snap-align:start;min-width:0}
+.track.few{grid-auto-flow:row;grid-template-rows:none;grid-template-columns:repeat(2,minmax(0,1fr))}.track.few.n1{grid-template-columns:minmax(0,520px);justify-content:center}
+.car-nav{display:none;align-items:center;justify-content:center;gap:16px;margin-top:22px}.carousel.nav-on .car-nav{display:flex}
+.car-btn{width:46px;height:46px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--text);font:600 1.6rem/1 Inter,sans-serif;cursor:pointer;display:grid;place-items:center;padding:0 0 3px}
+.car-btn:disabled{opacity:.35;cursor:default}.car-btn:not(:disabled):hover{background:var(--bg2)}
+.dots{display:flex;gap:8px}.dots button{width:9px;height:9px;border-radius:99px;border:0;padding:0;background:var(--line);cursor:pointer;transition:width .2s,background .2s}
+.dots button.on{width:26px;background:var(--brand)}
+.review{margin:0;padding:24px;display:flex;flex-direction:column;gap:14px;height:100%}.review blockquote{margin:0;flex:1;font-size:1rem}
 .stars{display:flex;gap:2px}.stars span{width:18px;height:18px;color:var(--line)}.stars span.on{color:#f5b301}.stars svg{width:100%;height:100%}
 .review figcaption{display:flex;align-items:center;gap:12px}.review figcaption img,.review .av{width:44px;height:44px;border-radius:50%;object-fit:cover;flex:none}
 .review .av{display:grid;place-items:center;background:rgba(var(--rgb),.18);color:var(--accent);font:700 1.05rem var(--hf)}
@@ -446,7 +463,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:18px;align-items:center;justify-con
 .float:hover{transform:scale(1.06)}.float svg{width:30px;height:30px}
 .draft{position:sticky;top:0;z-index:40;background:#f5b301;color:#1a1300;text-align:center;font:600 .85rem/1.3 Inter,sans-serif;padding:8px 14px}
 @media (max-width:860px){.cols-3,.cols-4{grid-template-columns:repeat(2,minmax(0,1fr))}.about.has-img{grid-template-columns:1fr}.about.img-right .about-img{order:0}.about-img img{aspect-ratio:4/3;max-height:460px}}
-@media (max-width:600px){.cols-2,.cols-3,.cols-4{grid-template-columns:1fr}.top .btn span{display:none}.top .btn{width:42px;padding:0}.hero{min-height:82vh;padding:70px 0 60px}.hero .actions .btn{flex:1 1 100%}.gallery{columns:2 140px;column-gap:10px}.gallery figure{margin-bottom:10px}}
+@media (max-width:600px){.track{grid-auto-columns:100%;gap:14px}.car-nav{justify-content:flex-start}.track.few{grid-template-columns:1fr}.cols-2,.cols-3,.cols-4{grid-template-columns:1fr}.top .btn span{display:none}.top .btn{width:42px;padding:0}.hero{min-height:82vh;padding:70px 0 60px}.hero .actions .btn{flex:1 1 100%}.gallery{columns:2 140px;column-gap:10px}.gallery figure{margin-bottom:10px}}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.btn,.float{transition:none}}
 </style></head>
 <body>
@@ -470,17 +487,47 @@ ${sections}
   ${socials.length ? `<div class="socials">${socials.map(([k, u]) => `<a href="${esc(u)}"${tgt} aria-label="${k}">${ICONS[k]}</a>`).join("")}</div>` : ""}
 </div></footer>
 ${c.floating && wa ? `<a class="float" href="${esc(waLink())}"${tgt} aria-label="Escribir por WhatsApp">${ICONS.wa}</a>` : ""}
+${preview ? "" : '<script src="/p/landing.js" defer></script>'}
 </body></html>`;
 }
 
 /* ============================================================
    Rutas públicas: /<enlace> y /p/img/<id>
    ============================================================ */
+/* Único script de la página: flechas y puntos del carrusel de reseñas (sin él, se desliza igual con el dedo) */
+const LANDING_JS = `document.querySelectorAll("[data-carousel]").forEach(function (c) {
+  var t = c.querySelector(".track"), prev = c.querySelector(".car-prev"), next = c.querySelector(".car-next"), dots = c.querySelector(".dots");
+  function step() { return t.clientWidth + (parseFloat(getComputedStyle(t).columnGap) || 0); }
+  function pages() { return Math.max(1, Math.ceil((t.scrollWidth - 4) / step() - 0.02)); }
+  function update() {
+    var n = pages(), end = t.scrollLeft >= t.scrollWidth - t.clientWidth - 4;
+    var i = end ? n - 1 : Math.min(n - 1, Math.round(t.scrollLeft / step()));
+    c.classList.toggle("nav-on", n > 1);
+    if (dots.children.length !== n) {
+      dots.innerHTML = "";
+      for (var k = 0; k < n; k++) (function (k) {
+        var b = document.createElement("button"); b.type = "button"; b.setAttribute("aria-label", "Página " + (k + 1));
+        b.onclick = function () { t.scrollTo({ left: k * step(), behavior: "smooth" }); }; dots.appendChild(b);
+      })(k);
+    }
+    for (var j = 0; j < dots.children.length; j++) dots.children[j].classList.toggle("on", j === i);
+    prev.disabled = i <= 0; next.disabled = i >= n - 1;
+  }
+  prev.onclick = function () { t.scrollBy({ left: -step(), behavior: "smooth" }); };
+  next.onclick = function () { t.scrollBy({ left: step(), behavior: "smooth" }); };
+  var raf = 0; t.addEventListener("scroll", function () { cancelAnimationFrame(raf); raf = requestAnimationFrame(update); }, { passive: true });
+  addEventListener("resize", update); update();
+});`;
+
 const cache = new Map(); // slug -> { html, at }
 export const dropCache = () => cache.clear();
-const CSP = "default-src 'self'; img-src 'self' data:; style-src 'unsafe-inline'; font-src 'self'; script-src 'none'; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; base-uri 'self'; form-action 'none'; frame-ancestors 'self'; object-src 'none'";
+const CSP = "default-src 'self'; img-src 'self' data:; style-src 'unsafe-inline'; font-src 'self'; script-src 'self'; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; base-uri 'self'; form-action 'none'; frame-ancestors 'self'; object-src 'none'";
 
 export function mountLanding(app) {
+  app.get("/p/landing.js", (_req, res) => {
+    res.type("application/javascript").setHeader("Cache-Control", "public, max-age=3600");
+    res.send(LANDING_JS);
+  });
   app.get("/p/img/:id", async (req, res, next) => {
     try {
       const { id } = req.params;
@@ -512,7 +559,8 @@ export function mountLanding(app) {
         return res.redirect(302, `/#${slug}`); // sin página: va directo a su acceso
       }
       const page = row ? { ...defaultPage(coach), ...J(row.data, {}) } : defaultPage(coach);
-      const html = renderPage({ page, coach, origin, slug, draft: isPreview && !published });
+      const { approvedReviews } = await import("./reviews.js");
+      const html = renderPage({ page, coach, origin, slug, draft: isPreview && !published, clientReviews: await approvedReviews(coach.id) });
       if (!isPreview) cache.set(slug, { html, at: Date.now() });
       send(res, html, isPreview);
     } catch (e) { next(e); }

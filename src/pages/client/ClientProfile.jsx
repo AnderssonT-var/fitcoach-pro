@@ -3,7 +3,7 @@ import Icon from "../../ui/Icon";
 import { Avatar, BrandMark, Field, toast, run } from "../../ui/kit";
 import { ImageDrop } from "../../ui/inputs";
 import { useApp } from "../../context";
-import { brandOf, clientById, updateProfile, useDB, userById } from "../../store/db";
+import { brandOf, clientById, deleteMyReview, saveMyReview, updateProfile, useDB, userById } from "../../store/db";
 import { avatarImage } from "../../lib/image";
 import { shortDate } from "../../lib/format";
 import { NotificationsPanel, PrivacyPanel, SecurityPanel } from "../shared/Account";
@@ -21,6 +21,7 @@ export default function ClientProfile() {
       <div className="split">
         <div className="stack-lg">
           <ProfileForm u={u} c={c} coachName={coach.name.split(" ")[0]} />
+          <ReviewPanel review={db.reviews[0]} coachName={coach.name.split(" ")[0]} />
           <NotificationsPanel />
           <PrivacyPanel />
           <SecurityPanel />
@@ -118,6 +119,71 @@ function CoachCard({ coach, brand }) {
           <button className="btn btn-primary" onClick={() => go("mensajes")}><Icon name="chat" size={17} />Escribirle</button>
           {coach.instagram && <span className="small muted">{coach.instagram}</span>}
         </div>
+      </div>
+    </section>
+  );
+}
+
+/** Reseña del asesorado: la aprueba su entrenador antes de salir en su página. */
+function ReviewPanel({ review, coachName }) {
+  const init = { rating: review?.rating || 5, text: review?.text || "", detail: review?.detail || "" };
+  const [f, setF] = useState(init);
+  const [editing, setEditing] = useState(!review);
+  const [busy, setBusy] = useState(false);
+  const dirty = JSON.stringify(f) !== JSON.stringify(init);
+  async function send() {
+    if (f.text.trim().length < 10) return toast("Escribe al menos unas palabras sobre tu experiencia", "alert");
+    setBusy(true);
+    const r = await saveMyReview({ rating: f.rating, text: f.text.trim(), detail: f.detail.trim() });
+    setBusy(false);
+    if (r.error) return toast(r.error, "alert");
+    setEditing(false);
+    toast(`¡Gracias! ${coachName} la revisará antes de publicarla`, "heart");
+  }
+  async function remove() {
+    if (!window.confirm("¿Borrar tu reseña? Si ya estaba publicada, se quita de la página.")) return;
+    const r = await deleteMyReview();
+    if (r.error) return toast(r.error, "alert");
+    setF({ rating: 5, text: "", detail: "" }); setEditing(true);
+    toast("Reseña borrada", "trash");
+  }
+  return (
+    <section className="panel">
+      <div className="panel-head">
+        <h2>Tu reseña</h2>
+        {review && <span className={`pill ${review.status === "approved" ? "ok" : "warn"}`}>{review.status === "approved" ? "Publicada" : "Por aprobar"}</span>}
+      </div>
+      <div className="panel-body stack">
+        {!editing && review ? (
+          <>
+            <div className="rv-stars static" aria-label={`${review.rating} de 5`}>{[1, 2, 3, 4, 5].map((n) => <span key={n} className={n <= review.rating ? "on" : ""}>★</span>)}</div>
+            <p className="ink2" style={{ whiteSpace: "pre-wrap" }}>“{review.text}”</p>
+            {review.detail && <span className="small strong" style={{ color: "var(--brand-dk, var(--blue-ink))" }}>{review.detail}</span>}
+            <p className="small muted">{review.status === "approved" ? `Se ve en la página de ${coachName}. ¡Gracias por recomendarlo!` : `${coachName} la revisará antes de publicarla en su página.`}</p>
+            <div className="row wrap gap-sm">
+              <button className="btn btn-quiet btn-sm" onClick={() => setEditing(true)}><Icon name="pencil" size={15} />Editar</button>
+              <button className="btn btn-ghost btn-sm" onClick={remove}>Borrar</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="small muted">Cuéntale a otras personas cómo te va entrenando con {coachName}. Se publica en su página cuando la aprueba.</p>
+            <div className="rv-stars" role="radiogroup" aria-label="Calificación">
+              {[1, 2, 3, 4, 5].map((n) => <button key={n} type="button" aria-label={`${n} estrellas`} aria-pressed={f.rating >= n} onClick={() => setF({ ...f, rating: n })}>★</button>)}
+            </div>
+            <Field label="Tu experiencia" id="rv-text" hint={`${f.text.length}/700`}>
+              <textarea id="rv-text" className="textarea" rows={4} maxLength={700} value={f.text} onChange={(e) => setF({ ...f, text: e.target.value })} placeholder="Ej.: En 3 meses mejoré mi fuerza y me siento con más energía…" />
+            </Field>
+            <Field label="Tu resultado (opcional)" id="rv-detail">
+              <input id="rv-detail" className="input" maxLength={70} value={f.detail} onChange={(e) => setF({ ...f, detail: e.target.value })} placeholder="Ej.: -5 kg en 3 meses" />
+            </Field>
+            <p className="hint">Se muestra tu nombre y la inicial de tu apellido{review ? ". Si la editas, vuelve a revisión." : "."}</p>
+            <div className="row wrap gap-sm" style={{ justifyContent: "flex-end" }}>
+              {review && <button className="btn btn-ghost" onClick={() => { setF(init); setEditing(false); }}>Cancelar</button>}
+              <button className="btn btn-primary" disabled={busy || (review && !dirty)} onClick={send}><Icon name="send" size={16} />{busy ? "Enviando…" : review ? "Enviar cambios" : "Enviar reseña"}</button>
+            </div>
+          </>
+        )}
       </div>
     </section>
   );

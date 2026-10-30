@@ -3,7 +3,9 @@
    La vista previa la arma el mismo servidor que publica la página: lo que ves es lo que sale. */
 import { useEffect, useMemo, useRef, useState } from "react";
 import Icon from "../../ui/Icon";
-import { Confirm, CopyButton, toast } from "../../ui/kit";
+import { Avatar, Confirm, CopyButton, toast } from "../../ui/kit";
+import { approveReview, rejectReview, useDB, userById } from "../../store/db";
+import { shortDate } from "../../lib/format";
 import { ImageDrop } from "../../ui/inputs";
 import { useApp } from "../../context";
 import { api, apiBase } from "../../store/api";
@@ -106,6 +108,8 @@ export default function PageEditor() {
           <button className="btn btn-primary btn-sm" disabled={!dirty || busy} onClick={() => save()}><Icon name="check" size={15} />{busy ? "Guardando…" : "Guardar"}</button>
         </div>
       </section>
+
+      <ClientReviews />
 
       <div className="seg pe-mobile-tabs" role="tablist">
         <button aria-pressed={!showPreview} onClick={() => setShowPreview(false)}>Editar</button>
@@ -350,6 +354,55 @@ function Preview({ page, device, setDevice }) {
               style={{ width: vw, height: H / scale, transform: `scale(${scale})`, transformOrigin: "0 0", margin: scale < 1 ? 0 : "0 auto" }} />
           : <div className="pe-frame-empty">Cargando vista previa…</div>}
       </div>
+    </section>
+  );
+}
+
+/** Reseñas que escriben los asesorados desde su perfil: aprobar (sale en la página) o rechazar (se borra). */
+function ClientReviews() {
+  const db = useDB();
+  const [busy, setBusy] = useState("");
+  const [ask, setAsk] = useState(null);
+  const list = db.reviews || [];
+  if (!list.length) return null;
+  const pending = list.filter((r) => r.status === "pending"), approved = list.filter((r) => r.status === "approved");
+  async function act(fn, id, ok) {
+    setBusy(id);
+    const r = await fn(id);
+    setBusy("");
+    if (r.error) return toast(r.error, "alert");
+    toast(ok);
+  }
+  const item = (r) => {
+    const u = userById(db, r.clientId);
+    return (
+      <div key={r.id} className={`rv-item ${r.status}`}>
+        <div className="rv-head">
+          <Avatar name={u?.name || "?"} id={r.clientId} photo={u?.photo} />
+          <div className="grow" style={{ minWidth: 0 }}>
+            <div className="strong ellipsis">{u?.name || "Asesorado"}</div>
+            <div className="small muted">{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)} · {shortDate(r.createdAt)}</div>
+          </div>
+        </div>
+        <p className="ink2">“{r.text}”</p>
+        {r.detail && <span className="small strong">{r.detail}</span>}
+        <div className="row wrap gap-sm">
+          {r.status === "pending" && <button className="btn btn-primary btn-sm" disabled={busy === r.id} onClick={() => act(approveReview, r.id, "Reseña aprobada: ya está en tu página")}><Icon name="check" size={15} />Aprobar</button>}
+          <button className="btn btn-quiet btn-sm" disabled={busy === r.id} onClick={() => setAsk(r)}>{r.status === "pending" ? "Rechazar" : "Quitar de la página"}</button>
+        </div>
+      </div>
+    );
+  };
+  return (
+    <section className="panel" style={{ marginBottom: 16 }} id="pe-reviews">
+      <div className="panel-head"><h2>Reseñas de tus asesorados</h2>{pending.length > 0 && <span className="pill warn">{pending.length} por aprobar</span>}</div>
+      <div className="panel-body stack">
+        <p className="small muted">Las escriben desde su perfil. Al aprobarlas salen en el carrusel de reseñas de tu página; al rechazarlas se borran.</p>
+        {pending.map(item)}
+        {approved.length > 0 && <details><summary className="small strong" style={{ cursor: "pointer" }}>Publicadas ({approved.length})</summary><div className="stack" style={{ marginTop: 10 }}>{approved.map(item)}</div></details>}
+      </div>
+      {ask && <Confirm title={ask.status === "pending" ? "¿Rechazar la reseña?" : "¿Quitar la reseña?"} text="Se borra y deja de verse en tu página. Tu asesorado puede escribir otra cuando quiera."
+        confirmLabel={ask.status === "pending" ? "Rechazar" : "Quitar"} onConfirm={() => act(rejectReview, ask.id, "Reseña eliminada")} onClose={() => setAsk(null)} />}
     </section>
   );
 }

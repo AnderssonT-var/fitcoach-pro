@@ -8,8 +8,11 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../app.dart';
 import '../../core/api.dart';
 import '../../core/json.dart';
+import '../../core/store.dart';
+import '../../core/format.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
 import '../shared/tracking.dart';
@@ -149,6 +152,7 @@ class _PageEditorPageState extends State<PageEditorPage> {
           Text('Compártela en tus redes. El botón «Trabajemos juntos» abre tu WhatsApp e «Iniciar sesión» lleva a tu acceso con tu marca.', style: context.tt.bodySmall),
         ]),
       ),
+      const _ClientReviews(),
       for (final g in groups)
         _Fold(
           icon: _ico(g.sn('icon')),
@@ -478,5 +482,82 @@ class _ImageFieldState extends State<_ImageField> {
         ]),
       ),
     ]));
+  }
+}
+
+/* ------------------------------------------------------------ Reseñas de asesorados */
+class _ClientReviews extends StatelessWidget {
+  const _ClientReviews();
+
+  Future<void> _run(BuildContext context, Future<ApiResult> f, String ok) async {
+    final r = await f;
+    if (!context.mounted) return;
+    r.ok ? toast(context, ok) : toast(context, r.error!, error: true);
+  }
+
+  Widget _item(BuildContext context, J r) {
+    final u = store.userById(r.i('clientId'));
+    final pending = r.s('status') == 'pending';
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: pending ? const Color(0xFFF5B301).withValues(alpha: .6) : context.tok.line),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Avatar.of(u, size: 36),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(u?.s('name') ?? 'Asesorado', style: context.tt.titleSmall),
+              Text('${'★' * r.i('rating')}${'☆' * (5 - r.i('rating'))} · ${shortDate(r.d('createdAt'))}', style: context.tt.bodySmall),
+            ]),
+          ),
+        ]),
+        const Gap(8),
+        Text('“${r.s('text')}”'),
+        if (r.s('detail').isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text(r.s('detail'), style: context.tt.titleSmall)),
+        const Gap(8),
+        Wrap(spacing: 8, children: [
+          if (pending) FilledButton.icon(onPressed: () => _run(context, store.approveReview(r.s('id')), 'Reseña aprobada: ya está en tu página'), icon: const Icon(Icons.check_rounded, size: 18), label: const Text('Aprobar')),
+          OutlinedButton(
+            onPressed: () async {
+              if (!await confirm(context, title: pending ? '¿Rechazar la reseña?' : '¿Quitar la reseña?', text: 'Se borra y deja de verse en tu página. Tu asesorado puede escribir otra cuando quiera.', confirmLabel: pending ? 'Rechazar' : 'Quitar')) return;
+              if (context.mounted) _run(context, store.rejectReview(r.s('id')), 'Reseña eliminada');
+            },
+            child: Text(pending ? 'Rechazar' : 'Quitar de la página'),
+          ),
+        ]),
+      ]),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Watch(builder: (context) {
+      final list = store.reviews;
+      if (list.isEmpty) return const SizedBox.shrink();
+      final pending = list.where((r) => r.s('status') == 'pending').toList();
+      final approved = list.where((r) => r.s('status') == 'approved').toList();
+      return Section(
+        title: 'Reseñas de tus asesorados',
+        trailing: pending.isEmpty ? null : Pill('${pending.length} por aprobar', tone: 'warn'),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text('Las escriben desde su perfil. Al aprobarlas salen en el carrusel de reseñas de tu página; al rechazarlas se borran.', style: context.tt.bodySmall),
+          for (final r in pending) _item(context, r),
+          if (approved.isNotEmpty)
+            Theme(
+              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: Text('Publicadas (${approved.length})', style: context.tt.titleSmall),
+                children: [for (final r in approved) _item(context, r)],
+              ),
+            ),
+        ]),
+      );
+    });
   }
 }
