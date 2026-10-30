@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "341267079327",
+    "project_id": "vytrafit",
+    "storage_bucket": "vytrafit.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:341267079327:android:febca7a0ea3b70509742aa",
+        "android_client_info": {
+          "package_name": "com.atdev.fitcoachpro"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA-pxS00ccYg4s7VS5rtWk4Te1w4yCi1rM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
