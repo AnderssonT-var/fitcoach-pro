@@ -290,6 +290,8 @@ export async function start() {
   await ensureAdmin();
   recordBoot();
   startAlerts();
+  // Datos ficticios para las cuentas de prueba (una sola vez)
+  import("./demo.js").then((m) => m.fillDemo()).catch((e) => console.warn("[demo]", e.message));
   await trackJob("limpieza", housekeeping).catch(() => {});
   const timer = setInterval(() => trackJob("limpieza", housekeeping).catch(() => {}), 6 * 3600e3);
   timer.unref();
