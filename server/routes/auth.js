@@ -155,7 +155,9 @@ publicRouter.get("/brand/:slug", h(async (req, res) => {
   const p = JSON.parse(u.profile || "{}");
   const su = signupSettings(u);
   const signup = su.open && (await coachLicenseRow(u.id)) ? { open: true, trialDays: su.trialDays, trialFee: su.trialFee, fee: su.fee } : { open: false };
-  res.json({ coachId: u.id, coachName: u.name, coachPhoto: p.photo || null, businessName: b.businessName || "", logo: b.logo || null, color: b.color || "", tagline: b.tagline || "", slug, signup });
+  const pg = await knex("coach_pages").where({ coach_id: u.id }).first();
+  const page = !!pg && !!pg.published && pg.published !== "0";
+  res.json({ coachId: u.id, coachName: u.name, coachPhoto: p.photo || null, businessName: b.businessName || "", logo: b.logo || null, color: b.color || "", tagline: b.tagline || "", slug, signup, page });
 }));
 publicRouter.get("/pricing", h(async (_req, res) => {
   const p = await getPricing();

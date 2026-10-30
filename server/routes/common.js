@@ -15,7 +15,7 @@ export function normalizeCode(code) {
   return raw.match(/.{1,4}/g) ? `FIT-${raw.match(/.{1,4}/g).join("-")}` : "";
 }
 
-export const RESERVED_SLUGS = new Set(["privacidad", "terminos", "admin", "api", "login", "activar", "fitcoach", "vytra", "vytrafit", "soporte"]);
+export const RESERVED_SLUGS = new Set(["privacidad", "terminos", "admin", "api", "login", "activar", "fitcoach", "vytra", "vytrafit", "soporte", "assets", "ejercicios", "fonts", "p", "img", "index", "manifest"]);
 export const slugify = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
 export async function slugFrom(name, trx = knex) {
   const base = slugify(name) || "entrenador";

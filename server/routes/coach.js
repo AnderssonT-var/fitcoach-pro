@@ -6,6 +6,7 @@ import { hashPassword, requireConsent, requireLicense, revokeAll, tempPassword }
 import { bad, h, notFound, nowISO, parse, stamp, uid, addMonths, monthlyConcept, round2, isForever, licenseEnd } from "../util.js";
 import { hasMonthly } from "../history.js";
 import { checkInlineImage, deleteFile, saveFile } from "../files.js";
+import { SCHEMA, cleanPage, loadPage, previewSig, renderPage, savePage, dropCache } from "../landing.js";
 import { PLAN_MONTHS, getPricing, planPrice } from "../state.js";
 import { codeLimiter } from "./auth.js";
 import { convertTrial } from "../trial.js";
@@ -74,12 +75,38 @@ router.put("/brand", h(async (req, res) => {
     if (RESERVED_SLUGS.has(slug)) throw bad("Ese enlace está reservado. Prueba con otro.");
     if (await knex("users").where({ brand_slug: slug }).whereNot({ id: req.user.id }).first()) throw bad("Ese enlace ya lo usa otro entrenador. Prueba con otro.");
     patch.brand_slug = slug;
+    dropCache();
   }
   if (body.logo !== undefined) checkInlineImage(body.logo, 350 * 1024);
   const { slug: _s, ...rest } = body;
   patch.brand = S({ ...J(req.user.brand, {}), ...rest });
   await knex("users").where({ id: req.user.id }).update(patch);
   res.json({ ok: true });
+}));
+
+/* ============================================================
+   Página de presentación (se puede preparar sin licencia; se publica con licencia)
+   ============================================================ */
+router.get("/page", h(async (req, res) => {
+  res.json({ page: await loadPage(req.user), schema: SCHEMA, slug: req.user.brand_slug || "", preview: previewSig(req.user.id) });
+}));
+router.put("/page", h(async (req, res) => {
+  if (!req.body || typeof req.body !== "object" || !Array.isArray(req.body.sections)) throw bad("La página no es válida.");
+  const page = await savePage(req.user, req.body);
+  res.json({ ok: true, page });
+}));
+router.post("/page/preview", h(async (req, res) => {
+  const mine = new Set((await knex("files").where({ owner_id: req.user.id, kind: "page" }).select("id")).map((r) => r.id));
+  const page = cleanPage(req.body || {}, mine);
+  const origin = `${req.protocol}://${req.get("host")}`;
+  res.json({ html: renderPage({ page, coach: req.user, origin, slug: req.user.brand_slug || "", preview: true }) });
+}));
+router.post("/page/image", h(async (req, res) => {
+  const { data } = parse(z.object({ data: z.string().max(3_000_000) }), req.body);
+  const n = +(await knex("files").where({ owner_id: req.user.id, kind: "page" }).count({ n: "*" }).first()).n;
+  if (n >= SCHEMA.limits.images) throw bad(`Llegaste al máximo de ${SCHEMA.limits.images} imágenes en tu página. Quita alguna que ya no uses y guarda.`);
+  const id = await saveFile("page", req.user.id, data, 1.6 * 1024 * 1024);
+  res.status(201).json({ id, url: `/p/img/${id}` });
 }));
 
 /* ============================================================

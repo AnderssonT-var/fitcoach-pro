@@ -5,6 +5,7 @@ import crypto from "node:crypto";
 import path from "node:path";
 import express from "express";
 import helmet from "helmet";
+import { mountLanding } from "./landing.js";
 import compression from "compression";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import jwt from "jsonwebtoken";
@@ -205,6 +206,9 @@ export function createApp() {
   app.use("/api/account", authenticate, ...changes, accountRouter);
   app.use("/api", authenticate, ...changes, sharedRouter);
   app.use("/api", (_req, res) => res.status(404).json({ error: "No existe esa ruta." }));
+
+  /* Página de presentación de cada entrenador: /<enlace> */
+  mountLanding(app);
 
   /* App web */
   if (fs.existsSync(path.join(config.webDir, "index.html"))) {

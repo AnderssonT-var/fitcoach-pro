@@ -21,6 +21,7 @@ export const NAV = {
     { id: "comunidad", icon: "community", label: "Comunidad" },
     { id: "biblioteca", icon: "book", label: "Biblioteca" },
     { id: "perfil", icon: "user", label: "Perfil y marca" },
+    { id: "pagina", icon: "layers", label: "Mi página" },
     { id: "suscripcion", icon: "key", label: "Suscripción" },
   ],
   client: [

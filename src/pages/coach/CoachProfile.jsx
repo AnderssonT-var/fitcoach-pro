@@ -20,7 +20,7 @@ export function brandUrl(slug) {
 
 export default function CoachProfile() {
   const db = useDB();
-  const { me } = useApp();
+  const { me, go } = useApp();
   const u = userById(db, me.id);
   const clients = clientsOf(db, me.id).length;
   return (
@@ -37,6 +37,13 @@ export default function CoachProfile() {
           <SecurityPanel />
         </div>
         <div className="stack-lg sticky-col">
+          <section className="panel">
+            <div className="panel-body row" style={{ gap: 14 }}>
+              <span className="ico-badge"><Icon name="layers" size={18} /></span>
+              <div className="grow"><div className="strong">Tu página de presentación</div><div className="small muted">Una web con tus planes, reseñas y botón a WhatsApp.</div></div>
+              <button className="btn btn-primary btn-sm" onClick={() => go("pagina")}>Editar</button>
+            </div>
+          </section>
           <LoginPreview u={u} />
           <PublicCard u={u} clients={clients} />
         </div>

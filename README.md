@@ -223,3 +223,11 @@ android/      proyecto Android (Capacitor)
 
 ---
 Desarrollado por [Andersson Toapanta (A.T.)](https://anderssont-var.github.io/AnderssonT-var.github/)
+
+## Página de presentación de cada entrenador
+
+- Cada entrenador tiene su web en `https://vytra.fit/<enlace>` (el mismo enlace de su acceso con marca).
+- Se edita en **Mi página** (web y app Android): portada, estilo, botones, redes y secciones (sobre mí, texto, tarjetas, cifras, planes, reseñas, galería, preguntas, video, llamado a la acción) que se pueden ordenar, ocultar y duplicar.
+- «Trabajemos juntos» abre WhatsApp con un mensaje listo; «Iniciar sesión» lleva a `/#<enlace>`, el acceso con la marca del entrenador.
+- El servidor arma el HTML (`server/landing.js`): sin scripts, carga rápida y vista previa al compartir por WhatsApp. Las fotos se comprimen en el equipo y se guardan como archivos públicos (`/p/img/<id>`); las que dejan de usarse se borran solas.
+- Sin publicar (o sin licencia vigente), el enlace lleva directo al acceso. La vista previa privada usa `?preview=<firma>`.

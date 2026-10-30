@@ -250,6 +250,15 @@ const MIGRATIONS = [
       t.primary(["user_id", "device"]);
     });
   }],
+  ["008_paginas", async (k) => {
+    const long = (t, name) => (config.db.client === "mysql2" ? t.text(name, "longtext") : t.text(name));
+    await k.schema.createTable("coach_pages", (t) => {
+      t.integer("coach_id").unsigned().primary();
+      long(t, "data");
+      t.boolean("published").notNullable().defaultTo(false);
+      t.string("updated_at", 30);
+    });
+  }],
 ];
 
 /* Varios procesos pueden arrancar a la vez (el hosting levanta más de uno): en MySQL se toma un candado */

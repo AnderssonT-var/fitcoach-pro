@@ -67,6 +67,9 @@ self.addEventListener("fetch", (e) => {
   }
   if (url.pathname.startsWith("/api/")) return; // los datos los maneja la app (guarda su propia copia)
 
+  // Páginas de presentación de entrenadores (/<enlace>) y sus fotos: siempre del servidor, no son la app
+  if (url.pathname.startsWith("/p/") || (req.mode === "navigate" && !/^\/(index\.html)?$/.test(url.pathname))) return;
+
   if (req.mode === "navigate") {
     // Página: la versión nueva si llega rápido; si no hay señal o tarda, la guardada al instante
     e.respondWith((async () => {

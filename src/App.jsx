@@ -30,6 +30,7 @@ import Community from "./pages/shared/Community";
 import Messages from "./pages/shared/Messages";
 import WorkoutSession from "./workout/WorkoutSession";
 import CoachProfile from "./pages/coach/CoachProfile";
+import PageEditor from "./pages/coach/PageEditor";
 import ClientProfile from "./pages/client/ClientProfile";
 
 /** Enlace de acceso con marca: …/#mendez-strength · páginas legales: #privacidad, #terminos */
@@ -158,6 +159,7 @@ export default function App() {
     view = { licencias: <Licenses />, entrenadores: <Coaches />, cobros: <Billing />, sistema: <SystemPage />, cuenta: <AdminAccount /> }[page] || <AdminHome />;
   } else if (me.role === "coach") {
     if (page === "perfil") view = <CoachProfile />;
+    else if (page === "pagina") view = <PageEditor />;
     else if (page === "suscripcion") view = <Subscription />;
     else if (!coachCanWork(db, me.id)) view = <LicenseLock />;
     else if (page === "clientes" && params.id) view = <ClientDetail clientId={params.id} tab={params.tab} slot={params.slot} />;

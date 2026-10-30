@@ -1,3 +1,4 @@
+import { isNative } from "../../store/api";
 import { useState } from "react";
 import Icon from "../../ui/Icon";
 import { BrandMark, Field, PlatesLogo, toast, DevCredit } from "../../ui/kit";
@@ -57,6 +58,7 @@ function LoginForm({ slug, coach, loading, unknownSlug, onBrand, onActivate, onS
           <h1>{coach.businessName || coach.coachName}</h1>
           {coach.tagline && <p>{coach.tagline}</p>}
           <span className="coach-chip">con {coach.coachName}</span>
+          {coach.page && !isNative() && <a className="small link-btn" style={{ marginTop: 8 }} href={`/${coach.slug}`}>Conoce mi página →</a>}
         </div>
       ) : (
         <div className="auth-hero">

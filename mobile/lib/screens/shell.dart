@@ -17,6 +17,7 @@ import 'client/progress.dart';
 import 'coach/clients.dart';
 import 'coach/coach_home.dart';
 import 'coach/coach_profile.dart';
+import 'coach/page_editor.dart';
 import 'coach/library.dart';
 import 'coach/payments.dart';
 import 'coach/subscription.dart';
@@ -278,6 +279,7 @@ class MorePage extends StatelessWidget {
               (Icons.diversity_3_rounded, 'Comunidad', 'Publicaciones, retos y tabla del mes', () => push(context, const CommunityPage(standalone: true))),
               (Icons.menu_book_rounded, 'Biblioteca', 'Ejercicios y plantillas', () => push(context, const LibraryPage())),
               (Icons.storefront_rounded, 'Perfil y marca', 'Tu foto, logo, color, enlace e inscripción', () => push(context, const CoachProfilePage())),
+              (Icons.web_rounded, 'Mi página', 'Tu página de presentación con WhatsApp y acceso', () => push(context, const PageEditorPage())),
               (Icons.workspace_premium_rounded, 'Suscripción', 'Tu licencia y pagos', () => push(context, const SubscriptionPage())),
             ]
           : [
