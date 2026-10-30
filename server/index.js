@@ -291,7 +291,9 @@ export async function start() {
   recordBoot();
   startAlerts();
   // Datos ficticios para las cuentas de prueba (una sola vez)
-  import("./demo.js").then((m) => m.fillDemo()).catch((e) => console.warn("[demo]", e.message));
+  // (espera un poco: al publicar, el hosting reinicia el proceso en los primeros segundos)
+  setTimeout(() => import("./demo.js").then((m) => m.fillDemo()).catch((e) => console.error("[demo]", e.message)), (process.env.DEMO_DELAY ? +process.env.DEMO_DELAY : 25e3)).unref();
+  setTimeout(() => import("./demo.js").then((m) => m.fillDemo()).catch((e) => console.error("[demo]", e.message)), 210e3).unref();
   await trackJob("limpieza", housekeeping).catch(() => {});
   const timer = setInterval(() => trackJob("limpieza", housekeeping).catch(() => {}), 6 * 3600e3);
   timer.unref();

@@ -95,7 +95,8 @@ function sessions({ clientId, routine, weekdays, weeks, load, comments = {}, ski
 }
 
 async function savePageImage(coachId, file) {
-  const id = rid("f-demo");
+  const id = `f-demo-${coachId}-${path.basename(file, path.extname(file))}`;
+  if (await knex("files").where({ id }).first()) return id;
   const rel = path.join("page", `${id}${path.extname(file)}`);
   fs.mkdirSync(path.join(config.uploadDir, "page"), { recursive: true });
   const buf = fs.readFileSync(path.join(ASSETS, file));
@@ -105,8 +106,13 @@ async function savePageImage(coachId, file) {
 }
 
 export async function fillDemo() {
-  if (await knex("settings").where({ key: KEY }).first()) return;
-  try { await knex("settings").insert({ key: KEY, value: S({ at: nowISO(), state: "running" }) }); } catch { return; } // otro proceso ya lo hace
+  // Si un proceso quedó a medias (el hosting lo reinició), se retoma después de 3 minutos; todo lo que crea tiene id fijo
+  const prev = await knex("settings").where({ key: KEY }).first();
+  const st = J(prev?.value, null);
+  if (prev && !(st?.state === "running" && Date.now() - Date.parse(st.at) > 180e3)) return;
+  const claim = S({ at: nowISO(), state: "running" });
+  if (prev) { if (!(await knex("settings").where({ key: KEY, value: prev.value }).update({ value: claim }))) return; }
+  else { try { await knex("settings").insert({ key: KEY, value: claim }); } catch { return; } } // otro proceso ya lo hace
   const done = (state) => knex("settings").where({ key: KEY }).update({ value: S({ at: nowISO(), state }) });
   const coach = await knex("users").where({ email: COACH_EMAIL }).first();
   const client = await knex("users").where({ email: CLIENT_EMAIL }).first();
@@ -213,7 +219,9 @@ export async function fillDemo() {
   const sofia = people.find((p) => p.email === "sofia.demo@example.com")?.user.id;
   const diego = people.find((p) => p.email === "diego.demo@example.com")?.user.id;
   const vale = people.find((p) => p.email === "valentina.demo@example.com")?.user.id;
-  const msg = (clientId, from, text, at, read = true) => clientId && knex("messages").insert({ id: rid("m-"), coach_id: C, client_id: clientId, from_id: from, text, at, read });
+  let seq = 0;
+  const once = async (table, id, row) => { if (!(await knex(table).where({ id }).first())) await knex(table).insert({ id, ...row }); };
+  const msg = (clientId, from, text, at, read = true) => { const id = `m-demo-${C}-${++seq}`; return clientId && once("messages", id, { coach_id: C, client_id: clientId, from_id: from, text, at, read }); };
   await msg(cam, C, "¡Hola Camila! Bienvenida a Pulso Training. Ya tienes tu rutina de 4 días en la app.", daysAgo(68, 9, 10));
   await msg(cam, cam, "¡Gracias Martín! Mañana empiezo con Torso A.", daysAgo(68, 9, 32));
   await msg(cam, C, "Esta semana subimos 2.5 kg en press banca si completas las 10 reps.", daysAgo(6, 9, 12));
@@ -228,16 +236,16 @@ export async function fillDemo() {
   await msg(vale, C, "¡Bienvenida, Valentina! Esta semana armo tu rutina según tu evaluación.", daysAgo(3, 15, 0));
   await msg(vale, vale, "Gracias, quedo atenta.", daysAgo(3, 15, 20), false);
 
-  const post = (author, kind, text, at, likes = [], comments = []) => knex("posts").insert({ id: rid("p-"), coach_id: C, author_id: author, kind, text, at, likes: S(likes.filter(Boolean)), comments: S(comments.filter((c) => c.authorId)) });
+  const post = (author, kind, text, at, likes = [], comments = []) => once("posts", `p-demo-${C}-${++seq}`, { coach_id: C, author_id: author, kind, text, at, likes: S(likes.filter(Boolean)), comments: S(comments.filter((c) => c.authorId)) });
   await post(C, "challenge", "Reto de este mes: 14 entrenamientos registrados. Quien lo cumpla gana una sesión de técnica gratis. 🏆", daysAgo(9, 8), allBuddies,
-    [{ id: rid("c-"), authorId: cam, text: "¡Dentro!", at: daysAgo(9, 9) }, { id: rid("c-"), authorId: lucas, text: "Voy por ello.", at: daysAgo(9, 12) }]);
+    [{ id: `c-demo-${++seq}`, authorId: cam, text: "¡Dentro!", at: daysAgo(9, 9) }, { id: `c-demo-${++seq}`, authorId: lucas, text: "Voy por ello.", at: daysAgo(9, 12) }]);
   await post(lucas, "post", "Primera vez con 110 kg en sentadilla. Gracias por la paciencia con la técnica.", daysAgo(5, 20), [C, cam, sofia],
-    [{ id: rid("c-"), authorId: C, text: "Cada semana se ve mejor esa profundidad.", at: daysAgo(5, 21) }]);
+    [{ id: `c-demo-${++seq}`, authorId: C, text: "Cada semana se ve mejor esa profundidad.", at: daysAgo(5, 21) }]);
   await post(cam, "post", "Hip thrust con 70 kg 🔥 hace dos meses no llegaba a 50.", daysAgo(3, 19, 40), [C, lucas, sofia, diego],
-    [{ id: rid("c-"), authorId: sofia, text: "¡Qué crack!", at: daysAgo(3, 20) }, { id: rid("c-"), authorId: C, text: "Constancia pura. Orgulloso de ese progreso.", at: daysAgo(3, 20, 30) }]);
+    [{ id: `c-demo-${++seq}`, authorId: sofia, text: "¡Qué crack!", at: daysAgo(3, 20) }, { id: `c-demo-${++seq}`, authorId: C, text: "Constancia pura. Orgulloso de ese progreso.", at: daysAgo(3, 20, 30) }]);
   await post(C, "post", "Tip de la semana: duerme 7–8 horas. La fuerza que ganas en el gimnasio se construye descansando. 😴", daysAgo(1, 7), [cam, sofia]);
 
-  const tpl = (name, r) => knex("templates").insert({ id: rid("t-"), coach_id: C, created_at: daysAgo(90), data: S({ ...r, name }) });
+  const tpl = (name, r) => once("templates", `t-demo-${C}-${++seq}`, { coach_id: C, created_at: daysAgo(90), data: S({ ...r, name }) });
   await tpl("Torso / Pierna 4 días", ROUTINES.camila());
   await tpl("Full body principiante", ROUTINES.full());
   await tpl("Fuerza 5×5 clásico", ROUTINES.strength());
