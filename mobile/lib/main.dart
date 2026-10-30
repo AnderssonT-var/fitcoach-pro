@@ -12,6 +12,7 @@ import 'app.dart';
 import 'core/api.dart';
 import 'core/catalog.dart';
 import 'core/notify.dart';
+import 'core/push.dart';
 import 'core/store.dart';
 
 /* Errores de la app: se reportan al servidor (el administrador los ve en «Sistema»). */
@@ -43,6 +44,7 @@ Future<void> main() async {
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   await Catalog.load();
   await Notify.I.init();
+  await Push.I.init();
   runApp(const VytrafitApp());
   await AppStore.I.init();
 }

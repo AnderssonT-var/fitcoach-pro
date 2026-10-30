@@ -23,6 +23,7 @@ import { cronRouter, logError, pushRouter, reportRouter, systemRouter } from "./
 import { runJobs } from "./jobs.js";
 import { APP_VERSION, count, addTime, httpMetrics, recordBoot, recordStop, trackJob } from "./metrics.js";
 import { startAlerts } from "./alerts.js";
+import { loadFcm } from "./notify.js";
 import { bumpAfterChange, coachIdOf, versions } from "./versions.js";
 import { idempotency, syncReport, trackDevice } from "./sync.js";
 import { loadLevel, pollSeconds, stateGate } from "./load.js";
@@ -288,6 +289,7 @@ export async function start() {
   if (!fs.existsSync(path.join(config.webDir, "index.html"))) console.warn("[VYTRAFIT] No se encontró la app compilada (dist). Ejecuta: npm run build");
   await migrate();
   await ensureAdmin();
+  await loadFcm().catch(() => {});
   recordBoot();
   startAlerts();
   // Datos ficticios para las cuentas de prueba (una sola vez)

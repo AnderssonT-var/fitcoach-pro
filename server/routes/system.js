@@ -12,8 +12,8 @@ import { activeAlerts, evaluate } from "../alerts.js";
 import { loadLevel, pollSeconds, stateGate } from "../load.js";
 import { poolInfo } from "../pwpool.js";
 import { authenticate, requireRole } from "../auth.js";
-import { h, notFound, nowISO, parse } from "../util.js";
-import { fcmEnabled, getVapid, notify, removeSubscription, saveSubscription } from "../notify.js";
+import { bad, h, notFound, nowISO, parse } from "../util.js";
+import { fcmEnabled, fcmInfo, getVapid, loadFcm, notify, parseFcmAccount, removeSubscription, saveSubscription, testFcmAccount } from "../notify.js";
 import { runJobs } from "../jobs.js";
 
 /* ---------- notificaciones push ---------- */
@@ -244,6 +244,23 @@ systemRouter.delete("/errors", h(async (req, res) => {
   if (req.query.fingerprint) await knex("error_log").where({ fingerprint: String(req.query.fingerprint).slice(0, 64) }).delete();
   else await knex("error_log").delete();
   res.json({ ok: true });
+}));
+/* Notificaciones Android: el administrador sube el archivo de la cuenta de servicio de Firebase */
+systemRouter.get("/fcm", h(async (_req, res) => { await loadFcm(); res.json({ fcm: fcmInfo() }); }));
+systemRouter.put("/fcm", h(async (req, res) => {
+  const { json } = parse(z.object({ json: z.string().max(20000) }), req.body);
+  const a = parseFcmAccount(json);
+  if (!a) throw bad("Ese archivo no es una cuenta de servicio de Firebase. Descárgalo en Configuración del proyecto → Cuentas de servicio → Generar nueva clave privada.");
+  try { await testFcmAccount(a); } catch (e) { throw bad(`Google no aceptó la clave: ${e.message}`); }
+  const value = JSON.stringify({ type: a.type, project_id: a.project_id, private_key_id: a.private_key_id, private_key: a.private_key, client_email: a.client_email, client_id: a.client_id });
+  await knex("settings").insert({ key: "fcm:account", value }).onConflict("key").merge(["value"]);
+  await loadFcm();
+  res.json({ ok: true, fcm: fcmInfo() });
+}));
+systemRouter.delete("/fcm", h(async (_req, res) => {
+  await knex("settings").where({ key: "fcm:account" }).delete();
+  await loadFcm();
+  res.json({ ok: true, fcm: fcmInfo() });
 }));
 systemRouter.post("/jobs", h(async (_req, res) => res.json(await trackJob("avisos", runJobs))));
 systemRouter.post("/check", h(async (_req, res) => res.json({ alerts: await evaluate() })));

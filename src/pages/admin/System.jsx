@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Icon from "../../ui/Icon";
 import { Empty, Pill, Stat, run, toast } from "../../ui/kit";
-import { clearErrors, fetchSystem, runChecksNow, runJobsNow } from "../../store/db";
+import { clearErrors, fcmStatus, fetchSystem, removeFcmKey, runChecksNow, runJobsNow, saveFcmKey } from "../../store/db";
 import { NotificationsPanel } from "../shared/Account";
 import { ago } from "../../lib/format";
 
@@ -367,6 +367,7 @@ export default function SystemPage() {
                   ["Equipos dados de baja", `${int(d.hour.push.gone)} · ${int(d.day.push.gone)}`],
                 ]} />
               </Section>
+              <FcmSetup onChange={load} />
               <NotificationsPanel />
             </>
           )}
@@ -404,5 +405,50 @@ export default function SystemPage() {
         </>
       )}
     </div>
+  );
+}
+
+/** Notificaciones de la app Android: se sube el archivo de la cuenta de servicio de Firebase. */
+function FcmSetup({ onChange }) {
+  const [info, setInfo] = useState(undefined);
+  const [busy, setBusy] = useState(false);
+  const input = useRef(null);
+  useEffect(() => { fcmStatus().then((r) => setInfo(r.error ? null : r.fcm)); }, []);
+  async function upload(file) {
+    if (!file) return;
+    if (file.size > 20000) return toast("Ese archivo es demasiado grande para ser la clave de Firebase", "alert");
+    setBusy(true);
+    const r = await saveFcmKey(await file.text());
+    setBusy(false);
+    if (r.error) return toast(r.error, "alert");
+    setInfo(r.fcm); onChange?.();
+    toast("¡Listo! Las notificaciones de Android quedaron conectadas", "bell");
+  }
+  async function remove() {
+    if (!window.confirm("¿Quitar la clave de Firebase? La app Android dejará de recibir notificaciones.")) return;
+    const r = await removeFcmKey();
+    if (r.error) return toast(r.error, "alert");
+    setInfo(r.fcm); onChange?.();
+  }
+  return (
+    <section className="panel">
+      <div className="panel-head"><h2>Notificaciones de la app Android</h2>{info && <Pill tone="ok">Conectado</Pill>}</div>
+      <div className="panel-body stack">
+        {info === undefined ? <p className="small muted">Revisando…</p> : info ? (
+          <>
+            <p className="small ink2">Proyecto de Firebase <b>{info.project}</b>. Los avisos (mensajes, pagos, reseñas…) llegan al celular aunque la app esté cerrada.</p>
+            <p className="tiny muted">{info.email}{info.fromEnv ? " · definida en las variables del servidor" : ""}</p>
+            {!info.fromEnv && <div className="row wrap gap-sm"><button className="btn btn-quiet btn-sm" onClick={() => input.current?.click()} disabled={busy}>Cambiar clave</button><button className="btn btn-ghost btn-sm" onClick={remove}>Quitar</button></div>}
+          </>
+        ) : (
+          <>
+            <p className="small ink2">Para que la app Android reciba notificaciones con la app cerrada, sube la <b>clave privada de la cuenta de servicio</b> de tu proyecto Firebase (un archivo .json).</p>
+            <p className="tiny muted">Firebase → ⚙️ Configuración del proyecto → Cuentas de servicio → «Generar nueva clave privada».</p>
+            <div><button className="btn btn-primary btn-sm" onClick={() => input.current?.click()} disabled={busy}><Icon name="upload" size={15} />{busy ? "Comprobando con Google…" : "Subir archivo .json"}</button></div>
+          </>
+        )}
+        <input ref={input} type="file" accept=".json,application/json" hidden onChange={(e) => { upload(e.target.files?.[0]); e.target.value = ""; }} />
+      </div>
+    </section>
   );
 }

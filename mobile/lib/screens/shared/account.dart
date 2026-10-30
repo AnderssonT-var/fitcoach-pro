@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/format.dart';
 import '../../core/json.dart';
 import '../../core/notify.dart';
+import '../../core/push.dart';
 import '../../core/store.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
@@ -115,6 +116,7 @@ class _NotificationsPanelState extends State<NotificationsPanel> {
             OutlinedButton.icon(onPressed: () => Notify.I.test(), icon: const Icon(Icons.notifications_rounded), label: const Text('Enviar una de prueba')),
             TextButton(
               onPressed: busy ? null : () async {
+                await Push.I.unregister();
                 await Notify.I.disable();
                 if (!mounted) return;
                 setState(() => status = 'off');
@@ -140,6 +142,7 @@ class _NotificationsPanelState extends State<NotificationsPanel> {
                 setState(() => status = 'on');
                 toast(context, 'Notificaciones activadas', icon: Icons.notifications_rounded);
                 Notify.I.test();
+                Push.I.register();
                 if (!coach) Notify.I.scheduleReminders(saved);
               },
               icon: const Icon(Icons.notifications_active_rounded),

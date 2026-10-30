@@ -183,6 +183,15 @@ class Notify {
     }
   }
 
+  /// Canal de «Avisos» (lo usan también las notificaciones que llegan del servidor).
+  Future<void> ensureChannel() async {
+    if (!_ready) return;
+    try {
+      await _android?.createNotificationChannel(const AndroidNotificationChannel('avisos', 'Avisos',
+          description: 'Mensajes de tu entrenador, pagos, reseñas y novedades.', importance: Importance.high));
+    } catch (_) {}
+  }
+
   /// Aviso inmediato (mensajes nuevos, etc. mientras la app está abierta en segundo plano).
   Future<void> show(int id, String title, String body) async {
     if (!_ready || (await status()) != 'on') return;

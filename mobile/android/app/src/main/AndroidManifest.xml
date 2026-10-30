@@ -38,6 +38,9 @@
             </intent-filter>
         </receiver>
         <meta-data android:name="flutterEmbedding" android:value="2" />
+        <!-- Notificaciones del servidor (Firebase): ícono y canal «Avisos» -->
+        <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_stat_vytrafit" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="avisos" />
     </application>
     <queries>
         <intent>

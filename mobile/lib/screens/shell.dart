@@ -18,6 +18,7 @@ import 'coach/clients.dart';
 import 'coach/coach_home.dart';
 import 'coach/coach_profile.dart';
 import 'coach/page_editor.dart';
+import '../core/push.dart';
 import 'coach/library.dart';
 import 'coach/payments.dart';
 import 'coach/subscription.dart';
@@ -78,6 +79,10 @@ class _ShellState extends State<Shell> {
   void initState() {
     super.initState();
     current = this;
+    // Avisos del servidor en este teléfono (Firebase) y qué abrir al tocarlos
+    Push.I.register();
+    Push.I.open.addListener(_openFromPush);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _openFromPush());
     // Recordatorios locales del asesorado (sin servidor de notificaciones)
     if (!store.isCoach) Notify.I.scheduleReminders(store.me?.m('notif')?.m('reminder'));
   }
@@ -97,6 +102,34 @@ class _ShellState extends State<Shell> {
           TabDef('mensajes', 'Coach', Icons.chat_bubble_outline_rounded, Icons.chat_bubble_rounded, MessagesPage()),
           TabDef('mas', 'Más', Icons.grid_view_outlined, Icons.grid_view_rounded, MorePage()),
         ];
+
+  @override
+  void dispose() {
+    Push.I.open.removeListener(_openFromPush);
+    super.dispose();
+  }
+
+  void _openFromPush() {
+    final o = Push.I.open.value;
+    if (o == null || !mounted) return;
+    Push.I.open.value = null;
+    final (page, _) = o;
+    Navigator.of(context).popUntil((r) => r.isFirst);
+    switch (page) {
+      case 'pagina':
+        if (store.isCoach) push(context, const PageEditorPage());
+      case 'perfil':
+        store.isCoach ? push(context, const CoachProfilePage()) : push(context, const ClientProfilePage());
+      case 'suscripcion':
+        if (store.isCoach) push(context, const SubscriptionPage());
+      case 'comunidad':
+        push(context, const CommunityPage(standalone: true));
+      case 'pagos':
+        store.isCoach ? go('pagos') : push(context, const MyPayments());
+      default:
+        go(page);
+    }
+  }
 
   void go(String id) {
     final i = tabs.indexWhere((t) => t.id == id);

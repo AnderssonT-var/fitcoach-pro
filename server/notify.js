@@ -29,19 +29,43 @@ export async function getVapid() {
 }
 
 /* ---------- Firebase (opcional) ---------- */
-let fcmAccount;
-function fcmConfig() {
-  if (fcmAccount !== undefined) return fcmAccount;
-  const raw = process.env.FCM_SERVICE_ACCOUNT || "";
-  try {
-    const txt = raw.trim().startsWith("{") ? raw : Buffer.from(raw, "base64").toString("utf8");
-    const a = JSON.parse(txt);
-    fcmAccount = a.client_email && a.private_key && a.project_id ? a : null;
-  } catch { fcmAccount = null; }
-  return fcmAccount;
-}
-export const fcmEnabled = () => !!fcmConfig();
+/* La cuenta de servicio viene de la variable FCM_SERVICE_ACCOUNT o, si no está, de la que subió
+   el administrador en Sistema → Notificaciones (se guarda en settings). Se relee cada 5 minutos
+   para que todos los procesos del servidor la vean. */
+let fcmAccount = null;
 let fcmToken = { value: null, exp: 0 };
+export function parseFcmAccount(raw) {
+  try {
+    const txt = String(raw || "").trim();
+    if (!txt) return null;
+    const a = JSON.parse(txt.startsWith("{") ? txt : Buffer.from(txt, "base64").toString("utf8"));
+    return a.type === "service_account" && a.client_email && a.private_key && a.project_id ? a : null;
+  } catch { return null; }
+}
+export async function loadFcm() {
+  let a = parseFcmAccount(process.env.FCM_SERVICE_ACCOUNT);
+  if (!a) {
+    try { a = parseFcmAccount((await knex("settings").where({ key: "fcm:account" }).first())?.value); } catch { a = null; }
+  }
+  if (a?.client_email !== fcmAccount?.client_email || a?.private_key !== fcmAccount?.private_key) fcmToken = { value: null, exp: 0 };
+  fcmAccount = a;
+  return !!a;
+}
+setInterval(() => loadFcm().catch(() => {}), 300e3).unref();
+const fcmConfig = () => fcmAccount;
+export const fcmEnabled = () => !!fcmAccount;
+export const fcmInfo = () => (fcmAccount ? { project: fcmAccount.project_id, email: fcmAccount.client_email, fromEnv: !!parseFcmAccount(process.env.FCM_SERVICE_ACCOUNT) } : null);
+/** Comprueba que Google acepte la cuenta (pide un permiso de envío). */
+export async function testFcmAccount(a) {
+  const now = Math.floor(Date.now() / 1000);
+  const assertion = jwt.sign({ iss: a.client_email, scope: "https://www.googleapis.com/auth/firebase.messaging", aud: "https://oauth2.googleapis.com/token", iat: now, exp: now + 3600 },
+    a.private_key, { algorithm: "RS256" });
+  const r = await fetch("https://oauth2.googleapis.com/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion }) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error_description || d.error || `Google respondió ${r.status}`);
+  return true;
+}
 async function fcmAccessToken() {
   if (fcmToken.value && fcmToken.exp > Date.now() + 60e3) return fcmToken.value;
   const a = fcmConfig();

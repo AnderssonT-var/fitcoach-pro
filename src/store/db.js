@@ -784,6 +784,9 @@ export async function signupWithCoach(data) {
 export const fetchSystem = (range = "1h") => api("GET", `/api/admin/system?range=${range}`);
 export const clearErrors = (fingerprint) => api("DELETE", `/api/admin/system/errors${fingerprint ? `?fingerprint=${fingerprint}` : ""}`);
 export const runJobsNow = () => api("POST", "/api/admin/system/jobs", {});
+export const fcmStatus = () => api("GET", "/api/admin/system/fcm");
+export const saveFcmKey = (json) => api("PUT", "/api/admin/system/fcm", { json });
+export const removeFcmKey = () => api("DELETE", "/api/admin/system/fcm");
 export const runChecksNow = () => api("POST", "/api/admin/system/check", {});
 
 export function sendMessage(coachId, clientId, from, text, ref = null) {

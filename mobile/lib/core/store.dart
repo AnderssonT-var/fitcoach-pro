@@ -17,6 +17,7 @@ import 'catalog.dart';
 import 'disk.dart';
 import 'format.dart';
 import 'json.dart';
+import 'push.dart';
 import 'techniques.dart';
 
 enum Status { boot, guest, ready, offline }
@@ -869,6 +870,7 @@ class AppStore extends ChangeNotifier {
 
   /// Al salir a propósito se borra lo guardado en el celular (datos y cambios sin subir de esta cuenta).
   Future<void> logout() async {
+    await Push.I.unregister();
     final rt = Api.I.refreshToken;
     final me = _uid;
     _pendingActive = null;

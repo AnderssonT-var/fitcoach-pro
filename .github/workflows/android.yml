@@ -67,6 +67,27 @@ jobs:
           path: ~/.android/debug.keystore
           key: vytrafit-debug-keystore-v1
 
+      - name: Notificaciones (Firebase, si existe el secreto GOOGLE_SERVICES_JSON)
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          # Si no está como secreto, se usa el archivo del repositorio (sus datos van dentro de la app de todas formas)
+          if [ -z "$GOOGLE_SERVICES_JSON" ] && [ -f android/app/google-services.json ]; then GOOGLE_SERVICES_JSON=$(cat android/app/google-services.json); fi
+          if [ -z "$GOOGLE_SERVICES_JSON" ]; then
+            echo "::warning::Sin GOOGLE_SERVICES_JSON: la app se compila sin notificaciones del servidor."
+            echo "FCM_DEFINES=" >> "$GITHUB_ENV"; exit 0
+          fi
+          echo "$GOOGLE_SERVICES_JSON" > "$RUNNER_TEMP/gs.json"
+          PKG=com.atdev.fitcoachpro
+          PROJECT=$(jq -r '.project_info.project_id' "$RUNNER_TEMP/gs.json")
+          SENDER=$(jq -r '.project_info.project_number' "$RUNNER_TEMP/gs.json")
+          APPID=$(jq -r --arg p "$PKG" '.client[] | select(.client_info.android_client_info.package_name==$p) | .client_info.mobilesdk_app_id' "$RUNNER_TEMP/gs.json" | head -1)
+          KEY=$(jq -r --arg p "$PKG" '.client[] | select(.client_info.android_client_info.package_name==$p) | .api_key[0].current_key' "$RUNNER_TEMP/gs.json" | head -1)
+          if [ -z "$APPID" ] || [ -z "$KEY" ] || [ "$APPID" = "null" ]; then echo "::error::google-services.json no tiene la app $PKG"; exit 1; fi
+          echo "::add-mask::$KEY"
+          echo "FCM_DEFINES=--dart-define=FCM_API_KEY=$KEY --dart-define=FCM_APP_ID=$APPID --dart-define=FCM_SENDER_ID=$SENDER --dart-define=FCM_PROJECT_ID=$PROJECT" >> "$GITHUB_ENV"
+          echo "::notice::Notificaciones activadas (proyecto $PROJECT)"
+
       - name: Compilar APK
         env:
           FCP_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -74,7 +95,7 @@ jobs:
           FCP_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           BUILD_NUMBER=$((100 + GITHUB_RUN_NUMBER))
-          if ! flutter build apk --release --build-name="${VERSION#v}" --build-number="$BUILD_NUMBER" --dart-define=API_URL="$API_URL" > build.log 2>&1; then
+          if ! flutter build apk --release --build-name="${VERSION#v}" --build-number="$BUILD_NUMBER" --dart-define=API_URL="$API_URL" $FCM_DEFINES > build.log 2>&1; then
             { grep -A8 "What went wrong" build.log; grep -E "^e: |error:|Error:|FAILURE|Exception" build.log | head -25; } | head -50 | while IFS= read -r l; do echo "::error::$l"; done
             tail -40 build.log | while IFS= read -r l; do echo "::warning::$l"; done
             exit 1
