@@ -38,7 +38,7 @@ export async function ensureAthlete(admin) {
 /* ---------------- Rutina personal de Andersson (5 días, versión ajustada) ----------------
    Cambios frente a la primera versión: espalda y pecho equilibrados (dos días cada uno),
    tríceps con 3 ejercicios, más deltoide lateral, face pull en vez de elevación frontal
-   y sesiones más cortas (8–10 ejercicios). */
+   y sesiones más cortas (8–10 ejercicios). Hombros solo en los días 3 y 5 (nunca seguidos). */
 let n = 0;
 const ex = (exId, sets, rest, notes = "", reps = "10-15") => ({ uid: `ra-${++n}`, exId, sets, reps, rest, notes });
 function andersonRoutine() {
@@ -59,12 +59,11 @@ function andersonRoutine() {
         ex(82, 3, 60),                               // Aductores en máquina
         ex(18, 4, 60, "", "12-15"),                  // Gemelos de pie
       ] },
-      { id: "d-at-2", name: "Día 2 · Pecho, tríceps y hombro lateral", exercises: [
+      { id: "d-at-2", name: "Día 2 · Pecho y tríceps", exercises: [
         ex(32, 3, 60, "Para calentar el pecho"),     // Pec deck
         ex(11, 4, 120),                              // Press inclinado con mancuernas
         ex(120, 4, 120, "Press plano en Hammer"),    // Press de pecho en Hammer
         ex(124, 3, 120, "Smith inclinado"),          // Press inclinado en Smith
-        ex(13, 4, 60),                               // Elevaciones laterales
         ex(6, 4, 60),                                // Extensión de tríceps en polea
         ex(61, 3, 60, "Con barra, sentado"),         // Extensión de tríceps sobre la cabeza
         ex(169, 3, 60, "Polea cruzada, cada brazo"), // Extensión de tríceps a una mano
@@ -99,13 +98,13 @@ function andersonRoutine() {
         ex(56, 3, 60),                               // Curl de bíceps en polea
         ex(50, 3, 60),                               // Curl martillo
         ex(49, 3, 60, "Con barra o con mancuernas"), // Curl con barra
-        ex(212, 3, 60),                              // Elevaciones laterales en máquina
+        ex(13, 4, 60, "Hombro lateral (con mancuernas)"), // Elevaciones laterales
       ] },
     ],
   };
 }
 
-const KEY = "athlete-routine:andersson:v2";
+const KEY = "athlete-routine:andersson:v3";
 const ADMIN_EMAIL = "anderssontoapanta@gmail.com";
 
 /** Carga la rutina una sola vez (si ya tenía otra, se guarda como respaldo). Se puede repetir sin duplicar nada. */
