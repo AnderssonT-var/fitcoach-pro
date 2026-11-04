@@ -10,6 +10,7 @@ import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
 import '../shared/account.dart';
 import '../shell.dart';
+import 'my_routine.dart';
 
 int estimateMin(J day) {
   final sec = day.lm('exercises').fold<int>(0, (t, e) => t + e.i('sets') * (40 + parseRest(e['rest'])));
@@ -82,12 +83,19 @@ class _ClientHomeState extends State<ClientHome> {
           _ResumeCard(active: active, onTap: () => openWorkout(context))
         else if (routine == null)
           Panel(
-            child: EmptyState(
-              icon: Icons.fitness_center_rounded,
-              title: '$coachFirst está preparando tu rutina',
-              text: 'Te avisaremos aquí apenas esté lista. Mientras tanto puedes escribirle.',
-              action: FilledButton(onPressed: () => goTab(context, 'mensajes'), child: const Text('Escribir a mi entrenador')),
-            ),
+            child: store.selfCoached
+                ? EmptyState(
+                    icon: Icons.fitness_center_rounded,
+                    title: 'Arma tu rutina',
+                    text: 'Elige tus días y ejercicios. Después la entrenas desde aquí, con temporizador de descanso y registro de cada serie.',
+                    action: FilledButton(onPressed: () => openOwnRoutineEditor(context), child: const Text('Crear mi rutina')),
+                  )
+                : EmptyState(
+                    icon: Icons.fitness_center_rounded,
+                    title: '$coachFirst está preparando tu rutina',
+                    text: 'Te avisaremos aquí apenas esté lista. Mientras tanto puedes escribirle.',
+                    action: FilledButton(onPressed: () => goTab(context, 'mensajes'), child: const Text('Escribir a mi entrenador')),
+                  ),
           )
         else if (day != null)
           _TodayCard(
@@ -120,7 +128,7 @@ class _ClientHomeState extends State<ClientHome> {
               ]),
             ]),
           ),
-        if (lastCoach != null)
+        if (lastCoach != null && !store.selfCoached)
           Panel(
             onTap: () => goTab(context, 'mensajes'),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

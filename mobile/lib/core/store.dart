@@ -868,6 +868,17 @@ class AppStore extends ChangeNotifier {
     return _enter(r);
   }
 
+  /// Modo atleta del administrador: se entrena a sí mismo (arma su propia rutina, sin chat ni pagos).
+  bool get selfCoached => role == 'client' && (myClient?.b('selfCoached') ?? false);
+  bool get hasLinked => role == 'admin' || me?.inn('linkedId') != null;
+
+  /// Admin ⇄ su perfil de atleta, sin volver a escribir la contraseña.
+  Future<ApiResult> switchAccount() async {
+    final r = await Api.I.call('POST', '/api/auth/switch', {'refreshToken': Api.I.refreshToken});
+    if (!r.ok) return r.offline ? const ApiResult(error: 'Necesitas conexión a internet para cambiar de perfil.', status: 0, offline: true) : r;
+    return _enter(r);
+  }
+
   /// Al salir a propósito se borra lo guardado en el celular (datos y cambios sin subir de esta cuenta).
   Future<void> logout() async {
     await Push.I.unregister();
@@ -979,7 +990,8 @@ class AppStore extends ChangeNotifier {
 
   Future<ApiResult> saveRoutine(int clientId, J? routine, [String slot = 'current']) {
     final clean = routine == null ? null : cleanRoutine(routine);
-    return _act('PUT', '/api/coach/clients/$clientId/routine', {'routine': clean, 'slot': slot}, 'routine', {'clientId': clientId, 'routine': clean, 'slot': slot},
+    final own = clientId == meId && role == 'client'; // modo atleta: su propia rutina
+    return _act('PUT', own ? '/api/client/routine' : '/api/coach/clients/$clientId/routine', {'routine': clean, 'slot': slot}, 'routine', {'clientId': clientId, 'routine': clean, 'slot': slot},
         'Rutina de ${_first(clientId)}');
   }
 

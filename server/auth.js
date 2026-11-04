@@ -135,7 +135,9 @@ export async function requireClientAccess(req, _res, next) {
     if (req.user.role !== "client") return next();
     const c = await knex("clients").where({ user_id: req.user.id }).first();
     if (!c || !bool(c.active)) throw new HttpError(403, "Tu entrenador pausó esta cuenta. Escríbele para reactivarla.", { code: "client_inactive" });
-    if (!(await coachLicenseRow(c.coach_id))) throw new HttpError(403, "El acceso de tu entrenador está pausado por ahora.", { code: "coach_license" });
+    const selfCoached = req.user.linked_id && c.coach_id === req.user.linked_id;
+    if (!selfCoached && !(await coachLicenseRow(c.coach_id))) throw new HttpError(403, "El acceso de tu entrenador está pausado por ahora.", { code: "coach_license" });
+    req.selfCoached = !!selfCoached;
     req.client = c;
     next();
   } catch (e) { next(e); }

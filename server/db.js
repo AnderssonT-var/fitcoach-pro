@@ -272,6 +272,10 @@ const MIGRATIONS = [
       t.string("reviewed_at", 30).nullable();
     });
   }],
+  ["010_cuenta_enlazada", async (k) => {
+    // El administrador puede tener un perfil de atleta enlazado (para entrenar con su propia rutina)
+    await k.schema.alterTable("users", (t) => { t.integer("linked_id").unsigned().nullable(); });
+  }],
 ];
 
 /* Varios procesos pueden arrancar a la vez (el hosting levanta más de uno): en MySQL se toma un candado */

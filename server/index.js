@@ -163,7 +163,7 @@ export function createApp() {
     if (u.role === "client") {
       const c = await knex("clients").where({ user_id: u.id }).select("active", "coach_id").first();
       if (!c || !bool(c.active)) access = { ok: false, code: "client_inactive", message: "Tu entrenador pausó esta cuenta. Escríbele para reactivarla." };
-      else if (!(await coachLicenseRow(c.coach_id))) access = { ok: false, code: "coach_license", message: "El acceso de tu entrenador está pausado por ahora. Vuelve a intentar más tarde." };
+      else if (!(u.linked_id && c.coach_id === u.linked_id) && !(await coachLicenseRow(c.coach_id))) access = { ok: false, code: "coach_license", message: "El acceso de tu entrenador está pausado por ahora. Vuelve a intentar más tarde." };
       else access = { ok: true };
     }
     const scopes = ["g", coach && `c:${coach}`, `u:${u.id}`, coach && `w:${coach}`].filter(Boolean);

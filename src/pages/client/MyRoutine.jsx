@@ -8,6 +8,7 @@ import { clock, kg, parseRest } from "../../lib/format";
 import { estimateMin } from "./ClientHome";
 import { dropLabel, isDrop, setText } from "../../workout/dropset";
 import { trialInfo } from "../../lib/trial";
+import RoutineEditor from "../coach/RoutineEditor";
 import { effortHelp, effortLabel, supersets, tempoHelp } from "../../workout/techniques";
 
 export default function MyRoutine() {
@@ -18,7 +19,20 @@ export default function MyRoutine() {
   const [dayId, setDayId] = useState(() => nextDay(db, me.id)?.id);
   const active = db.active[me.id];
   const [view, setView] = useState(null);
+  const [editing, setEditing] = useState(false);
 
+  // Modo atleta (se entrena a sí mismo): arma y edita su propia rutina
+  if (c.selfCoached && (editing || !c.routine)) {
+    return (
+      <div className="page" style={{ maxWidth: 980 }}>
+        <div className="page-head">
+          <div><h1>{c.routine ? "Editar mi rutina" : "Mi rutina"}</h1><p>Tú decides los días, ejercicios, series y descansos.</p></div>
+          {c.routine && <button className="btn btn-ghost" onClick={() => setEditing(false)}>Volver</button>}
+        </div>
+        <RoutineEditor clientId={me.id} self onSaved={() => setEditing(false)} />
+      </div>
+    );
+  }
   if (!c.routine) {
     return <div className="page"><section className="panel"><Empty icon="dumbbell" title="Aún no tienes rutina" text={`${coach.name.split(" ")[0]} la está preparando.`} /></section></div>;
   }
@@ -30,12 +44,13 @@ export default function MyRoutine() {
         <div>
           <h1>{c.routine.name}</h1>
           {trialInfo(c)?.running && <span className="pill info" style={{ marginTop: 6 }}><Icon name="clock" size={12} />Rutina de prueba · quedan {trialInfo(c).daysLeft} días</span>}
-          <p>{c.routine.goal} · {c.routine.frequency} entrenamientos por semana · preparada por {coach.name}</p>
+          <p>{c.routine.goal} · {c.routine.frequency} entrenamientos por semana{c.selfCoached ? "" : ` · preparada por ${coach.name}`}</p>
         </div>
+        {c.selfCoached && <button className="btn btn-quiet" onClick={() => setEditing(true)}><Icon name="pencil" size={17} />Editar</button>}
         <button className="btn btn-primary" onClick={() => openWorkout(active ? undefined : day.id)}><Icon name="play" size={18} />{active ? "Continuar entrenamiento" : `Empezar ${day.name}`}</button>
       </div>
 
-      {c.routine.notes && <div className="note-box"><Icon name="note" size={18} /><span><strong>{coach.name.split(" ")[0]}:</strong> {c.routine.notes}</span></div>}
+      {c.routine.notes && <div className="note-box"><Icon name="note" size={18} /><span>{!c.selfCoached && <strong>{coach.name.split(" ")[0]}: </strong>}{c.routine.notes}</span></div>}
 
       <div className="tabs" role="tablist">
         {c.routine.days.map((d) => <button key={d.id} role="tab" className="tab" aria-selected={d.id === day.id} onClick={() => setDayId(d.id)}>{d.name}<span className="tiny muted num">{d.exercises.length}</span></button>)}

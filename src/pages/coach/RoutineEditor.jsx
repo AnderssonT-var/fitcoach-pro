@@ -14,7 +14,7 @@ const RESTS = [30, 45, 60, 75, 90, 120, 150, 180, 240];
 const blank = () => ({ name: "", goal: "Hipertrofia", frequency: 3, notes: "", days: [{ id: newUid(), name: "Día 1", exercises: [] }] });
 const cloneWithIds = (r) => ({ ...structuredClone(r), days: r.days.map((d) => ({ ...structuredClone(d), id: newUid(), exercises: d.exercises.map((e) => ({ ...e, uid: newUid() })) })) });
 
-export default function RoutineEditor({ clientId, slot = "current" }) {
+export default function RoutineEditor({ clientId, slot = "current", self = false, onSaved }) {
   const db = useDB();
   const { me } = useApp();
   const client = db.clients.find((c) => c.userId === clientId);
@@ -36,12 +36,12 @@ export default function RoutineEditor({ clientId, slot = "current" }) {
   if (!draft) {
     return (
       <section className="panel">
-        <Empty icon="dumbbell" title={isPlan ? `Prepara el plan completo de ${first}` : `${first} todavía no tiene rutina`}
-          text={isPlan ? "Es la rutina específica para sus objetivos. Se activa sola cuando termine la prueba (o cuando tú decidas). Mientras tanto no la ve." : "Empieza desde cero o parte de una de tus plantillas y ajústala a su nivel."}
+        <Empty icon="dumbbell" title={self ? "Arma tu rutina" : isPlan ? `Prepara el plan completo de ${first}` : `${first} todavía no tiene rutina`}
+          text={self ? "Elige los días, los ejercicios, series, repeticiones y descansos. Luego la entrenas desde Inicio o Mi rutina." : isPlan ? "Es la rutina específica para sus objetivos. Se activa sola cuando termine la prueba (o cuando tú decidas). Mientras tanto no la ve." : "Empieza desde cero o parte de una de tus plantillas y ajústala a su nivel."}
           action={<div className="row wrap" style={{ justifyContent: "center" }}>
             {isPlan && client.routine && <button className="btn btn-quiet" onClick={() => setDraft({ ...cloneWithIds(client.routine), name: `Plan completo de ${first}` })}><Icon name="copy" size={18} />Partir de la rutina de prueba</button>}
-            <button className="btn btn-quiet" onClick={() => setTemplates(true)}><Icon name="layers" size={18} />Usar plantilla</button>
-            <button className="btn btn-primary" onClick={() => setDraft({ ...blank(), goal: client.goal, name: isPlan ? `Plan completo de ${first}` : client.trial?.status === "active" ? `Prueba de ${first}` : `Plan de ${first}` })}><Icon name="plus" size={18} />Empezar desde cero</button>
+            {!self && <button className="btn btn-quiet" onClick={() => setTemplates(true)}><Icon name="layers" size={18} />Usar plantilla</button>}
+            <button className="btn btn-primary" onClick={() => setDraft({ ...blank(), goal: client.goal, name: self ? "Mi rutina" : isPlan ? `Plan completo de ${first}` : client.trial?.status === "active" ? `Prueba de ${first}` : `Plan de ${first}` })}><Icon name="plus" size={18} />Empezar desde cero</button>
           </div>} />
         {templates && <TemplatePicker onClose={() => setTemplates(false)} onPick={(t) => { setDraft(cloneWithIds(t)); setDayIdx(0); setTemplates(false); }} />}
       </section>
@@ -56,7 +56,8 @@ export default function RoutineEditor({ clientId, slot = "current" }) {
   function save() {
     if (!draft.name.trim()) return toast("Ponle un nombre a la rutina", "alert");
     if (!total) return toast("Agrega al menos un ejercicio", "alert");
-    run(saveRoutine(clientId, draft, slot), isPlan ? `Plan completo guardado. Se activará al terminar la prueba` : `Rutina guardada. ${first} ya la ve en su app`);
+    run(saveRoutine(clientId, draft, slot), self ? "Rutina guardada" : isPlan ? `Plan completo guardado. Se activará al terminar la prueba` : `Rutina guardada. ${first} ya la ve en su app`);
+    onSaved?.();
   }
 
   return (
@@ -73,10 +74,10 @@ export default function RoutineEditor({ clientId, slot = "current" }) {
           </div>
           <div className="full"><Field label="Indicaciones generales" id="re-notes"><textarea id="re-notes" className="textarea" rows={2} value={draft.notes} placeholder={`Ej.: calienta 10 min antes de empezar`} onChange={(e) => up((n) => { n.notes = e.target.value; })} /></Field></div>
         </div>
-        <div className="row wrap gap-sm">
+        {!self && <div className="row wrap gap-sm">
           <button className="btn btn-quiet btn-sm" onClick={() => setTemplates(true)}><Icon name="layers" size={16} />Reemplazar con plantilla</button>
           <button className="btn btn-quiet btn-sm" onClick={() => setAsTemplate(true)} disabled={!total}><Icon name="copy" size={16} />Guardar como plantilla</button>
-        </div>
+        </div>}
       </section>
 
       <section className="panel">
@@ -148,7 +149,7 @@ export default function RoutineEditor({ clientId, slot = "current" }) {
                         <label className="field" style={{ width: 104 }}><span className="tiny muted strong">Tempo</span>
                           <input className={`input num ${tempoBad ? "invalid" : ""}`} aria-label={`Tempo de ${info.name}`} value={e.tempo || ""} placeholder="3-1-1-0" title={tempoHelp(e.tempo) || "Bajada-pausa-subida-pausa en segundos"}
                             onChange={(ev) => set("tempo", ev.target.value.toUpperCase().replace(/[^0-9X-]/g, "").slice(0, 11))} /></label>
-                        <label className="field grow" style={{ minWidth: 180 }}><span className="tiny muted strong">Nota para {first}</span>
+                        <label className="field grow" style={{ minWidth: 180 }}><span className="tiny muted strong">{self ? "Nota" : `Nota para ${first}`}</span>
                           <input className="input" value={e.notes} onChange={(ev) => set("notes", ev.target.value)} placeholder="Opcional" /></label>
                       </div>
                       {tempoBad && <span className="tiny" style={{ color: "var(--red-ink)" }}>Tempo: 3 o 4 números separados por guiones, por ejemplo 3-1-1-0 (X = explosivo).</span>}
@@ -187,7 +188,7 @@ export default function RoutineEditor({ clientId, slot = "current" }) {
       <RoutineBalance routine={draft} body={user.body} />
 
       <div className="panel panel-pad row wrap spread" style={{ position: "sticky", bottom: 12, zIndex: 5, boxShadow: "var(--shadow)", paddingBlock: 12 }}>
-        <span className="small muted">{dirty ? "Tienes cambios sin guardar" : saved ? (isPlan ? `Se activa al terminar la prueba (${new Date(client.trial.end).toLocaleDateString("es-EC", { day: "numeric", month: "short" })})` : `${first} ve esta versión`) : "Aún no se ha guardado"} · {draft.days.length} {draft.days.length === 1 ? "día" : "días"}, {total} ejercicios</span>
+        <span className="small muted">{dirty ? "Tienes cambios sin guardar" : saved ? (isPlan ? `Se activa al terminar la prueba (${new Date(client.trial.end).toLocaleDateString("es-EC", { day: "numeric", month: "short" })})` : self ? "Guardada" : `${first} ve esta versión`) : "Aún no se ha guardado"} · {draft.days.length} {draft.days.length === 1 ? "día" : "días"}, {total} ejercicios</span>
         <div className="row gap-sm">
           {dirty && saved && <button className="btn btn-ghost" onClick={() => setAskDiscard(true)}>Descartar</button>}
           <button className="btn btn-primary" onClick={save} disabled={!dirty && !!saved}>{isPlan ? "Guardar plan completo" : "Guardar rutina"}</button>

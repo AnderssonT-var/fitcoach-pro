@@ -87,7 +87,9 @@ class _ShellState extends State<Shell> {
     if (!store.isCoach) Notify.I.scheduleReminders(store.me?.m('notif')?.m('reminder'));
   }
 
-  List<TabDef> get tabs => store.isCoach
+  // Modo atleta del admin: sin la pestaña del chat con el entrenador (se entrena solo)
+  List<TabDef> get tabs => store.selfCoached ? _tabs.where((t) => t.id != 'mensajes').toList() : _tabs;
+  List<TabDef> get _tabs => store.isCoach
       ? const [
           TabDef('inicio', 'Inicio', Icons.space_dashboard_outlined, Icons.space_dashboard_rounded, CoachHome()),
           TabDef('clientes', 'Clientes', Icons.groups_outlined, Icons.groups_rounded, ClientsPage()),
@@ -317,8 +319,13 @@ class MorePage extends StatelessWidget {
             ]
           : [
               (Icons.diversity_3_rounded, 'Comunidad', 'Comparte tus logros con el grupo', () => push(context, const CommunityPage(standalone: true))),
-              (Icons.account_balance_wallet_rounded, 'Pagos', 'Tus mensualidades', () => push(context, const MyPayments())),
+              if (!store.selfCoached) (Icons.account_balance_wallet_rounded, 'Pagos', 'Tus mensualidades', () => push(context, const MyPayments())),
               (Icons.person_rounded, 'Mi perfil', 'Tus datos, notificaciones y privacidad', () => push(context, const ClientProfilePage())),
+              if (store.hasLinked)
+                (Icons.admin_panel_settings_rounded, 'Panel de admin', 'Vuelve a tu cuenta de administrador', () async {
+                  final r = await store.switchAccount();
+                  if (!r.ok && context.mounted) toast(context, r.error!, error: true);
+                }),
             ];
       return SafeArea(
         bottom: false,

@@ -32,7 +32,8 @@ class RoutineEditor extends StatefulWidget {
   final String slot;
   final Widget? header;
   final String? headerNote;
-  const RoutineEditor({super.key, required this.clientId, this.slot = 'current', this.header, this.headerNote});
+  final bool self; // modo atleta: el admin arma su propia rutina (sin plantillas)
+  const RoutineEditor({super.key, required this.clientId, this.slot = 'current', this.header, this.headerNote, this.self = false});
   @override
   State<RoutineEditor> createState() => _RoutineEditorState();
 }
@@ -70,7 +71,7 @@ class _RoutineEditorState extends State<RoutineEditor> {
     final bad = d.lm('days').expand((x) => x.lm('exercises')).any((e) => e.s('tempo').isNotEmpty && !tempoRe.hasMatch(e.s('tempo')));
     if (bad) return toast(context, 'Revisa el tempo: 3 o 4 números separados por guiones (ej. 3-1-1-0).', error: true);
     setState(() => saving = true);
-    await runAct(context, store.saveRoutine(widget.clientId, d, widget.slot), isPlan ? 'Plan completo guardado. Se activará al terminar la prueba' : 'Rutina guardada. $first ya la ve en su app');
+    await runAct(context, store.saveRoutine(widget.clientId, d, widget.slot), widget.self ? 'Rutina guardada' : isPlan ? 'Plan completo guardado. Se activará al terminar la prueba' : 'Rutina guardada. $first ya la ve en su app');
     if (!mounted) return;
     setState(() {
       saving = false;
@@ -89,18 +90,22 @@ class _RoutineEditorState extends State<RoutineEditor> {
         Panel(
           child: EmptyState(
             icon: Icons.fitness_center_rounded,
-            title: isPlan ? 'Prepara el plan completo de $first' : '$first todavía no tiene rutina',
-            text: isPlan
+            title: widget.self ? 'Arma tu rutina' : isPlan ? 'Prepara el plan completo de $first' : '$first todavía no tiene rutina',
+            text: widget.self
+                ? 'Elige los días, los ejercicios, series, repeticiones y descansos. Luego la entrenas desde Inicio o Rutina.'
+                : isPlan
                 ? 'Es la rutina específica para sus objetivos. Se activa sola cuando termine la prueba (o cuando tú decidas). Mientras tanto no la ve.'
                 : 'Empieza desde cero o parte de una de tus plantillas y ajústala a su nivel.',
             action: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               FilledButton.icon(
-                onPressed: () => setState(() => draft = _blank(isPlan ? 'Plan completo de $first' : client.m('trial')?.s('status') == 'active' ? 'Prueba de $first' : 'Plan de $first', client.s('goal', 'Hipertrofia'))),
+                onPressed: () => setState(() => draft = _blank(widget.self ? 'Mi rutina' : isPlan ? 'Plan completo de $first' : client.m('trial')?.s('status') == 'active' ? 'Prueba de $first' : 'Plan de $first', client.s('goal', 'Hipertrofia'))),
                 icon: const Icon(Icons.add_rounded),
                 label: const Text('Empezar desde cero'),
               ),
-              const Gap(8),
-              OutlinedButton.icon(onPressed: _pickTemplate, icon: const Icon(Icons.layers_rounded), label: const Text('Usar plantilla')),
+              if (!widget.self) ...[
+                const Gap(8),
+                OutlinedButton.icon(onPressed: _pickTemplate, icon: const Icon(Icons.layers_rounded), label: const Text('Usar plantilla')),
+              ],
               if (isPlan && client.m('routine') != null) ...[
                 const Gap(8),
                 OutlinedButton.icon(
@@ -133,8 +138,8 @@ class _RoutineEditorState extends State<RoutineEditor> {
               Labeled('Entrenamientos por semana', ChoiceRow<int>(options: [for (var k = 1; k <= 6; k++) (k, '$k')], value: d.i('frequency'), onChanged: (v) => up((x) => x['frequency'] = v))),
               const Gap(12),
               Field('Indicaciones generales', initial: d.s('notes'), key: ValueKey('rnotes-${d.hashCode}'), maxLines: 3, hint: 'Ej.: calienta 10 min antes de empezar', onChanged: (v) => up((x) => x['notes'] = v)),
-              const Gap(10),
-              Wrap(spacing: 8, runSpacing: 8, children: [
+              if (!widget.self) const Gap(10),
+              if (!widget.self) Wrap(spacing: 8, runSpacing: 8, children: [
                 OutlinedButton.icon(onPressed: _pickTemplate, icon: const Icon(Icons.layers_rounded, size: 18), label: const Text('Usar plantilla')),
                 OutlinedButton.icon(onPressed: total == 0 ? null : _saveAsTemplate, icon: const Icon(Icons.bookmark_add_outlined, size: 18), label: const Text('Guardar como plantilla')),
               ]),

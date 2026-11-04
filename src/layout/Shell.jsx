@@ -1,8 +1,8 @@
 import { useState } from "react";
 import Icon from "../ui/Icon";
-import { Avatar, BrandMark, Modal, DevCredit } from "../ui/kit";
+import { Avatar, BrandMark, Modal, DevCredit, toast } from "../ui/kit";
 import { NAV, ROLE_LABEL, useApp } from "../context";
-import { brandOf, dismissSyncError, flushOutbox, reload, unreadFor, useDB } from "../store/db";
+import { brandOf, dismissSyncError, flushOutbox, pendingCount, reload, switchAccount, unreadFor, useDB } from "../store/db";
 
 const MAX_TABS = 5;
 
@@ -31,7 +31,23 @@ export default function Shell({ children }) {
   const db = useDB();
   const [theme, setTheme] = useTheme();
   const [sheet, setSheet] = useState(false);
-  const items = NAV[me.role];
+  // Modo atleta del admin: sin chat ni pagos (se entrena solo) y con el botón para volver al panel
+  const selfCoached = me.role === "client" && db.clients.find((c) => c.userId === me.id)?.selfCoached;
+  const items = [
+    ...NAV[me.role].filter((it) => !(selfCoached && ["mensajes", "pagos"].includes(it.id))),
+    ...(me.role === "admin" ? [{ id: "__switch", icon: "dumbbell", label: "Mi entrenamiento" }] : me.linkedId ? [{ id: "__switch", icon: "shield", label: "Panel de admin" }] : []),
+  ];
+  const [switching, setSwitching] = useState(false);
+  async function nav(id) {
+    if (id !== "__switch") return go(id);
+    if (switching) return;
+    const n = pendingCount();
+    if (n > 0 && !window.confirm(`Tienes ${n === 1 ? "1 cambio" : `${n} cambios`} sin subir. Si cambias de perfil ahora se pierden. ¿Cambiar igual?`)) return;
+    setSwitching(true);
+    const r = await switchAccount();
+    setSwitching(false);
+    if (r.error) toast(r.error, "alert");
+  }
   const unread = unreadFor(db, me.id);
   const pendingSubs = me.role === "admin" ? db.subscriptions.filter((x) => x.status === "pending").length : 0;
   const pendingReviews = me.role === "coach" ? (db.reviews || []).filter((r) => r.status === "pending").length : 0;
@@ -61,7 +77,7 @@ export default function Shell({ children }) {
         </div>
         <nav className="nav">
           {items.map((it) => (
-            <button key={it.id} className="nav-item" aria-current={page === it.id ? "page" : undefined} onClick={() => go(it.id)}>
+            <button key={it.id} className="nav-item" aria-current={page === it.id ? "page" : undefined} onClick={() => nav(it.id)}>
               <Icon name={it.icon} />{it.label}
               {badge(it) > 0 && <span className="nav-count">{badge(it)}</span>}
             </button>
@@ -85,7 +101,7 @@ export default function Shell({ children }) {
       <div className="main">
         {/* ---------- Barra superior (PC) ---------- */}
         <header className="topbar">
-          <span className="small muted grow">{ROLE_LABEL[me.role]} · {me.name}</span>
+          <span className="small muted grow">{selfCoached ? "Modo atleta" : ROLE_LABEL[me.role]} · {me.name}</span>
           <button className="btn btn-ghost btn-icon" onClick={() => setTheme(dark ? "light" : "dark")} aria-label={dark ? "Usar tema claro" : "Usar tema oscuro"} title="Cambiar tema">
             <Icon name={dark ? "sun" : "moon"} />
           </button>
@@ -134,7 +150,7 @@ export default function Shell({ children }) {
       {/* ---------- Pestañas inferiores (móvil) ---------- */}
       <nav className="bottom-nav" aria-label="Navegación">
         {tabs.map((it) => (
-          <button key={it.id} aria-current={page === it.id ? "page" : undefined} onClick={() => go(it.id)}>
+          <button key={it.id} aria-current={page === it.id ? "page" : undefined} onClick={() => nav(it.id)}>
             <span className="ico"><Icon name={it.icon} size={21} /></span>
             <span className="lbl">{it.label}</span>
             {badge(it) > 0 && <span className="nav-count">{badge(it)}</span>}
@@ -152,12 +168,12 @@ export default function Shell({ children }) {
         <Modal title="Menú" onClose={() => setSheet(false)}>
           <div className="row">
             <Avatar name={me.name} id={me.id} />
-            <div className="grow"><div className="strong">{me.name}</div><div className="small muted">{me.email} · {ROLE_LABEL[me.role]}</div></div>
+            <div className="grow"><div className="strong">{me.name}</div><div className="small muted">{me.email} · {selfCoached ? "Modo atleta" : ROLE_LABEL[me.role]}</div></div>
           </div>
           {extra.length > 0 && (
             <div className="panel list">
               {extra.map((it) => (
-                <button key={it.id} className="list-row" onClick={() => { go(it.id); setSheet(false); }}>
+                <button key={it.id} className="list-row" onClick={() => { nav(it.id); setSheet(false); }}>
                   <Icon name={it.icon} /><span className="grow strong">{it.label}</span>
                   {badge(it) > 0 && <span className="nav-count">{badge(it)}</span>}
                   <Icon name="right" size={18} />

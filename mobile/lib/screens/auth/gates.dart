@@ -350,6 +350,15 @@ class AdminNotice extends StatelessWidget {
           label: const Text('Abrir vytra.fit'),
         ),
         const Gap(8),
+        OutlinedButton.icon(
+          onPressed: () async {
+            final r = await store.switchAccount();
+            if (!r.ok && context.mounted) toast(context, r.error!, error: true);
+          },
+          icon: const Icon(Icons.fitness_center_rounded),
+          label: const Text('Ir a Mi entrenamiento'),
+        ),
+        const Gap(8),
         TextButton(onPressed: store.logout, child: const Text('Salir')),
       ]);
 }

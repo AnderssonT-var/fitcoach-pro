@@ -1,5 +1,6 @@
 /* Inicio de sesión, renovación de sesión, activación de licencia,
    cambio de contraseña y consentimiento. */
+import crypto from "node:crypto";
 import { Router } from "express";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { z } from "zod";
@@ -121,6 +122,31 @@ router.post("/password", authenticate, h(async (req, res) => {
   });
   const user = await knex("users").where({ id: req.user.id }).first();
   res.json(await sessionResponse(user, req));
+}));
+
+/* ---------- modo atleta del administrador ----------
+   El admin tiene un perfil de asesorado enlazado que se entrena a sí mismo (crea su propia rutina).
+   Se crea la primera vez que lo pide; desde cualquiera de los dos se pasa al otro sin volver a escribir la contraseña. */
+router.post("/switch", authenticate, h(async (req, res) => {
+  const me = req.user;
+  let target = me.linked_id ? await knex("users").where({ id: me.linked_id, linked_id: me.id }).first() : null;
+  if (!target) {
+    if (me.role !== "admin") throw bad("Esta cuenta no tiene otro perfil enlazado.");
+    const [local, domain] = String(me.email).split("@");
+    const email = `${local.split("+")[0]}+atleta@${domain}`.toLowerCase();
+    if (await knex("users").where({ email }).first()) throw bad("Ya existe una cuenta con el correo de atleta. Escríbenos para enlazarla.");
+    const now = nowISO();
+    await knex.transaction(async (trx) => {
+      await trx("users").insert({ role: "client", email, password_hash: await hashPassword(crypto.randomBytes(24).toString("base64url")), name: me.name,
+        profile: S({ body: "m" }), created_at: now, consent_version: config.legalVersion, consent_at: now, linked_id: me.id });
+      target = await trx("users").where({ email }).first();
+      await trx("clients").insert({ user_id: target.id, coach_id: me.id, active: true,
+        data: S({ goal: "Hipertrofia", phone: "", heightCm: null, fee: 0, billingDay: 1, routine: null, planRoutine: null, trial: null, weights: [], measurements: [], notes: [], joinedAt: now }) });
+      await trx("users").where({ id: me.id }).update({ linked_id: target.id });
+    });
+  }
+  await revokeRefresh(req.body?.refreshToken).catch(() => {});
+  res.json(await sessionResponse(target, req));
 }));
 
 router.post("/logout-all", authenticate, h(async (req, res) => {

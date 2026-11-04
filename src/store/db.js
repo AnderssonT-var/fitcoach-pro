@@ -586,6 +586,16 @@ export async function login(email, password, brandSlug = null) {
   await reload();
   return { ok: true };
 }
+/** Admin ⇄ su perfil de atleta (sin volver a escribir la contraseña). */
+export async function switchAccount() {
+  const rt = (() => { try { return localStorage.getItem("fcp.rt"); } catch { return null; } })();
+  const r = await api("POST", "/api/auth/switch", { refreshToken: rt });
+  if (r.error) return r.offline ? { ...r, error: "Necesitas conexión a internet para cambiar de perfil." } : r;
+  freshSession();
+  setTokens(r);
+  await reload();
+  return { ok: true };
+}
 export async function logout() {
   const rt = (() => { try { return localStorage.getItem("fcp.rt"); } catch { return null; } })();
   const uidNow = me();
@@ -693,7 +703,8 @@ const cleanRoutine = (r) => r && ({
 });
 export function saveRoutine(clientId, routine, slot = "current") {
   const clean = routine ? cleanRoutine(routine) : null;
-  return act("PUT", `/api/coach/clients/${clientId}/routine`, { routine: clean, slot },
+  const own = clientId === me() && userById(state, me())?.role === "client"; // modo atleta: su propia rutina
+  return act("PUT", own ? "/api/client/routine" : `/api/coach/clients/${clientId}/routine`, { routine: clean, slot },
     { kind: "routine", args: { clientId, routine: clean, slot }, label: `Rutina de ${nameOf(clientId)}` });
 }
 /* Plan de prueba: se guardan sin conexión y se aplican al volver la señal (el servidor arma pagos y mensajes) */

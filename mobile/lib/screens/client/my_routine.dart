@@ -13,6 +13,7 @@ import '../shared/messages.dart';
 import '../shared/progress_widgets.dart';
 import '../shell.dart';
 import 'client_home.dart';
+import '../coach/routine_editor.dart';
 
 class MyRoutine extends StatefulWidget {
   const MyRoutine({super.key});
@@ -32,6 +33,13 @@ class _MyRoutineState extends State<MyRoutine> {
       final coach = store.myCoach ?? {};
       final coachFirst = firstName(coach.s('name'));
       final routine = c.m('routine');
+      if (routine == null && store.selfCoached) {
+        return TabPage(children: [
+          const PageHead('Mi rutina'),
+          Panel(child: EmptyState(icon: Icons.fitness_center_rounded, title: 'Arma tu rutina', text: 'Elige tus días y ejercicios. Después la entrenas con temporizador de descanso y registro de cada serie.',
+              action: FilledButton.icon(onPressed: () => openOwnRoutineEditor(context), icon: const Icon(Icons.add_rounded), label: const Text('Crear mi rutina')))),
+        ]);
+      }
       if (routine == null) {
         return TabPage(children: [
           const PageHead('Mi rutina'),
@@ -51,11 +59,12 @@ class _MyRoutineState extends State<MyRoutine> {
           if (trial?.running == true) Padding(padding: const EdgeInsets.only(bottom: 8), child: Pill('Rutina de prueba · quedan ${trial!.daysLeft} días', tone: 'info', icon: Icons.schedule_rounded)),
           Text(routine.s('name'), style: context.tt.displaySmall),
           const Gap(6),
-          Text('${routine.s('goal')} · ${routine.i('frequency')} entrenamientos por semana · preparada por ${coach.s('name')}', style: context.tt.bodyMedium),
+          Text('${routine.s('goal')} · ${routine.i('frequency')} entrenamientos por semana${store.selfCoached ? '' : ' · preparada por ${coach.s('name')}'}', style: context.tt.bodyMedium),
+          if (store.selfCoached) Padding(padding: const EdgeInsets.only(top: 8), child: OutlinedButton.icon(onPressed: () => openOwnRoutineEditor(context), icon: const Icon(Icons.edit_rounded, size: 18), label: const Text('Editar mi rutina'))),
         ]),
         if (routine.s('notes').isNotEmpty)
           NoteBox(icon: Icons.sticky_note_2_rounded, child: Text.rich(TextSpan(children: [
-            TextSpan(text: '$coachFirst: ', style: const TextStyle(fontWeight: FontWeight.w700)),
+            if (!store.selfCoached) TextSpan(text: '$coachFirst: ', style: const TextStyle(fontWeight: FontWeight.w700)),
             TextSpan(text: routine.s('notes')),
           ]))),
         ChoiceRow<String>(scroll: true, options: [for (final d in days) (d.s('id'), '${d.s('name')}  ${d.lm('exercises').length}')], value: day.s('id'), onChanged: (v) => setState(() => dayId = v)),
@@ -174,3 +183,9 @@ class _ExerciseCard extends StatelessWidget {
     ]);
   }
 }
+
+/// Modo atleta: abre el editor de su propia rutina.
+Future<void> openOwnRoutineEditor(BuildContext context) => push(context, Scaffold(
+      appBar: AppBar(title: const Text('Mi rutina')),
+      body: RoutineEditor(clientId: store.meId!, self: true),
+    ));

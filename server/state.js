@@ -45,6 +45,7 @@ export function userOut(u, { self = false, publicOnly = false } = {}) {
     out.consentVersion = u.consent_version;
     out.consentAt = u.consent_at;
     out.consentCurrent = u.consent_version === config.legalVersion;
+    out.linkedId = u.linked_id || null; // admin ⇄ su perfil de atleta
   }
   out.photoConsent = bool(u.photo_consent);
   return out;
@@ -137,7 +138,7 @@ export async function buildState(me, { history = true } = {}) {
   if ((await settleTrials([c])) | (await backfillBests([c]))) c = await knex("clients").where({ user_id: me.id }).first();
   const coach = await knex("users").where({ id: c.coach_id }).first();
   const photos = await knex("photos").where({ client_id: me.id }).orderBy("date", "desc");
-  s.clients = [clientOut(c, photos, me, { withNotes: false })]; // las notas del entrenador son privadas
+  s.clients = [{ ...clientOut(c, photos, me, { withNotes: false }), selfCoached: !!me.linked_id && c.coach_id === me.linked_id }]; // las notas del entrenador son privadas
   s.payments = (await knex("payments").where({ client_id: me.id })).map(paymentOut);
   s.workouts = history ? await historyFor((q) => q.where({ client_id: me.id })) : null;
   s.messages = (await knex("messages").where({ client_id: me.id, coach_id: c.coach_id }).where("at", ">=", MSG_FROM())).map(messageOut);

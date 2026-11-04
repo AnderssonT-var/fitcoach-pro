@@ -61,7 +61,12 @@ export default function ClientHome() {
         </section>
       )}
 
-      {!c.routine ? (
+      {!c.routine && c.selfCoached ? (
+        <section className="panel">
+          <Empty icon="dumbbell" title="Arma tu rutina" text="Elige tus días y ejercicios. Después la entrenas desde aquí, con temporizador de descanso y registro de cada serie."
+            action={<button className="btn btn-primary" onClick={() => go("rutina")}>Crear mi rutina</button>} />
+        </section>
+      ) : !c.routine ? (
         <section className="panel">
           <Empty icon="dumbbell" title={`${coach.name.split(" ")[0]} está preparando tu rutina`} text="Te avisaremos aquí apenas esté lista. Mientras tanto puedes escribirle."
             action={<button className="btn btn-primary" onClick={() => go("mensajes")}>Escribir a mi entrenador</button>} />

@@ -11,7 +11,7 @@ import { groupOf } from "./common.js";
 import { addToBests } from "../history.js";
 import { clientReviewRoutes } from "../reviews.js";
 import { notifyLater, setRestAlarm } from "../notify.js";
-import { deleteClientData, MESSAGE_TAGS, photosSchema, profileSchema, sessionSchema } from "./schemas.js";
+import { deleteClientData, MESSAGE_TAGS, photosSchema, profileSchema, routineSchema, sessionSchema } from "./schemas.js";
 
 /* ============================================================
    Cuenta del asesorado: exportar y eliminar (siempre disponibles)
@@ -46,6 +46,14 @@ accountRouter.delete("/", h(async (req, res) => {
 export const clientRouter = Router();
 clientRouter.use(requireClientAccess, requireConsent);
 clientReviewRoutes(clientRouter);
+
+/** Modo atleta del administrador: se arma su propia rutina (solo si se entrena a sí mismo). */
+clientRouter.put("/routine", h(async (req, res) => {
+  if (!req.selfCoached) throw forbidden("Tu rutina la arma tu entrenador.");
+  const { routine } = parse(z.object({ routine: routineSchema.nullable(), slot: z.enum(["current", "plan"]).optional() }), req.body);
+  await editMine(req.user.id, (d) => { d.routine = routine; });
+  res.json({ ok: true });
+}));
 
 async function editMine(userId, fn) {
   return knex.transaction(async (trx) => {
