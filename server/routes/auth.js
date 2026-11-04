@@ -16,6 +16,7 @@ import { log, normalizeCode, slugFrom } from "./common.js";
 import { coachLicenseRow } from "../auth.js";
 import { signupSettings } from "./signup.js";
 import { count } from "../metrics.js";
+import { ensureAthlete } from "../athlete.js";
 
 export const router = Router();
 
@@ -132,18 +133,7 @@ router.post("/switch", authenticate, h(async (req, res) => {
   let target = me.linked_id ? await knex("users").where({ id: me.linked_id, linked_id: me.id }).first() : null;
   if (!target) {
     if (me.role !== "admin") throw bad("Esta cuenta no tiene otro perfil enlazado.");
-    const [local, domain] = String(me.email).split("@");
-    const email = `${local.split("+")[0]}+atleta@${domain}`.toLowerCase();
-    if (await knex("users").where({ email }).first()) throw bad("Ya existe una cuenta con el correo de atleta. Escríbenos para enlazarla.");
-    const now = nowISO();
-    await knex.transaction(async (trx) => {
-      await trx("users").insert({ role: "client", email, password_hash: await hashPassword(crypto.randomBytes(24).toString("base64url")), name: me.name,
-        profile: S({ body: "m" }), created_at: now, consent_version: config.legalVersion, consent_at: now, linked_id: me.id });
-      target = await trx("users").where({ email }).first();
-      await trx("clients").insert({ user_id: target.id, coach_id: me.id, active: true,
-        data: S({ goal: "Hipertrofia", phone: "", heightCm: null, fee: 0, billingDay: 1, routine: null, planRoutine: null, trial: null, weights: [], measurements: [], notes: [], joinedAt: now }) });
-      await trx("users").where({ id: me.id }).update({ linked_id: target.id });
-    });
+    try { target = await ensureAthlete(me); } catch (e) { throw bad(e.message); }
   }
   await revokeRefresh(req.body?.refreshToken).catch(() => {});
   res.json(await sessionResponse(target, req));

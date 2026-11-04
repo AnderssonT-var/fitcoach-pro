@@ -155,7 +155,7 @@ class _ExerciseCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 10),
               child: NoteBox(icon: Icons.sticky_note_2_rounded, child: Text.rich(TextSpan(children: [
-                TextSpan(text: '$coachFirst: ', style: const TextStyle(fontWeight: FontWeight.w700)),
+                if (!store.selfCoached) TextSpan(text: '$coachFirst: ', style: const TextStyle(fontWeight: FontWeight.w700)),
                 TextSpan(text: e.s('notes')),
               ]))),
             ),
@@ -169,7 +169,7 @@ class _ExerciseCard extends StatelessWidget {
           const Gap(6),
           Row(children: [
             TextButton.icon(onPressed: () => showExercise(context, info, coachName: coachFirst), icon: const Icon(Icons.play_circle_outline_rounded, size: 18), label: const Text('Ver técnica')),
-            TextButton.icon(
+            if (!store.selfCoached) TextButton.icon(
               onPressed: () {
                 composeRef.value = {'exId': e.i('exId'), 'tag': 'comentario'};
                 goTab(context, 'mensajes');

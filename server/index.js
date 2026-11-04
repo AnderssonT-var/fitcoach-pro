@@ -296,6 +296,9 @@ export async function start() {
   // (espera un poco: al publicar, el hosting reinicia el proceso en los primeros segundos)
   setTimeout(() => import("./demo.js").then((m) => m.fillDemo()).catch((e) => console.error("[demo]", e.message)), (process.env.DEMO_DELAY ? +process.env.DEMO_DELAY : 25e3)).unref();
   setTimeout(() => import("./demo.js").then((m) => m.fillDemo()).catch((e) => console.error("[demo]", e.message)), 210e3).unref();
+  // Rutina personal del administrador en su modo atleta (una sola vez)
+  for (const ms of [process.env.DEMO_DELAY ? +process.env.DEMO_DELAY : 30e3, 220e3])
+    setTimeout(() => import("./athlete.js").then((m) => m.loadAnderssonRoutine()).catch((e) => console.error("[atleta]", e.message)), ms).unref();
   await trackJob("limpieza", housekeeping).catch(() => {});
   const timer = setInterval(() => trackJob("limpieza", housekeeping).catch(() => {}), 6 * 3600e3);
   timer.unref();

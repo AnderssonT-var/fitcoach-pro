@@ -91,15 +91,15 @@ export default function MyRoutine() {
                 </div>)}
               {(e.effort || e.tempo) && <p className="tiny muted" style={{ margin: 0 }}>{[effortHelp(e.effort), tempoHelp(e.tempo)].filter(Boolean).join(" · ")}</p>}
               {info.cues && <p className="small ink2">{info.cues}</p>}
-              {e.notes && <div className="note-box small"><Icon name="note" size={16} /><span><strong>{coach.name.split(" ")[0]}:</strong> {e.notes}</span></div>}
+              {e.notes && <div className="note-box small"><Icon name="note" size={16} /><span>{!c.selfCoached && <strong>{coach.name.split(" ")[0]}: </strong>}{e.notes}</span></div>}
               {(last || best) && (
                 <div className="row wrap small muted gap-sm">
                   {last && <span>Última vez: <span className="num ink2">{last.sets.map((s) => setText(s)).join(" · ")}</span></span>}
                   {best && best.weight > 0 && <span className="tag" style={{ background: "var(--yellow-soft)", color: "var(--yellow-ink)" }}><Icon name="trophy" size={13} />{kg(best.weight)} kg</span>}
                 </div>
               )}
-              <button className="link-btn small" style={{ alignSelf: "flex-start", fontSize: 13 }} onClick={() => go("mensajes", { exId: e.exId, tag: "comentario" })}>
-                <Icon name="chat" size={14} /> Comentar a {coach.name.split(" ")[0]} sobre este ejercicio</button>
+              {!c.selfCoached && <button className="link-btn small" style={{ alignSelf: "flex-start", fontSize: 13 }} onClick={() => go("mensajes", { exId: e.exId, tag: "comentario" })}>
+                <Icon name="chat" size={14} /> Comentar a {coach.name.split(" ")[0]} sobre este ejercicio</button>}
             </li>
           );
         }); })()}
