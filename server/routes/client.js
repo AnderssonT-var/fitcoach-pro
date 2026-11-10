@@ -47,6 +47,17 @@ export const clientRouter = Router();
 clientRouter.use(requireClientAccess, requireConsent);
 clientReviewRoutes(clientRouter);
 
+/** Personaje 3D: el asesorado elige su aspecto (el desarrollo muscular sale de su progreso). */
+const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+clientRouter.put("/avatar", h(async (req, res) => {
+  const { avatar } = parse(z.object({ avatar: z.object({
+    body: z.enum(["m", "f"]), skin: hex, hair: z.enum(["corto", "rapado", "rizado", "calvo", "largo", "coleta", "mono"]), hairColor: hex,
+    outfit: z.enum(["tank", "tee", "none", "top"]), top: hex, bottom: hex, shoes: hex, name: z.string().trim().max(24).default(""),
+  }) }), req.body);
+  await editMine(req.user.id, (d) => { d.avatar = avatar; });
+  res.json({ ok: true });
+}));
+
 /** Modo atleta del administrador: se arma su propia rutina (solo si se entrena a sí mismo). */
 clientRouter.put("/routine", h(async (req, res) => {
   if (!req.selfCoached) throw forbidden("Tu rutina la arma tu entrenador.");

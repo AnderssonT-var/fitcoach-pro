@@ -11,6 +11,7 @@ import { useApp } from "../../context";
 import {
   addBodyWeight, clientById, deleteClient, paymentStatus, resetClientPassword, updateClient, useDB, userById, weekStreak, workoutsOf,
 } from "../../store/db";
+import AvatarPanel from "../../avatar/AvatarPanel";
 import { MuscleLoadPanel } from "../../workout/MuscleLoad";
 import { ago, kg, money, shortDate } from "../../lib/format";
 
@@ -100,6 +101,7 @@ function Summary({ clientId, onTab }) {
         <AdherenceChart clientId={clientId} />
         <WeightChart clientId={clientId} />
       </div>
+      <AvatarPanel clientId={clientId} />
       <MuscleLoadPanel clientId={clientId} />
       <div className="grid-2">
         <VolumeChart clientId={clientId} />

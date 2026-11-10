@@ -524,6 +524,9 @@ class AppStore extends ChangeNotifier {
       case 'noteDel':
         final c = client(a['clientId'] as int?);
         if (c != null) sub(c, 'notes').removeWhere((n) => n is Map && n['id'] == a['id']);
+      case 'avatar':
+        final c = client(a['clientId'] as int?);
+        if (c != null) c['avatar'] = a['avatar'];
       case 'routine':
         final c = client(a['clientId'] as int?);
         if (c != null) c[a['slot'] == 'plan' ? 'planRoutine' : 'routine'] = a['routine'];
@@ -913,6 +916,8 @@ class AppStore extends ChangeNotifier {
   }
 
   // Reseñas: el asesorado escribe la suya; el entrenador la aprueba (sale en su página) o la rechaza (se borra)
+  /// Personaje 3D: el asesorado elige su aspecto (los músculos los gana entrenando).
+  Future<ApiResult> saveAvatar(J avatar) => _act('PUT', '/api/client/avatar', {'avatar': avatar}, 'avatar', {'clientId': meId, 'avatar': avatar}, 'Tu personaje');
   Future<ApiResult> saveMyReview(J r) => _act('PUT', '/api/client/review', r);
   Future<ApiResult> deleteMyReview() => _act('DELETE', '/api/client/review');
   Future<ApiResult> approveReview(String id) => _act('POST', '/api/coach/reviews/$id/approve', <String, dynamic>{});

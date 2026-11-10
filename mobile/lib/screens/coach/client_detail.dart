@@ -11,6 +11,7 @@ import '../../core/store.dart';
 import '../../core/techniques.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
+import '../shared/avatar_card.dart';
 import '../shared/messages.dart';
 import '../shared/progress_widgets.dart';
 import '../shared/tracking.dart';
@@ -143,6 +144,7 @@ class _Summary extends StatelessWidget {
         NoteBox(icon: Icons.chat_bubble_outline_rounded, child: Text('Último comentario (${lastComment.s('dayName')}, ${ago(lastComment.d('finishedAt'))}): “${lastComment.s('comment')}”')),
       AdherenceChart(clientId),
       WeightChart(clientId, action: TextButton(onPressed: () => showWeightSheet(context, clientId), child: const Text('Registrar'))),
+      AvatarCard(clientId),
       MuscleLoadPanel(clientId),
       VolumeChart(clientId),
       Records(clientId),

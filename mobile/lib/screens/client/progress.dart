@@ -5,6 +5,7 @@ import '../../app.dart';
 import '../../core/format.dart';
 import '../../core/store.dart';
 import '../../ui/widgets.dart';
+import '../shared/avatar_card.dart';
 import '../shared/progress_widgets.dart';
 import '../shared/tracking.dart';
 import '../shell.dart';
@@ -27,6 +28,7 @@ class ProgressPage extends StatelessWidget {
           StatTile(label: 'Racha', value: '$streak', sub: streak == 1 ? 'semana cumpliendo' : 'semanas cumpliendo', icon: Icons.local_fire_department_rounded, tone: streak > 0 ? 'warn' : ''),
           StatTile(label: 'Volumen del mes', value: tons(s.monthVolume), sub: '${s.avgMin} min por sesión', icon: Icons.trending_up_rounded),
         ]),
+        AvatarCard(id, editable: true),
         MuscleLoadPanel(id),
         VolumeChart(id),
         WeightChart(id, action: TextButton(onPressed: () => showWeightSheet(context, id), child: const Text('Registrar'))),

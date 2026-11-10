@@ -43,6 +43,8 @@ export default defineConfig({
   build: {
     chunkSizeWarningLimit: 600,
     rollupOptions: {
+      // avatar.html: el personaje 3D que muestra la app Android
+      input: { main: "index.html", avatar: "avatar.html" },
       output: {
         // React y el catálogo de ejercicios cambian poco: van aparte para que el navegador los reutilice entre versiones
         manualChunks: (id) => {

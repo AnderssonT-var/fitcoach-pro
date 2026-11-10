@@ -368,6 +368,10 @@ const REDUCERS = {
   },
   noteUpd(d, a) { const n = findClient(d, a.clientId)?.notes?.find((x) => x.id === a.id); if (n) Object.assign(n, a.patch); },
   noteDel(d, a) { const c = findClient(d, a.clientId); if (c) c.notes = (c.notes || []).filter((n) => n.id !== a.id); },
+  avatar(d, a) {
+    const c = d.clients.find((x) => x.userId === a.clientId);
+    if (c) c.avatar = a.avatar;
+  },
   routine(d, a) {
     const c = findClient(d, a.clientId);
     if (!c) return;
@@ -746,6 +750,7 @@ export async function updateBrand(coachId, p) {
 }
 
 /* Reseñas: el asesorado escribe la suya; el entrenador la aprueba (sale en su página) o la rechaza (se borra) */
+export const saveAvatar = (avatar) => act("PUT", "/api/client/avatar", { avatar }, { kind: "avatar", args: { clientId: me(), avatar }, label: "Tu personaje" });
 export const saveMyReview = (r) => act("PUT", "/api/client/review", r);
 export const deleteMyReview = () => act("DELETE", "/api/client/review");
 export const approveReview = (id) => act("POST", `/api/coach/reviews/${id}/approve`, {});

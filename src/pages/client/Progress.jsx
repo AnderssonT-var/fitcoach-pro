@@ -6,6 +6,7 @@ import { AdherenceChart, Records, VolumeChart, WeightChart, quickStats } from ".
 import { WeightModal } from "../coach/ClientDetail";
 import { Measurements, Photos } from "../coach/Tracking";
 import { MuscleLoadPanel } from "../../workout/MuscleLoad";
+import AvatarPanel from "../../avatar/AvatarPanel";
 import { useApp } from "../../context";
 import { useDB, weekStreak, workoutsOf } from "../../store/db";
 
@@ -27,6 +28,7 @@ export default function Progress() {
         <Stat label="Racha" value={streak} sub={streak === 1 ? "semana cumpliendo" : "semanas cumpliendo"} icon="flame" />
         <Stat label="Volumen del mes" value={s.tonsLabel} sub={`${s.avgMin} min por sesión`} icon="trend" />
       </div>
+      <AvatarPanel clientId={me.id} editable />
       <MuscleLoadPanel clientId={me.id} />
       <div className="grid-2">
         <VolumeChart clientId={me.id} />

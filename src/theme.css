@@ -386,3 +386,7 @@ button.panel { border: 1px solid var(--line); }
 .rv-item.pending { border-color: color-mix(in srgb, #f5b301 55%, var(--line)); }
 .rv-item .rv-head { display: flex; align-items: center; gap: 10px; }
 .rv-item p { margin: 0; white-space: pre-wrap; }
+
+/* Personaje 3D */
+.avatar-panel { margin-bottom: 18px; }
+.avatar-panel .vf-av { --av-bg: var(--bg); --av-ink: var(--ink); --av-muted: var(--muted); }
