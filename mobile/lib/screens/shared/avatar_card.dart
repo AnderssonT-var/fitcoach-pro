@@ -190,8 +190,8 @@ class _CustomizeSheetState extends State<_CustomizeSheet> {
             customBorder: const CircleBorder(),
             child: Container(
               width: 36, height: 36,
-              decoration: BoxDecoration(shape: BoxShape.circle, color: parseHex(c), border: Border.all(color: s[k] == c ? context.tok.ink : context.tok.line, width: s[k] == c ? 2.5 : 1)),
-              child: s[k] == c ? Icon(Icons.check_rounded, size: 18, color: parseHex(c).computeLuminance() > 0.5 ? Colors.black : Colors.white) : null,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: parseHex(c) ?? Colors.grey, border: Border.all(color: s[k] == c ? context.tok.ink : context.tok.line, width: s[k] == c ? 2.5 : 1)),
+              child: s[k] == c ? Icon(Icons.check_rounded, size: 18, color: (parseHex(c) ?? Colors.grey).computeLuminance() > 0.5 ? Colors.black : Colors.white) : null,
             ),
           ),
       ]);
