@@ -37,7 +37,7 @@ export function parse(schema, data) {
   const r = schema.safeParse(data ?? {});
   if (!r.success) {
     const first = r.error.issues[0];
-    throw bad(first?.message && !/^(Expected|Required|Invalid|String must|Number must|Array must)/.test(first.message)
+    throw bad(first?.message && !/^(Expected|Required|Invalid|String must|Number must|Array must|Too (small|big)|Unrecognized)/.test(first.message)
       ? first.message : `Revisa el campo «${first?.path?.join(".") || "datos"}».`);
   }
   return r.data;
