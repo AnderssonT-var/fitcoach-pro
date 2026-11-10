@@ -10,10 +10,10 @@ const CSS = `
 .vf-av-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:center}
 .vf-av-stage{position:relative;height:var(--av-h,380px);border-radius:22px;box-shadow:inset 7px 7px 16px var(--nd),inset -7px -7px 16px var(--nl);overflow:hidden}
 .vf-av-stage canvas{border-radius:22px}
-.vf-av-badge{position:absolute;left:12px;top:12px;display:flex;align-items:center;gap:10px;padding:8px 12px 8px 8px;border-radius:999px;background:var(--nb);box-shadow:4px 4px 10px var(--nd),-4px -4px 10px var(--nl);pointer-events:none}
-.vf-av-ring{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font:800 15px/1 inherit;color:var(--ac);background:conic-gradient(var(--ac) calc(var(--p,0)*1turn),transparent 0);position:relative}
+.vf-av-badge{position:absolute;left:10px;top:10px;display:flex;align-items:center;gap:8px;padding:6px 11px 6px 6px;border-radius:999px;background:var(--nb);box-shadow:4px 4px 10px var(--nd),-4px -4px 10px var(--nl);pointer-events:none}
+.vf-av-ring{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font:800 15px/1 inherit;color:var(--ac);background:conic-gradient(var(--ac) calc(var(--p,0)*1turn),transparent 0);position:relative}
 .vf-av-ring::before{content:"";position:absolute;inset:4px;border-radius:50%;background:var(--nb)}.vf-av-ring b{position:relative}
-.vf-av-badge small{display:block;font-size:11px;color:var(--mu);line-height:1.1}.vf-av-badge strong{font-size:14px;line-height:1.2}
+.vf-av-badge small{display:block;font-size:10px;color:var(--mu);line-height:1.1}.vf-av-badge strong{font-size:12px;line-height:1.2}
 .vf-av-flex{position:absolute;right:12px;bottom:12px;border:0;cursor:pointer;padding:10px 14px;border-radius:999px;background:var(--nb);color:var(--ac);font:700 13px/1 inherit;box-shadow:4px 4px 10px var(--nd),-4px -4px 10px var(--nl)}
 .vf-av-flex:active{box-shadow:inset 3px 3px 8px var(--nd),inset -3px -3px 8px var(--nl)}
 .vf-av-hint{position:absolute;left:0;right:0;bottom:58px;text-align:center;font-size:11px;color:var(--mu);pointer-events:none}
@@ -50,7 +50,7 @@ export function mountAvatarCard(root, { dark = false, accent = "#5856d6", compac
     <div class="vf-av ${dark ? "dark" : ""}" style="--av-accent:${accent}">
       <div class="vf-av-grid" ${compact ? 'style="grid-template-columns:1fr"' : ""}>
         <div class="vf-av-stage">
-          <div class="vf-av-badge"><div class="vf-av-ring"><b>1</b></div><div><small>Nivel</small><strong class="vf-av-title">Principiante</strong></div></div>
+          <div class="vf-av-badge"><div class="vf-av-ring"><b>1</b></div><div><strong class="vf-av-title">Principiante</strong></div></div>
           <button type="button" class="vf-av-flex">💪 Flexionar</button>
           <div class="vf-av-hint">Desliza para girar</div>
         </div>
@@ -89,7 +89,7 @@ export function mountAvatarCard(root, { dark = false, accent = "#5856d6", compac
       if (lastLevel != null && progress.level > lastLevel) ch.flex(2600); // ¡subió de nivel!
       lastLevel = progress.level;
     },
-    flex: () => ch.flex(),
+    flex: (ms) => ch.flex(ms),
     dispose: () => ch.dispose(),
   };
 }
