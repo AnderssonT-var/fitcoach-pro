@@ -23,14 +23,27 @@ export function useAvatarData(clientId) {
   return { c, u, progress, style };
 }
 
+const OPEN_KEY = "vf-avatar-open";
+const readOpen = () => { try { return localStorage.getItem(OPEN_KEY) === "1"; } catch { return false; } };
+
 export default function AvatarPanel({ clientId, editable = false }) {
   const { progress, style } = useAvatarData(clientId);
+  const [open, setOpen] = useState(readOpen);
   const [draft, setDraft] = useState(null);
   const shown = draft || style;
   const host = useRef(null), card = useRef(null);
   const [failed, setFailed] = useState(false);
 
+  function toggle() {
+    const v = !open;
+    setOpen(v);
+    if (!v) setDraft(null);
+    try { localStorage.setItem(OPEN_KEY, v ? "1" : "0"); } catch { /* sin almacenamiento */ }
+  }
+
+  // El 3D solo se carga y se dibuja mientras la sección está desplegada
   useEffect(() => {
+    if (!open) return;
     let alive = true;
     import("./card.js").then(({ mountAvatarCard }) => {
       if (!alive || !host.current) return;
@@ -41,19 +54,27 @@ export default function AvatarPanel({ clientId, editable = false }) {
       } catch { setFailed(true); }
     }).catch(() => setFailed(true));
     return () => { alive = false; card.current?.dispose(); card.current = null; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { card.current?.update(shown, progress); }, [JSON.stringify(shown), progress]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (failed) return null; // equipos sin 3D: no se muestra
+  const title = editable ? "Tu personaje" : "Su personaje";
   return (
-    <section className="avatar-panel">
-      <div className="panel-head" style={{ padding: "0 4px 10px" }}>
-        <h2>{editable ? "Tu personaje" : "Su personaje"}</h2>
-        {editable && <button className="btn btn-quiet btn-sm" onClick={() => setDraft(style)}><Icon name="sparkle" size={15} />Personalizar</button>}
+    <section className={`avatar-panel${open ? " open" : ""}`}>
+      <div className="avatar-head">
+        <button type="button" className="avatar-toggle" aria-expanded={open} onClick={toggle}>
+          <span className="avatar-lv" style={{ "--p": progress.next || 0 }}><b>{progress.level}</b></span>
+          <span className="avatar-tt">
+            <strong>{style.name || title}</strong>
+            <small>Nivel {progress.level} · {progress.title}</small>
+          </span>
+          <Icon name="down" size={18} className="avatar-chev" />
+        </button>
+        {open && editable && <button className="btn btn-quiet btn-sm" onClick={() => setDraft(style)}><Icon name="sparkle" size={15} />Personalizar</button>}
       </div>
-      <div ref={host} />
-      {draft && editable && <Customize draft={draft} setDraft={setDraft} onClose={() => setDraft(null)} />}
+      {open && <div ref={host} className="avatar-body" />}
+      {open && draft && editable && <Customize draft={draft} setDraft={setDraft} onClose={() => setDraft(null)} />}
     </section>
   );
 }

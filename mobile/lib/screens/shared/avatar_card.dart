@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../app.dart';
@@ -55,9 +56,26 @@ class AvatarCard extends StatefulWidget {
 class _AvatarCardState extends State<AvatarCard> {
   WebViewController? ctl;
   double height = 820;
-  bool ready = false, failed = false;
+  bool ready = false, failed = false, open = false;
   J? draft;
   String? _sent;
+  static const _openKey = 'vytrafit.avatar.open';
+
+  @override
+  void initState() {
+    super.initState();
+    SharedPreferences.getInstance().then((p) {
+      if (mounted && (p.getBool(_openKey) ?? false)) setState(() => open = true);
+    });
+  }
+
+  void _toggle() {
+    setState(() {
+      open = !open;
+      if (!open) { ctl = null; ready = false; _sent = null; failed = false; } // el 3D se libera al plegar
+    });
+    SharedPreferences.getInstance().then((p) => p.setBool(_openKey, open));
+  }
 
   J get _style {
     final c = store.clientById(widget.clientId);
@@ -113,25 +131,61 @@ class _AvatarCardState extends State<AvatarCard> {
   Widget build(BuildContext context) {
     if (kIsWeb) return const SizedBox.shrink();
     return Watch(builder: (context) {
+      final t = context.tok;
+      final name = _style.s('name');
+      final title = widget.editable ? 'Tu personaje' : 'Su personaje';
+      final header = Material(
+        color: t.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: BorderSide(color: t.line)),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: _toggle,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            child: Row(children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: .14),
+                child: Icon(Icons.accessibility_new_rounded, color: Theme.of(context).colorScheme.primary),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                  Text(name.isEmpty ? title : name, style: context.tt.titleMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text(open ? 'Crece con cada peso que subes' : 'Toca para ver tu personaje', style: context.tt.bodySmall),
+                ]),
+              ),
+              AnimatedRotation(turns: open ? 0.5 : 0, duration: const Duration(milliseconds: 250), child: const Icon(Icons.expand_more_rounded)),
+            ]),
+          ),
+        ),
+      );
+      if (!open) return header;
       _init(context);
       WidgetsBinding.instance.addPostFrameCallback((_) => _push());
       if (failed) {
-        return Panel(child: Row(children: [
-          const Icon(Icons.wifi_off_rounded),
-          const SizedBox(width: 12),
-          Expanded(child: Text('Tu personaje se ve con conexión a internet.', style: context.tt.bodyMedium)),
-          TextButton(onPressed: () { setState(() { failed = false; ready = false; ctl = null; }); }, child: const Text('Reintentar')),
-        ]));
+        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          header,
+          const Gap(10),
+          Panel(child: Row(children: [
+            const Icon(Icons.wifi_off_rounded),
+            const SizedBox(width: 12),
+            Expanded(child: Text('Tu personaje se ve con conexión a internet.', style: context.tt.bodyMedium)),
+            TextButton(onPressed: () { setState(() { failed = false; ready = false; ctl = null; }); }, child: const Text('Reintentar')),
+          ])),
+        ]);
       }
       return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(4, 4, 4, 4),
-          child: Row(children: [
-            Expanded(child: Text(widget.editable ? 'Tu personaje' : 'Su personaje', style: context.tt.titleLarge)),
-            if (widget.editable)
-              FilledButton.tonalIcon(onPressed: () => _customize(context), icon: const Icon(Icons.auto_awesome_rounded, size: 18), label: const Text('Personalizar')),
-          ]),
-        ),
+        header,
+        if (widget.editable)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.tonalIcon(onPressed: () => _customize(context), icon: const Icon(Icons.auto_awesome_rounded, size: 18), label: const Text('Personalizar')),
+            ),
+          ),
+        const Gap(8),
         SizedBox(
           height: height,
           child: WebViewWidget(

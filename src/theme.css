@@ -389,4 +389,18 @@ button.panel { border: 1px solid var(--line); }
 
 /* Personaje 3D */
 .avatar-panel { margin-bottom: 18px; }
+.avatar-head { display: flex; align-items: center; gap: 10px; }
+.avatar-toggle { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 10px 14px 10px 10px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); color: var(--ink); cursor: pointer; text-align: left; font: inherit; }
+.avatar-toggle:hover { border-color: color-mix(in srgb, var(--brand) 40%, var(--line)); }
+.avatar-lv { width: 40px; height: 40px; flex: none; border-radius: 50%; display: grid; place-items: center; position: relative; color: var(--brand); font-weight: 800; background: conic-gradient(var(--brand) calc(var(--p, 0) * 1turn), color-mix(in srgb, var(--brand) 14%, transparent) 0); }
+.avatar-lv::before { content: ""; position: absolute; inset: 4px; border-radius: 50%; background: var(--surface); }
+.avatar-lv b { position: relative; font-size: 14px; }
+.avatar-tt { flex: 1; min-width: 0; display: grid; }
+.avatar-tt strong { font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.avatar-tt small { color: var(--muted); font-size: 12.5px; }
+.avatar-chev { flex: none; color: var(--muted); transition: transform .25s ease; }
+.avatar-panel.open .avatar-chev { transform: rotate(180deg); }
+.avatar-body { margin-top: 12px; animation: avatar-in .3s ease; }
+@keyframes avatar-in { from { opacity: 0; transform: translateY(-6px); } }
+@media (prefers-reduced-motion: reduce) { .avatar-body { animation: none; } .avatar-chev { transition: none; } }
 .avatar-panel .vf-av { --av-bg: var(--bg); --av-ink: var(--ink); --av-muted: var(--muted); }
