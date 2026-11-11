@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../app.dart';
 import '../../core/catalog.dart';
@@ -215,6 +216,72 @@ class _MeasurementsState extends State<Measurements> {
 }
 
 /* ------------------------------------------------------------ Fotos */
+/// Fotos de progreso en una sección plegable (recuerda si se dejó abierta).
+class CollapsiblePhotos extends StatefulWidget {
+  final int clientId;
+  final bool canUpload, canDelete;
+  const CollapsiblePhotos({super.key, required this.clientId, this.canUpload = false, this.canDelete = false});
+  @override
+  State<CollapsiblePhotos> createState() => _CollapsiblePhotosState();
+}
+
+class _CollapsiblePhotosState extends State<CollapsiblePhotos> {
+  static const _key = 'vytrafit.photos.open';
+  bool open = false;
+
+  @override
+  void initState() {
+    super.initState();
+    SharedPreferences.getInstance().then((p) {
+      if (mounted && (p.getBool(_key) ?? false)) setState(() => open = true);
+    });
+  }
+
+  void _toggle() {
+    setState(() => open = !open);
+    SharedPreferences.getInstance().then((p) => p.setBool(_key, open));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Watch(builder: (context) {
+      final t = context.tok;
+      final photos = (store.clientById(widget.clientId) ?? {}).lm('photos');
+      final dates = {for (final p in photos) p.s('date').length >= 10 ? p.s('date').substring(0, 10) : p.s('date')}.length;
+      final header = Material(
+        color: t.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: BorderSide(color: t.line)),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: _toggle,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            child: Row(children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: .14),
+                child: Icon(Icons.photo_library_rounded, color: Theme.of(context).colorScheme.primary),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                  Text('Fotos de progreso', style: context.tt.titleMedium),
+                  Text(photos.isEmpty ? 'Sin fotos' : '${photos.length} fotos · $dates ${dates == 1 ? 'fecha' : 'fechas'}', style: context.tt.bodySmall),
+                ]),
+              ),
+              AnimatedRotation(turns: open ? 0.5 : 0, duration: const Duration(milliseconds: 250), child: const Icon(Icons.expand_more_rounded)),
+            ]),
+          ),
+        ),
+      );
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        header,
+        if (open) ...[const Gap(10), Photos(clientId: widget.clientId, canUpload: widget.canUpload, canDelete: widget.canDelete)],
+      ]);
+    });
+  }
+}
+
 class Photos extends StatelessWidget {
   final int clientId;
   final bool canUpload, canDelete;

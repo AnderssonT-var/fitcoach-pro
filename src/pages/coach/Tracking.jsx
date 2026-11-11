@@ -115,8 +115,18 @@ function MeasureModal({ clientId, last, onClose }) {
    ============================================================ */
 const POSES = ["Frente", "Perfil", "Espalda", "Otra"];
 
-export function Photos({ clientId, canUpload, canDelete }) {
+const PHOTOS_OPEN = "vf-photos-open";
+const readPhotosOpen = () => { try { return localStorage.getItem(PHOTOS_OPEN) === "1"; } catch { return false; } };
+
+export function Photos({ clientId, canUpload, canDelete, collapsible = false }) {
   const db = useDB();
+  const [openState, setOpenState] = useState(readPhotosOpen);
+  const open = !collapsible || openState;
+  function toggle() {
+    const v = !openState;
+    setOpenState(v);
+    try { localStorage.setItem(PHOTOS_OPEN, v ? "1" : "0"); } catch { /* sin almacenamiento */ }
+  }
   const { me } = useApp();
   const c = clientById(db, clientId);
   const photos = c.photos || [];
@@ -133,15 +143,20 @@ export function Photos({ clientId, canUpload, canDelete }) {
   }, [photos]);
 
   return (
-    <section className="panel">
+    <section className={`panel${collapsible ? " fold" : ""}${open ? " open" : ""}`}>
       <div className="panel-head">
-        <div><h2>Fotos de progreso</h2><div className="small muted">{photos.length ? `${photos.length} fotos · ${groups.length} ${groups.length === 1 ? "fecha" : "fechas"}` : "Sin fotos"}</div></div>
-        <div className="row gap-sm">
+        {collapsible ? (
+          <button type="button" className="fold-toggle" aria-expanded={open} onClick={toggle}>
+            <span><h2>Fotos de progreso</h2><span className="small muted">{photos.length ? `${photos.length} fotos · ${groups.length} ${groups.length === 1 ? "fecha" : "fechas"}` : "Sin fotos"}</span></span>
+            <Icon name="down" size={18} className="fold-chev" />
+          </button>
+        ) : <div><h2>Fotos de progreso</h2><div className="small muted">{photos.length ? `${photos.length} fotos · ${groups.length} ${groups.length === 1 ? "fecha" : "fechas"}` : "Sin fotos"}</div></div>}
+        {open && <div className="row gap-sm">
           {photos.length > 1 && <button className="btn btn-quiet btn-sm" onClick={() => setCompare(true)}>Comparar</button>}
           {canUpload && <button className="btn btn-primary btn-sm" onClick={() => setUpload(true)}><Icon name="plus" size={15} />Subir fotos</button>}
-        </div>
+        </div>}
       </div>
-      <div className="panel-body stack">
+      {open && <div className="panel-body stack fold-body">
         {!allowed && (
           <div className="note-box small"><Icon name="lock" size={16} /><span>
             {me.role === "client"
@@ -165,7 +180,7 @@ export function Photos({ clientId, canUpload, canDelete }) {
             </div>
           </div>
         ))}
-      </div>
+      </div>}
       {upload && <UploadModal clientId={clientId} onClose={() => setUpload(false)} />}
       {view && <Lightbox photos={photos} start={view} canDelete={canDelete} clientId={clientId} onClose={() => setView(null)} />}
       {compare && <CompareModal photos={photos} onClose={() => setCompare(false)} />}

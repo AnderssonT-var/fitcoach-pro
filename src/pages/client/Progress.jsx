@@ -39,7 +39,7 @@ export default function Progress() {
         <AdherenceChart clientId={me.id} />
       </div>
       <Measurements clientId={me.id} />
-      <Photos clientId={me.id} canUpload />
+      <Photos clientId={me.id} canUpload collapsible />
       <section className="panel">
         <div className="panel-head"><h2>Historial</h2><span className="small muted">Toca una sesión para ver cada serie</span></div>
         <SessionList sessions={workoutsOf(db, me.id)} />

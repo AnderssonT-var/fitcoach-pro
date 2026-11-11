@@ -35,7 +35,7 @@ class ProgressPage extends StatelessWidget {
         Records(id),
         AdherenceChart(id),
         Measurements(clientId: id),
-        Photos(clientId: id, canUpload: true),
+        CollapsiblePhotos(clientId: id, canUpload: true),
         Section(title: 'Historial', subtitle: 'Toca una sesión para ver cada serie', child: SessionList(sessions: store.workoutsOf(id))),
       ]);
     });

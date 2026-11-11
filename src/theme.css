@@ -404,3 +404,12 @@ button.panel { border: 1px solid var(--line); }
 @keyframes avatar-in { from { opacity: 0; transform: translateY(-6px); } }
 @media (prefers-reduced-motion: reduce) { .avatar-body { animation: none; } .avatar-chev { transition: none; } }
 .avatar-panel .vf-av { --av-bg: var(--bg); --av-ink: var(--ink); --av-muted: var(--muted); }
+
+/* Secciones plegables (fotos de progreso) */
+.panel.fold:not(.open) > .panel-head { padding-bottom: 18px; }
+.fold-toggle { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; background: none; border: 0; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.fold-toggle > span { flex: 1; min-width: 0; display: grid; }
+.fold-chev { flex: none; color: var(--muted); transition: transform .25s ease; }
+.panel.fold.open .fold-chev { transform: rotate(180deg); }
+.fold-body { animation: avatar-in .3s ease; }
+@media (prefers-reduced-motion: reduce) { .fold-body { animation: none; } .fold-chev { transition: none; } }
