@@ -35,7 +35,7 @@ export default function Progress() {
         <WeightChart clientId={me.id} />
       </div>
       <div className="grid-2">
-        <Records clientId={me.id} />
+        <Records clientId={me.id} editable />
         <AdherenceChart clientId={me.id} />
       </div>
       <Measurements clientId={me.id} />

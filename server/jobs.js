@@ -7,9 +7,9 @@ import { settleTrials } from "./trial.js";
 
 const DAY = 864e5;
 const first = (n) => String(n || "").split(" ")[0];
-const ymd = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const money = (v) => `$${(+v).toFixed(2).replace(/\.00$/, "")}`;
-const quiet = (d = new Date()) => d.getHours() < 8 || d.getHours() >= 21; // sin avisos de noche
+// Sin avisos de noche (hora de Ecuador o la de APP_TZ); los recordatorios usan la hora de cada asesorado
+const quiet = (d = new Date()) => { const h = +new Intl.DateTimeFormat("en-US", { timeZone: process.env.APP_TZ || "America/Guayaquil", hour: "2-digit", hourCycle: "h23" }).format(d); return h < 6 || h >= 22; };
 
 let running = false;
 export async function runJobs() {
@@ -30,21 +30,46 @@ export async function runJobs() {
   return out;
 }
 
-/* «Hoy te toca entrenar» a la hora que eligió el asesorado, si aún no entrenó hoy */
+/** Fecha y hora locales del asesorado (zona de su equipo; si no hay, Ecuador). */
+const DEFAULT_TZ = process.env.APP_TZ || "America/Guayaquil";
+function localNow(r, now = new Date()) {
+  const fromParts = (tz) => {
+    const p = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", weekday: "short", hourCycle: "h23" })
+      .formatToParts(now).map((x) => [x.type, x.value]));
+    const dow = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(p.weekday);
+    return { day: `${p.year}-${p.month}-${p.day}`, dow, hhmm: `${p.hour}:${p.minute}`, hour: +p.hour, offMin: null, tz };
+  };
+  if (r?.tz) { try { return fromParts(r.tz); } catch { /* zona desconocida */ } }
+  if (Number.isFinite(r?.off)) {
+    const d = new Date(now.getTime() + r.off * 60e3);
+    return { day: d.toISOString().slice(0, 10), dow: d.getUTCDay(), hhmm: d.toISOString().slice(11, 16), hour: d.getUTCHours(), offMin: r.off };
+  }
+  return fromParts(DEFAULT_TZ);
+}
+/** Inicio del día local (como instante UTC) para buscar si ya entrenó hoy. */
+function localDayStart(l, now = new Date()) {
+  const [h, m] = l.hhmm.split(":").map(Number);
+  const t = new Date(now); t.setUTCSeconds(0, 0);
+  return new Date(t.getTime() - (h * 60 + m) * 60e3).toISOString();
+}
+
+/* «Hoy te toca entrenar» a la hora y el día locales que eligió el asesorado, si aún no entrenó hoy */
 async function reminders(clients) {
-  const now = new Date(), today = ymd(now), dow = now.getDay();
-  const hhmm = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  const now = new Date();
   const ids = clients.map((c) => c.user_id);
   if (!ids.length) return 0;
   const users = await knex("users").whereIn("id", ids).select("id", "name", "profile");
   let n = 0;
   for (const u of users) {
     const r = J(u.profile, {}).notif?.reminder;
-    if (!r?.on || !Array.isArray(r.days) || !r.days.includes(dow) || !r.time || hhmm < r.time) continue;
+    if (!r?.on || !Array.isArray(r.days) || !r.time) continue;
+    const l = localNow(r, now);
+    if (!r.days.includes(l.dow) || l.hhmm < r.time || l.hour >= 22) continue;
+    const today = l.day;
     const c = clients.find((x) => x.user_id === u.id);
     const routine = J(c.data, {}).routine;
     if (!routine) continue;
-    const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    const startToday = localDayStart(l, now);
     if (await knex("workouts").where({ client_id: u.id }).where("finished_at", ">=", startToday).first()) continue;
     if (!(await once(`remind:${u.id}:${today}`))) continue;
     await notify(u.id, { title: `${first(u.name)}, hoy toca entrenar 💪`, body: `Tu rutina «${routine.name || "de hoy"}» te espera. ¡Vamos!`, page: "inicio", tag: "remind", kind: "remind" });

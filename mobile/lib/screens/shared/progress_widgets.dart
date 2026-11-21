@@ -214,7 +214,39 @@ class WeightChart extends StatelessWidget {
 
 class Records extends StatelessWidget {
   final int clientId;
-  const Records(this.clientId, {super.key});
+  final bool editable;
+  const Records(this.clientId, {super.key, this.editable = false});
+
+  /// Corrige un récord mal escrito; también se corrige esa serie en el historial.
+  Future<void> _fix(BuildContext context, int exId, J best) async {
+    final w = TextEditingController(text: kg(best.n('weight')));
+    final r = TextEditingController(text: '${best.n('reps').round()}');
+    await showSheet(
+      context,
+      title: 'Corregir récord',
+      builder: (ctx) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+        Text(store.exerciseById(exId).s('name'), style: ctx.tt.titleSmall),
+        const Gap(12),
+        Row(children: [
+          Expanded(child: Field('Peso (kg)', controller: w, autofocus: true, keyboard: const TextInputType.numberWithOptions(decimal: true))),
+          const SizedBox(width: 12),
+          Expanded(child: Field('Repeticiones', controller: r, keyboard: TextInputType.number)),
+        ]),
+        const Gap(10),
+        Text('Se corrige también la serie de ${kg(best.n('weight'))} kg en el historial de este ejercicio, y el récord se vuelve a calcular.', style: ctx.tt.bodySmall),
+      ]),
+      footer: (ctx) => FilledButton(
+        onPressed: () async {
+          final wv = double.tryParse(w.text.replaceAll(',', '.').trim());
+          final rv = int.tryParse(r.text.trim());
+          if (wv == null || wv < 0 || wv > 1000 || rv == null || rv < 1 || rv > 500) return toast(ctx, 'Revisa el peso y las repeticiones', error: true);
+          Navigator.pop(ctx);
+          await runAct(context, store.correctBest(clientId, exId, (wv * 100).round() / 100, rv), 'Récord corregido', Icons.emoji_events_rounded);
+        },
+        child: const Text('Guardar'),
+      ),
+    );
+  }
   @override
   Widget build(BuildContext context) {
     final t = context.tok;
@@ -241,13 +273,17 @@ class Records extends StatelessWidget {
     rows.sort((a, b) => b.$2.n('weight').compareTo(a.$2.n('weight')));
     return Section(
       title: 'Récords personales',
+      subtitle: editable && rows.isNotEmpty ? 'Toca un récord para corregirlo' : null,
       trailing: Icon(Icons.emoji_events_rounded, color: t.gold),
       child: rows.isEmpty
           ? Text('Aparecerán cuando registre entrenamientos con peso.', style: context.tt.bodyMedium)
           : Column(children: [
               for (final (i, (id, best, gain)) in rows.take(12).indexed) ...[
                 if (i > 0) const Divider(height: 1),
-                Padding(
+                InkWell(
+                  onTap: editable ? () => _fix(context, id, best) : null,
+                  borderRadius: BorderRadius.circular(10),
+                  child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   child: Row(children: [
                     Expanded(
@@ -263,7 +299,9 @@ class Records extends StatelessWidget {
                       ])),
                       if (gain > 0) Text('+${kg(gain)} kg desde el inicio', style: TextStyle(color: t.ok, fontWeight: FontWeight.w700, fontSize: 12)),
                     ]),
+                    if (editable) Padding(padding: const EdgeInsets.only(left: 8), child: Icon(Icons.edit_rounded, size: 16, color: t.muted)),
                   ]),
+                ),
                 ),
               ],
             ]),

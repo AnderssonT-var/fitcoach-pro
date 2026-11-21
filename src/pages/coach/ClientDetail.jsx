@@ -105,7 +105,7 @@ function Summary({ clientId, onTab }) {
       <MuscleLoadPanel clientId={clientId} />
       <div className="grid-2">
         <VolumeChart clientId={clientId} />
-        <Records clientId={clientId} />
+        <Records clientId={clientId} editable />
       </div>
     </>
   );

@@ -7,6 +7,7 @@ import { config } from "./config.js";
 import { round2 } from "./util.js";
 import { settleTrials } from "./trial.js";
 import { backfillBests, historyFor } from "./history.js";
+import { linkedProfiles } from "./athlete.js";
 
 /* ---------- precios ---------- */
 export const PLAN_MONTHS = [1, 3, 6, 12];
@@ -91,7 +92,14 @@ const MSG_FROM = () => new Date(Date.now() - 365 * 864e5).toISOString();
 const empty = () => ({ version: 1, users: [], clients: [], licenses: [], payments: [], workouts: [], messages: [], posts: [], templates: [], exercises: [], activity: [], active: {}, subscriptions: [], ranking: null, reviews: [] });
 
 /** opts.history = false: no se incluye el historial de entrenamientos (la app ya lo tiene). */
-export async function buildState(me, { history = true } = {}) {
+export async function buildState(me, opts = {}) {
+  const s = await buildStateInner(me, opts);
+  // Perfiles enlazados (admin ⇄ atleta ⇄ entrenador): a cuáles puede cambiar sin contraseña
+  const self = s.users.find((u) => u.id === me.id);
+  if (self) self.profiles = await linkedProfiles(me).catch(() => []);
+  return s;
+}
+async function buildStateInner(me, { history = true } = {}) {
   const s = empty();
   s.sessionUserId = me.id;
   const pricing = await getPricing();

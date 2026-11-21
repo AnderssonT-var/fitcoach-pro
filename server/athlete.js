@@ -4,7 +4,8 @@ import crypto from "node:crypto";
 import { knex, J, S } from "./db.js";
 import { config } from "./config.js";
 import { hashPassword } from "./auth.js";
-import { nowISO } from "./util.js";
+import { FOREVER, nowISO } from "./util.js";
+import { slugify } from "./routes/common.js";
 import { routineSchema } from "./routes/schemas.js";
 import { bump } from "./versions.js";
 
@@ -33,6 +34,53 @@ export async function ensureAthlete(admin) {
     await trx("users").where({ id: admin.id }).update({ linked_id: target.id });
   });
   return target;
+}
+
+/** Administrador al que pertenece esta cuenta (él mismo, su atleta o su perfil de entrenador). */
+export async function adminOf(me) {
+  if (me.role === "admin") return me;
+  if (!me.linked_id) return null;
+  const a = await knex("users").where({ id: me.linked_id, role: "admin" }).first();
+  if (!a) return null;
+  if (me.role === "client" && a.linked_id === me.id) return a; // su atleta
+  if (me.role === "coach") return a;                            // su perfil de entrenador
+  return null;
+}
+
+/** Perfiles a los que puede cambiar: "admin", "athlete" (Mi entrenamiento) y "coach" (Mi perfil de entrenador). */
+export async function linkedProfiles(me) {
+  const admin = await adminOf(me);
+  if (!admin) return [];
+  const current = me.role === "admin" ? "admin" : me.role === "coach" ? "coach" : "athlete";
+  return ["admin", "athlete", "coach"].filter((p) => p !== current);
+}
+
+/** Devuelve (y crea la primera vez) el perfil de entrenador del administrador, con licencia indefinida. */
+export async function ensureCoach(admin) {
+  const found = await knex("users").where({ linked_id: admin.id, role: "coach" }).first();
+  if (found) { await ensureCoachLicense(found.id); return found; }
+  const [local, domain] = String(admin.email).split("@");
+  const email = `${local.split("+")[0]}+entrenador@${domain}`.toLowerCase();
+  if (await knex("users").where({ email }).first()) throw Object.assign(new Error("Ya existe una cuenta con el correo de entrenador."), { status: 400 });
+  const now = nowISO();
+  let base = slugify(admin.name) || "entrenador", slug = base;
+  for (let i = 2; await knex("users").where({ brand_slug: slug }).first(); i++) slug = `${base}-${i}`;
+  await knex("users").insert({
+    role: "coach", email, password_hash: await hashPassword(crypto.randomBytes(24).toString("base64url")), name: admin.name,
+    profile: S({}), brand: S({ businessName: "", color: "", logo: null, tagline: "" }), brand_slug: slug,
+    created_at: now, consent_version: config.legalVersion, consent_at: now, linked_id: admin.id,
+  });
+  const coach = await knex("users").where({ email }).first();
+  await ensureCoachLicense(coach.id);
+  await bump("g");
+  return coach;
+}
+async function ensureCoachLicense(coachId) {
+  const ok = await knex("licenses").where({ coach_id: coachId, revoked: false }).where("expires_at", ">", nowISO()).first();
+  if (ok) return;
+  const now = nowISO();
+  await knex("licenses").insert({ id: `lic-adm-${coachId}-${Date.now().toString(36)}`, code: `ADM-${crypto.randomBytes(6).toString("hex").toUpperCase()}`,
+    months: 0, coach_id: coachId, created_at: now, activated_at: now, expires_at: FOREVER, revoked: false, note: "Perfil de entrenador del administrador", charges: S([]) });
 }
 
 /* ---------------- Rutina personal de Andersson (5 días, versión ajustada) ----------------

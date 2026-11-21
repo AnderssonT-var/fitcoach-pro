@@ -147,7 +147,7 @@ class _Summary extends StatelessWidget {
       AvatarCard(clientId),
       MuscleLoadPanel(clientId),
       VolumeChart(clientId),
-      Records(clientId),
+      Records(clientId, editable: true),
     ]);
   }
 }

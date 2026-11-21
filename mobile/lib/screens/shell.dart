@@ -300,6 +300,23 @@ class TabPage extends StatelessWidget {
 }
 
 /* ------------------------------------------------------------ Más */
+/// Cambiar entre los perfiles enlazados del administrador (panel, entrenamiento, entrenador).
+List<(IconData, String, String, VoidCallback)> switchItems(BuildContext context) {
+  const info = {
+    'admin': (Icons.admin_panel_settings_rounded, 'Panel de admin', 'Vuelve a tu cuenta de administrador'),
+    'athlete': (Icons.fitness_center_rounded, 'Mi entrenamiento', 'Tu rutina y tu progreso'),
+    'coach': (Icons.groups_rounded, 'Perfil de entrenador', 'Tus asesorados, rutinas y página'),
+  };
+  return [
+    for (final p in store.linkedProfiles)
+      if (info[p] != null)
+        (info[p]!.$1, info[p]!.$2, info[p]!.$3, () async {
+          final r = await store.switchAccount(p);
+          if (!r.ok && context.mounted) toast(context, r.error!, error: true);
+        }),
+  ];
+}
+
 class MorePage extends StatelessWidget {
   const MorePage({super.key});
 
@@ -316,16 +333,13 @@ class MorePage extends StatelessWidget {
               (Icons.storefront_rounded, 'Perfil y marca', 'Tu foto, logo, color, enlace e inscripción', () => push(context, const CoachProfilePage())),
               (Icons.web_rounded, 'Mi página', 'Tu página de presentación con WhatsApp y acceso', () => push(context, const PageEditorPage())),
               (Icons.workspace_premium_rounded, 'Suscripción', 'Tu licencia y pagos', () => push(context, const SubscriptionPage())),
+              ...switchItems(context),
             ]
           : [
               (Icons.diversity_3_rounded, 'Comunidad', 'Comparte tus logros con el grupo', () => push(context, const CommunityPage(standalone: true))),
               if (!store.selfCoached) (Icons.account_balance_wallet_rounded, 'Pagos', 'Tus mensualidades', () => push(context, const MyPayments())),
               (Icons.person_rounded, 'Mi perfil', 'Tus datos, notificaciones y privacidad', () => push(context, const ClientProfilePage())),
-              if (store.hasLinked)
-                (Icons.admin_panel_settings_rounded, 'Panel de admin', 'Vuelve a tu cuenta de administrador', () async {
-                  final r = await store.switchAccount();
-                  if (!r.ok && context.mounted) toast(context, r.error!, error: true);
-                }),
+              ...switchItems(context),
             ];
       return SafeArea(
         bottom: false,

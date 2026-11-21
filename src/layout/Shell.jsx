@@ -26,6 +26,13 @@ export function applyStoredTheme() {
 }
 const isDark = (t) => t === "dark" || (t === "system" && window.matchMedia?.("(prefers-color-scheme: dark)").matches);
 
+/** Perfiles enlazados del administrador: panel, su entrenamiento y su perfil de entrenador. */
+const PROFILE_ITEMS = { admin: { icon: "shield", label: "Panel de admin" }, athlete: { icon: "dumbbell", label: "Mi entrenamiento" }, coach: { icon: "users", label: "Perfil de entrenador" } };
+function switchItems(me) {
+  const list = Array.isArray(me.profiles) ? me.profiles : me.role === "admin" ? ["athlete"] : me.linkedId ? ["admin"] : [];
+  return list.filter((p) => PROFILE_ITEMS[p]).map((p) => ({ id: `__switch:${p}`, ...PROFILE_ITEMS[p] }));
+}
+
 export default function Shell({ children }) {
   const { me, page, go, signOut } = useApp();
   const db = useDB();
@@ -35,16 +42,16 @@ export default function Shell({ children }) {
   const selfCoached = me.role === "client" && db.clients.find((c) => c.userId === me.id)?.selfCoached;
   const items = [
     ...NAV[me.role].filter((it) => !(selfCoached && ["mensajes", "pagos"].includes(it.id))),
-    ...(me.role === "admin" ? [{ id: "__switch", icon: "dumbbell", label: "Mi entrenamiento" }] : me.linkedId ? [{ id: "__switch", icon: "shield", label: "Panel de admin" }] : []),
+    ...switchItems(me),
   ];
   const [switching, setSwitching] = useState(false);
   async function nav(id) {
-    if (id !== "__switch") return go(id);
+    if (!id.startsWith("__switch")) return go(id);
     if (switching) return;
     const n = pendingCount();
     if (n > 0 && !window.confirm(`Tienes ${n === 1 ? "1 cambio" : `${n} cambios`} sin subir. Si cambias de perfil ahora se pierden. ¿Cambiar igual?`)) return;
     setSwitching(true);
-    const r = await switchAccount();
+    const r = await switchAccount(id.split(":")[1]);
     setSwitching(false);
     if (r.error) toast(r.error, "alert");
   }

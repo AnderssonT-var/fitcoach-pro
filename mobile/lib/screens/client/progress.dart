@@ -32,7 +32,7 @@ class ProgressPage extends StatelessWidget {
         MuscleLoadPanel(id),
         VolumeChart(id),
         WeightChart(id, action: TextButton(onPressed: () => showWeightSheet(context, id), child: const Text('Registrar'))),
-        Records(id),
+        Records(id, editable: true),
         AdherenceChart(id),
         Measurements(clientId: id),
         CollapsiblePhotos(clientId: id, canUpload: true),

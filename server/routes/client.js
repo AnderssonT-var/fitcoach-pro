@@ -8,7 +8,7 @@ import { bad, forbidden, h, notFound, nowISO, parse, stamp, uid } from "../util.
 import { checkInlineImage, deleteFile, saveFile } from "../files.js";
 import { buildState, userOut } from "../state.js";
 import { groupOf } from "./common.js";
-import { addToBests } from "../history.js";
+import { addToBests, correctBest } from "../history.js";
 import { clientReviewRoutes } from "../reviews.js";
 import { notifyLater, setRestAlarm } from "../notify.js";
 import { deleteClientData, MESSAGE_TAGS, photosSchema, profileSchema, routineSchema, sessionSchema } from "./schemas.js";
@@ -46,6 +46,15 @@ accountRouter.delete("/", h(async (req, res) => {
 export const clientRouter = Router();
 clientRouter.use(requireClientAccess, requireConsent);
 clientReviewRoutes(clientRouter);
+
+/** Corregir un récord mal escrito (también corrige la serie en el historial). */
+export const bestFix = z.object({ weight: z.number().min(0).max(1000), reps: z.number().int().min(1).max(500).optional() });
+clientRouter.put("/bests/:exId", h(async (req, res) => {
+  const { weight, reps } = parse(bestFix, req.body);
+  const r = await correctBest(req.user.id, req.params.exId, weight, reps);
+  if (!r) throw notFound("No se encontró tu ficha.");
+  res.json({ ok: true, ...r });
+}));
 
 /** Personaje 3D: el asesorado elige su aspecto (el desarrollo muscular sale de su progreso). */
 const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/);

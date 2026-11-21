@@ -591,9 +591,9 @@ export async function login(email, password, brandSlug = null) {
   return { ok: true };
 }
 /** Admin ⇄ su perfil de atleta (sin volver a escribir la contraseña). */
-export async function switchAccount() {
+export async function switchAccount(to) {
   const rt = (() => { try { return localStorage.getItem("fcp.rt"); } catch { return null; } })();
-  const r = await api("POST", "/api/auth/switch", { refreshToken: rt });
+  const r = await api("POST", "/api/auth/switch", { refreshToken: rt, ...(to ? { to } : {}) });
   if (r.error) return r.offline ? { ...r, error: "Necesitas conexión a internet para cambiar de perfil." } : r;
   freshSession();
   setTokens(r);
@@ -608,12 +608,15 @@ export async function logout() {
   ops = ops.filter((o) => o.userId !== uidNow); persistOps();
   syncErrors = syncErrors.filter((e) => e.userId !== uidNow); kvSet("syncErrors", syncErrors);
   saveLocalActive(null);
+  // Este equipo deja de recibir los avisos de la cuenta que sale (p. ej. recordatorios de otra persona)
+  try { await (await import("../lib/notify")).releasePush(); } catch { /* sin conexión */ }
   freshSession();
   api("POST", "/api/auth/logout", { refreshToken: rt });
   setTokens(null);
   setState(blank("guest"));
 }
 export async function logoutAll() {
+  try { await (await import("../lib/notify")).releasePush(); } catch { /* sin conexión */ }
   const r = await api("POST", "/api/auth/logout-all", {});
   if (r.error) return r;
   freshSession();
@@ -751,6 +754,8 @@ export async function updateBrand(coachId, p) {
 
 /* Reseñas: el asesorado escribe la suya; el entrenador la aprueba (sale en su página) o la rechaza (se borra) */
 export const saveAvatar = (avatar) => act("PUT", "/api/client/avatar", { avatar }, { kind: "avatar", args: { clientId: me(), avatar }, label: "Tu personaje" });
+export const correctBest = (clientId, exId, body) =>
+  act("PUT", clientId === me() ? `/api/client/bests/${exId}` : `/api/coach/clients/${clientId}/bests/${exId}`, body);
 export const saveMyReview = (r) => act("PUT", "/api/client/review", r);
 export const deleteMyReview = () => act("DELETE", "/api/client/review");
 export const approveReview = (id) => act("POST", `/api/coach/reviews/${id}/approve`, {});
@@ -784,7 +789,9 @@ export function updateProfile(userId, p) {
 }
 
 /** Recordatorio de entrenamiento del asesorado: { on, days: [0..6], time: "18:00" } */
-export const saveReminder = (reminder) => act("PUT", "/api/profile", { notif: { reminder } }, { kind: "profile", args: { userId: me(), patch: { notif: { reminder } } }, label: "Recordatorio" });
+// Con la zona horaria del equipo: el servidor avisa a la hora y el día locales del asesorado
+const withTz = (r) => { try { return { ...r, tz: Intl.DateTimeFormat().resolvedOptions().timeZone, off: -new Date().getTimezoneOffset() }; } catch { return { ...r, off: -new Date().getTimezoneOffset() }; } };
+export const saveReminder = (r0) => { const reminder = withTz(r0); return act("PUT", "/api/profile", { notif: { reminder } }, { kind: "profile", args: { userId: me(), patch: { notif: { reminder } } }, label: "Recordatorio" }); };
 
 /** Inscripción desde el enlace del entrenador: crea la cuenta y entra. */
 export async function signupWithCoach(data) {

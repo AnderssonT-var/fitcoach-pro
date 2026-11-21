@@ -14,6 +14,9 @@ import "@fontsource/sora/latin-800.css";
 import "./styles.css";
 import "./theme.css";
 
+// iPhone: los sonidos de la app se mezclan con la música del usuario (no la pausan)
+try { if (navigator.audioSession) navigator.audioSession.type = "ambient"; } catch { /* no disponible */ }
+
 applyStoredTheme();
 
 /* Errores de la app: se reportan al servidor (el administrador los ve en «Sistema») */

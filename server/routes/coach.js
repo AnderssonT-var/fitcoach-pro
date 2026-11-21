@@ -4,7 +4,7 @@ import { z } from "zod";
 import { knex, bool, J, S } from "../db.js";
 import { hashPassword, requireConsent, requireLicense, revokeAll, tempPassword } from "../auth.js";
 import { bad, h, notFound, nowISO, parse, stamp, uid, addMonths, monthlyConcept, round2, isForever, licenseEnd } from "../util.js";
-import { hasMonthly } from "../history.js";
+import { correctBest, hasMonthly } from "../history.js";
 import { checkInlineImage, deleteFile, saveFile } from "../files.js";
 import { coachReviewRoutes, approvedReviews } from "../reviews.js";
 import { SCHEMA, cleanPage, loadPage, previewSig, renderPage, savePage, dropCache } from "../landing.js";
@@ -290,6 +290,12 @@ router.delete("/clients/:id/photos/:pid", h(async (req, res) => {
 
 /* ---------- notas privadas ---------- */
 const noteSchema = z.object({ text: z.string().trim().min(1).max(2000), category: z.string().trim().max(30) });
+router.put("/clients/:id/bests/:exId", h(async (req, res) => {
+  const { weight, reps } = parse(z.object({ weight: z.number().min(0).max(1000), reps: z.number().int().min(1).max(500).optional() }), req.body);
+  const c = await ownClient(req.user.id, req.params.id);
+  res.json({ ok: true, ...(await correctBest(c.user_id, req.params.exId, weight, reps)) });
+}));
+
 router.post("/clients/:id/notes", h(async (req, res) => {
   const n = parse(noteSchema, req.body);
   await editClient(req.user.id, req.params.id, (d) => { (d.notes ||= []).push({ id: uid("nt-"), at: stamp(), category: n.category, text: n.text, pinned: false }); });

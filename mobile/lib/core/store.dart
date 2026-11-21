@@ -17,6 +17,7 @@ import 'catalog.dart';
 import 'disk.dart';
 import 'format.dart';
 import 'json.dart';
+import 'notify.dart';
 import 'push.dart';
 import 'techniques.dart';
 
@@ -875,9 +876,16 @@ class AppStore extends ChangeNotifier {
   bool get selfCoached => role == 'client' && (myClient?.b('selfCoached') ?? false);
   bool get hasLinked => role == 'admin' || me?.inn('linkedId') != null;
 
-  /// Admin ⇄ su perfil de atleta, sin volver a escribir la contraseña.
-  Future<ApiResult> switchAccount() async {
-    final r = await Api.I.call('POST', '/api/auth/switch', {'refreshToken': Api.I.refreshToken});
+  /// Perfiles enlazados del administrador a los que se puede cambiar: 'admin', 'athlete', 'coach'.
+  List<String> get linkedProfiles {
+    final p = me?['profiles'];
+    if (p is List) return p.map((e) => '$e').toList();
+    return role == 'admin' ? ['athlete'] : (me?.inn('linkedId') != null ? ['admin'] : []);
+  }
+
+  /// Admin ⇄ su perfil de atleta ⇄ su perfil de entrenador, sin volver a escribir la contraseña.
+  Future<ApiResult> switchAccount([String? to]) async {
+    final r = await Api.I.call('POST', '/api/auth/switch', {'refreshToken': Api.I.refreshToken, if (to != null) 'to': to});
     if (!r.ok) return r.offline ? const ApiResult(error: 'Necesitas conexión a internet para cambiar de perfil.', status: 0, offline: true) : r;
     return _enter(r);
   }
@@ -885,6 +893,7 @@ class AppStore extends ChangeNotifier {
   /// Al salir a propósito se borra lo guardado en el celular (datos y cambios sin subir de esta cuenta).
   Future<void> logout() async {
     await Push.I.unregister();
+    await Notify.I.scheduleReminders(null); // los recordatorios de esta cuenta no siguen en el equipo
     final rt = Api.I.refreshToken;
     final me = _uid;
     _pendingActive = null;
@@ -902,6 +911,8 @@ class AppStore extends ChangeNotifier {
   Future<void> logoutAll() async {
     final r = await Api.I.call('POST', '/api/auth/logout-all', {});
     if (!r.ok) return;
+    await Push.I.unregister();
+    await Notify.I.scheduleReminders(null);
     _freshSession();
     await Api.I.setTokens(null);
     _set(Status.guest, _blank());
@@ -918,6 +929,8 @@ class AppStore extends ChangeNotifier {
   // Reseñas: el asesorado escribe la suya; el entrenador la aprueba (sale en su página) o la rechaza (se borra)
   /// Personaje 3D: el asesorado elige su aspecto (los músculos los gana entrenando).
   Future<ApiResult> saveAvatar(J avatar) => _act('PUT', '/api/client/avatar', {'avatar': avatar}, 'avatar', {'clientId': meId, 'avatar': avatar}, 'Tu personaje');
+  Future<ApiResult> correctBest(int clientId, int exId, double weight, int reps) =>
+      _act('PUT', clientId == meId ? '/api/client/bests/$exId' : '/api/coach/clients/$clientId/bests/$exId', {'weight': weight, 'reps': reps});
   Future<ApiResult> saveMyReview(J r) => _act('PUT', '/api/client/review', r);
   Future<ApiResult> deleteMyReview() => _act('DELETE', '/api/client/review');
   Future<ApiResult> approveReview(String id) => _act('POST', '/api/coach/reviews/$id/approve', <String, dynamic>{});
@@ -1061,10 +1074,14 @@ class AppStore extends ChangeNotifier {
 
   /* ============================================================ Compartido */
   Future<ApiResult> updateProfile(J p) => _act('PUT', '/api/profile', p, 'profile', {'userId': meId, 'patch': p}, 'Perfil');
-  Future<ApiResult> saveReminder(J reminder) => _act('PUT', '/api/profile', {'notif': {'reminder': reminder}}, 'profile', {
+  Future<ApiResult> saveReminder(J r0) {
+    // Con la zona horaria del equipo: el servidor avisa a la hora y el día locales
+    final reminder = {...r0, 'off': DateTime.now().timeZoneOffset.inMinutes}..remove('tz');
+    return _act('PUT', '/api/profile', {'notif': {'reminder': reminder}}, 'profile', {
         'userId': meId,
         'patch': {'notif': {'reminder': reminder}}
       }, 'Recordatorio');
+  }
 
   Future<ApiResult> sendMessage(int coachId, int clientId, String text, [J? ref]) {
     final tagged = ref?.inn('exId') != null ? {'exId': ref!.i('exId'), 'tag': ref.s('tag', 'comentario')} : <String, dynamic>{};

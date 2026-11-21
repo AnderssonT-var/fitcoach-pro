@@ -95,8 +95,8 @@ export default function WorkoutSession({ clientId, onClose }) {
 
   const upd = (fn) => updateWorkout(clientId, fn);
   function ensureAudio() {
-    // En iPhone: que la alarma suene aunque el interruptor de silencio esté activado
-    try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch { /* nada */ }
+    // "ambient": el pitido se mezcla con la música del usuario en vez de pausarla (iPhone)
+    try { if (navigator.audioSession) navigator.audioSession.type = "ambient"; } catch { /* nada */ }
     if (audio.current) { audio.current.resume?.(); return; }
     try { audio.current = new (window.AudioContext || window.webkitAudioContext)(); } catch { /* sin audio */ }
   }

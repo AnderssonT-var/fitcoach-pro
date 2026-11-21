@@ -88,6 +88,8 @@ export default function App() {
   }, []);
 
   useEffect(() => { setRoute({ page: "inicio", params: {} }); setTraining(false); }, [me?.id]);
+  // Los avisos de este equipo son de la cuenta abierta (no de quien entró antes en él)
+  useEffect(() => { if (me?.id) import("./lib/notify").then((m) => m.claimPush()).catch(() => {}); }, [me?.id]);
 
   // Tocar una notificación abre la pantalla que corresponde
   const openFrom = useCallback(({ page, params } = {}) => {

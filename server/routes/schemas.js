@@ -57,7 +57,8 @@ export const profileSchema = z.object({
   specialties: z.array(str(60)).max(12), certifications: z.array(str(80)).max(12), services: z.array(str(100)).max(12),
   injuries: str(400), birthYear: z.number().int().min(1920).max(new Date().getFullYear() - 10).nullable(), body: z.enum(["m", "f"]),
   // Recordatorio de entrenamiento: días (0 = domingo) y hora local
-  notif: z.object({ reminder: z.object({ on: z.boolean(), days: z.array(z.number().int().min(0).max(6)).max(7), time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/) }) }),
+  notif: z.object({ reminder: z.object({ on: z.boolean(), days: z.array(z.number().int().min(0).max(6)).max(7), time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+    tz: z.string().max(64).regex(/^[A-Za-z0-9_+\-/]+$/).optional(), off: z.number().int().min(-840).max(840).optional() }) }),
 }).partial();
 
 /* Sesión de entrenamiento en curso: estructura conocida y tamaño acotado */

@@ -16,7 +16,7 @@ import { log, normalizeCode, slugFrom } from "./common.js";
 import { coachLicenseRow } from "../auth.js";
 import { signupSettings } from "./signup.js";
 import { count } from "../metrics.js";
-import { ensureAthlete } from "../athlete.js";
+import { adminOf, ensureAthlete, ensureCoach } from "../athlete.js";
 
 export const router = Router();
 
@@ -130,11 +130,22 @@ router.post("/password", authenticate, h(async (req, res) => {
    Se crea la primera vez que lo pide; desde cualquiera de los dos se pasa al otro sin volver a escribir la contraseña. */
 router.post("/switch", authenticate, h(async (req, res) => {
   const me = req.user;
-  let target = me.linked_id ? await knex("users").where({ id: me.linked_id, linked_id: me.id }).first() : null;
-  if (!target) {
-    if (me.role !== "admin") throw bad("Esta cuenta no tiene otro perfil enlazado.");
-    try { target = await ensureAthlete(me); } catch (e) { throw bad(e.message); }
+  const to = ["admin", "athlete", "coach"].includes(req.body?.to) ? req.body.to : null;
+  const admin = await adminOf(me);
+  let target = null;
+  if (admin) {
+    // Sin «to» (apps anteriores): admin → atleta; los demás → admin
+    const want = to || (me.role === "admin" ? "athlete" : "admin");
+    try {
+      if (want === "admin") target = admin;
+      else if (want === "athlete") target = await ensureAthlete(admin);
+      else target = await ensureCoach(admin);
+    } catch (e) { throw bad(e.message); }
+  } else if (me.linked_id) {
+    target = await knex("users").where({ id: me.linked_id, linked_id: me.id }).first();
   }
+  if (!target) throw bad("Esta cuenta no tiene otro perfil enlazado.");
+  if (target.id === me.id) throw bad("Ya estás en ese perfil.");
   await revokeRefresh(req.body?.refreshToken).catch(() => {});
   res.json(await sessionResponse(target, req));
 }));

@@ -56,6 +56,53 @@ export function addToBests(bests, w) {
   return bests;
 }
 
+/**
+ * Corrige un récord mal escrito (p. ej. 605 kg en vez de 60): cambia las series con ese peso
+ * en el historial del ejercicio y vuelve a calcular los récords desde los entrenamientos.
+ */
+export async function correctBest(clientId, exId, weight, reps) {
+  exId = +exId;
+  const row = await knex("clients").where({ user_id: clientId }).first();
+  if (!row) return null;
+  const d = J(row.data, {});
+  const cur = d.bests?.[exId];
+  const rows = await knex("workouts").where({ client_id: clientId }).orderBy("finished_at", "asc");
+  const ws = rows.map((w) => ({ row: w, data: J(w.data, {}) }));
+  let fixed = 0;
+  if (cur && cur.w > 0) {
+    for (const w of ws) {
+      let changed = false;
+      for (const e of w.data.exercises || []) {
+        if (+e.exId !== exId) continue;
+        for (const x of e.sets || []) {
+          if (+x.weight !== +cur.w) continue;
+          x.weight = weight;
+          if (reps && +x.reps === +cur.r) x.reps = reps;
+          changed = true;
+        }
+      }
+      if (!changed) continue;
+      // El aviso de récord de ese entrenamiento también se corrige (o se quita si ya no lo es)
+      w.data.prs = (w.data.prs || []).map((p) => (+p.exId === exId && +p.weight === +cur.w ? { ...p, weight } : p)).filter((p) => !(+p.exId === exId && p.weight <= p.prev));
+      await knex("workouts").where({ id: w.row.id }).update({ data: S(w.data) });
+      cache.delete(w.row.id);
+      fixed++;
+    }
+  }
+  const bests = {};
+  for (const w of ws) addToBests(bests, { ...w.data, finishedAt: w.row.finished_at });
+  // Récords sin entrenamientos detrás (cargados a mano) se conservan
+  for (const [k, v] of Object.entries(d.bests || {})) if (!bests[k]) bests[k] = v;
+  if (!fixed) {
+    const b = bests[exId] || cur || {};
+    bests[exId] = { ...b, w: weight, r: reps || b.r || 1, at: b.at || new Date().toISOString(), first: Math.min(b.first ?? weight, weight) };
+  }
+  const fresh = J((await knex("clients").where({ user_id: clientId }).first()).data, {});
+  await knex("clients").where({ user_id: clientId }).update({ data: S({ ...fresh, bests }) });
+  await bump(`u:${clientId}`, `u:${row.coach_id}`, `c:${row.coach_id}`, `w:${row.coach_id}`);
+  return { fixed, best: bests[exId] || null };
+}
+
 /** Calcula los récords de asesorados que aún no los tienen (una sola vez por asesorado). */
 export async function backfillBests(rows) {
   let changed = false;

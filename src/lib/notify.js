@@ -84,6 +84,31 @@ async function registerFcm() {
   } catch { /* sin Firebase configurado en esta compilación */ }
 }
 
+/**
+ * Este equipo recibe solo los avisos de la cuenta abierta: al entrar (o cambiar de perfil) se vuelve
+ * a asociar el equipo a esa cuenta, y al cerrar sesión se suelta (ya no le llegan los de la anterior).
+ */
+export async function claimPush() {
+  try {
+    if (isNative()) {
+      const key = lsGet(KEY);
+      if (key && key !== "local") await api("POST", "/api/push/subscribe", { kind: "fcm", token: key });
+      return;
+    }
+    if (!("serviceWorker" in navigator) || !("PushManager" in window) || Notification.permission !== "granted") return;
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = await reg?.pushManager.getSubscription();
+    if (!sub) return;
+    const j = sub.toJSON();
+    const r = await api("POST", "/api/push/subscribe", { kind: "web", endpoint: j.endpoint, keys: j.keys });
+    if (!r.error) lsSet(KEY, j.endpoint);
+  } catch { /* sin avisos en este equipo */ }
+}
+export async function releasePush() {
+  const key = lsGet(KEY);
+  if (key && key !== "local") await api("POST", "/api/push/unsubscribe", { key }).catch?.(() => {});
+}
+
 export async function disablePush() {
   const key = lsGet(KEY);
   if (!isNative()) {
