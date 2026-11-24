@@ -61,7 +61,7 @@ const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 clientRouter.put("/avatar", h(async (req, res) => {
   const { avatar } = parse(z.object({ avatar: z.object({
     body: z.enum(["m", "f"]), skin: hex, hair: z.enum(["corto", "rapado", "rizado", "calvo", "largo", "coleta", "mono"]), hairColor: hex,
-    outfit: z.enum(["tank", "tee", "none", "top"]), top: hex, bottom: hex, shoes: hex, name: z.string().trim().max(24).default(""),
+    outfit: z.enum(["tank", "tee", "none", "top"]), top: hex, bottom: hex, shoes: hex, eyes: hex.optional(), face: z.enum(["normal", "redondo", "ovalado", "cuadrado"]).optional(), name: z.string().trim().max(24).default(""),
   }) }), req.body);
   await editMine(req.user.id, (d) => { d.avatar = avatar; });
   res.json({ ok: true });

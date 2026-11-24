@@ -21,8 +21,10 @@ const _hairColors = ['#1b1410', '#3b2516', '#6b4425', '#a8743f', '#d9b56d', '#b3
 const _cloth = ['#5856d6', '#007aff', '#34c759', '#ff3b30', '#ff9500', '#1c1c1e', '#f2f2f7', '#af52de', '#ff2d55', '#30b0c7'];
 const _hair = {
   'm': [('corto', 'Corto'), ('rapado', 'Rapado'), ('rizado', 'Rizado'), ('calvo', 'Calvo'), ('largo', 'Largo')],
-  'f': [('coleta', 'Coleta'), ('largo', 'Largo'), ('mono', 'Moño'), ('corto', 'Corto'), ('rizado', 'Rizado')],
+  'f': [('coleta', 'Coleta'), ('largo', 'Largo'), ('mono', 'Melena'), ('corto', 'Corto'), ('rizado', 'Rizado')],
 };
+const _eyes = ['#5a3a22', '#2e1d12', '#7a5a2f', '#3f6b3a', '#3a6a8a', '#6b7c86'];
+const _faces = [('normal', 'Normal'), ('redondo', 'Redondo'), ('ovalado', 'Ovalado'), ('cuadrado', 'Cuadrado')];
 const _outfits = {
   'm': [('tank', 'Esqueleto'), ('tee', 'Camiseta'), ('none', 'Sin camiseta')],
   'f': [('top', 'Top deportivo'), ('tank', 'Esqueleto'), ('tee', 'Camiseta')],
@@ -33,7 +35,7 @@ String _hex(Color c) => '#${(c.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(
 J defaultAvatar(String body) {
   final f = body == 'f';
   return {'body': f ? 'f' : 'm', 'skin': _skins[2], 'hair': f ? 'coleta' : 'corto', 'hairColor': _hairColors[1], 'outfit': f ? 'top' : 'tank',
-      'top': f ? '#ff2d55' : '#5856d6', 'bottom': '#1c1c1e', 'shoes': '#f2f2f7', 'name': ''};
+      'top': f ? '#ff2d55' : '#5856d6', 'bottom': '#1c1c1e', 'shoes': '#f2f2f7', 'eyes': _eyes[0], 'face': 'normal', 'name': ''};
 }
 
 J normalizeAvatar(J? s, String body) {
@@ -42,6 +44,7 @@ J normalizeAvatar(J? s, String body) {
   final b = out['body'] as String;
   if (!_hair[b]!.any((h) => h.$1 == out['hair'])) out['hair'] = base['hair'];
   if (!_outfits[b]!.any((o) => o.$1 == out['outfit'])) out['outfit'] = base['outfit'];
+  if (!_faces.any((o) => o.$1 == out['face'])) out['face'] = 'normal';
   return out;
 }
 
@@ -272,6 +275,10 @@ class _CustomizeSheetState extends State<_CustomizeSheet> {
         Labeled('Cuerpo', _choices('body', const [('m', 'Masculino'), ('f', 'Femenino')])),
         const Gap(12),
         Labeled('Tono de piel', _swatches('skin', _skins)),
+        const Gap(12),
+        Labeled('Rostro', _choices('face', _faces)),
+        const Gap(12),
+        Labeled('Color de ojos', _swatches('eyes', _eyes)),
         const Gap(12),
         Labeled('Peinado', _choices('hair', _hair[b]!)),
         const Gap(12),

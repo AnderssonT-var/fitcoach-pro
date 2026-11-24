@@ -1,0 +1,6 @@
+Personaje 3D de VYTRAFIT
+- Cuerpo, deformaciones, esqueleto, piel, ojos, cejas, pestañas, pelo, zapatillas y ropa deportiva femenina:
+  MakeHuman / MPFB (makehumancommunity.org) — CC0 1.0.
+- Camiseta sin mangas (elvs_male_athletic_tank1) y short (elvs_male_trouser_short_2): autor «elvs»,
+  MakeHuman community asset packs — Creative Commons Atribución (CC BY).
+Generado con tools/avatar3d/build.py.

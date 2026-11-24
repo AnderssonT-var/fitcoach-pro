@@ -67,13 +67,15 @@ export function titleFor(level) {
 export const SKINS = ["#f6d7c3", "#eac0a0", "#d8a27c", "#b97f57", "#8d5a3b", "#5e3b26"];
 export const HAIR_COLORS = ["#1b1410", "#3b2516", "#6b4425", "#a8743f", "#d9b56d", "#b3332e", "#9aa0a6", "#f2f2f2"];
 export const CLOTH_COLORS = ["#5856d6", "#007aff", "#34c759", "#ff3b30", "#ff9500", "#1c1c1e", "#f2f2f7", "#af52de", "#ff2d55", "#30b0c7"];
-export const HAIR_STYLES = { m: [["corto", "Corto"], ["rapado", "Rapado"], ["rizado", "Rizado"], ["calvo", "Calvo"], ["largo", "Largo"]], f: [["coleta", "Coleta"], ["largo", "Largo"], ["mono", "Moño"], ["corto", "Corto"], ["rizado", "Rizado"]] };
+export const HAIR_STYLES = { m: [["corto", "Corto"], ["rapado", "Rapado"], ["rizado", "Rizado"], ["calvo", "Calvo"], ["largo", "Largo"]], f: [["coleta", "Coleta"], ["largo", "Largo"], ["mono", "Melena"], ["corto", "Corto"], ["rizado", "Rizado"]] };
+export const EYE_COLORS = ["#5a3a22", "#2e1d12", "#7a5a2f", "#3f6b3a", "#3a6a8a", "#6b7c86"];
+export const FACES = [["normal", "Normal"], ["redondo", "Redondo"], ["ovalado", "Ovalado"], ["cuadrado", "Cuadrado"]];
 export const OUTFITS = { m: [["tank", "Esqueleto"], ["tee", "Camiseta"], ["none", "Sin camiseta"]], f: [["top", "Top deportivo"], ["tank", "Esqueleto"], ["tee", "Camiseta"]] };
 
 export function defaultStyle(body = "m") {
   const f = body === "f";
   return { body: f ? "f" : "m", skin: SKINS[2], hair: f ? "coleta" : "corto", hairColor: HAIR_COLORS[1], outfit: f ? "top" : "tank",
-    top: f ? "#ff2d55" : "#5856d6", bottom: "#1c1c1e", shoes: "#f2f2f7", name: "" };
+    top: f ? "#ff2d55" : "#5856d6", bottom: "#1c1c1e", shoes: "#f2f2f7", eyes: EYE_COLORS[0], face: "normal", name: "" };
 }
 
 /** Completa un estilo guardado con los valores por defecto (y corrige combinaciones inválidas). */
@@ -82,5 +84,6 @@ export function normalizeStyle(s, body) {
   const out = { ...base, ...(s || {}) };
   if (!HAIR_STYLES[out.body].some(([k]) => k === out.hair)) out.hair = base.hair;
   if (!OUTFITS[out.body].some(([k]) => k === out.outfit)) out.outfit = base.outfit;
+  if (!FACES.some(([k]) => k === out.face)) out.face = "normal";
   return out;
 }

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Icon from "../ui/Icon";
 import { toast } from "../ui/kit";
 import { clientById, exerciseById, saveAvatar, useDB, userById, workoutsOf } from "../store/db";
-import { computeProgress, normalizeStyle, SKINS, HAIR_COLORS, CLOTH_COLORS, HAIR_STYLES, OUTFITS } from "./progress";
+import { computeProgress, normalizeStyle, SKINS, HAIR_COLORS, CLOTH_COLORS, HAIR_STYLES, OUTFITS, EYE_COLORS, FACES } from "./progress";
 
 const isDark = () => {
   const t = document.documentElement.getAttribute("data-theme");
@@ -118,6 +118,8 @@ function Customize({ draft, setDraft, onClose }) {
         <div className="field"><label htmlFor="av-name">Nombre</label><input id="av-name" className="input" maxLength={24} value={draft.name} placeholder="Ej.: Titán" onChange={(e) => set("name", e.target.value)} /></div>
         <div className="field"><label>Cuerpo</label><Seg label="Cuerpo" options={[["m", "Masculino"], ["f", "Femenino"]]} value={draft.body} onChange={(v) => set("body", v)} /></div>
         <div className="field"><label>Tono de piel</label><Swatches label="Tono de piel" colors={SKINS} value={draft.skin} onChange={(v) => set("skin", v)} /></div>
+        <div className="field"><label>Rostro</label><Seg label="Rostro" options={FACES} value={draft.face} onChange={(v) => set("face", v)} /></div>
+        <div className="field"><label>Color de ojos</label><Swatches label="Color de ojos" colors={EYE_COLORS} value={draft.eyes} onChange={(v) => set("eyes", v)} /></div>
         <div className="field"><label>Peinado</label><Seg label="Peinado" options={HAIR_STYLES[draft.body]} value={draft.hair} onChange={(v) => set("hair", v)} /></div>
         <div className="field"><label>Color de pelo</label><Swatches label="Color de pelo" colors={HAIR_COLORS} value={draft.hairColor} onChange={(v) => set("hairColor", v)} /></div>
         <div className="field"><label>Ropa</label><Seg label="Ropa" options={OUTFITS[draft.body]} value={draft.outfit} onChange={(v) => set("outfit", v)} /></div>

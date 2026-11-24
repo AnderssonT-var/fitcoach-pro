@@ -1,6 +1,6 @@
 /* Tarjeta del personaje (estilo neumórfico): el personaje 3D, el nivel y una barra por músculo.
    Se usa en la web (Progreso) y en la página que abre la app Android. */
-import { createCharacter } from "./character.js";
+import { createCharacter, EXERCISES } from "./human.js";
 import { GROUPS } from "./progress.js";
 
 const CSS = `
@@ -8,7 +8,7 @@ const CSS = `
   background:var(--nb);color:var(--tx);border-radius:28px;padding:18px;box-shadow:9px 9px 20px var(--nd),-9px -9px 20px var(--nl);font-family:inherit;position:relative;overflow:hidden}
 .vf-av.dark{--nb:var(--av-bg,#1c1c22);--nl:rgba(255,255,255,.045);--nd:rgba(0,0,0,.62);--tx:var(--av-ink,#f5f5f7);--mu:var(--av-muted,#98989d)}
 .vf-av-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:center}
-.vf-av-stage{position:relative;height:var(--av-h,380px);border-radius:22px;box-shadow:inset 7px 7px 16px var(--nd),inset -7px -7px 16px var(--nl);overflow:hidden}
+.vf-av-stage{position:relative;height:var(--av-h,460px);border-radius:22px;box-shadow:inset 7px 7px 16px var(--nd),inset -7px -7px 16px var(--nl);overflow:hidden}
 .vf-av-stage canvas{border-radius:22px}
 .vf-av-badge{position:absolute;left:10px;top:10px;display:flex;align-items:center;gap:8px;padding:6px 11px 6px 6px;border-radius:999px;background:var(--nb);box-shadow:4px 4px 10px var(--nd),-4px -4px 10px var(--nl);pointer-events:none}
 .vf-av-ring{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font:800 15px/1 inherit;color:var(--ac);background:conic-gradient(var(--ac) calc(var(--p,0)*1turn),transparent 0);position:relative}
@@ -24,6 +24,12 @@ const CSS = `
 .vf-av-track{height:10px;border-radius:99px;box-shadow:inset 3px 3px 6px var(--nd),inset -3px -3px 6px var(--nl);overflow:hidden}
 .vf-av-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,color-mix(in srgb,var(--ac) 65%,#fff),var(--ac));width:0;transition:width .9s cubic-bezier(.2,.8,.2,1)}
 .vf-av-xp{margin-top:12px;font-size:12px;color:var(--mu)}
+.vf-av-loading{position:absolute;inset:0;display:grid;place-items:center;font-size:13px;color:var(--mu);pointer-events:none}
+.vf-av-ex{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+.vf-av-ex span{font-size:12px;color:var(--mu);margin-right:2px}
+.vf-av-ex button{border:0;cursor:pointer;padding:8px 13px;border-radius:999px;background:var(--nb);color:var(--tx);font:600 12.5px/1 inherit;box-shadow:3px 3px 8px var(--nd),-3px -3px 8px var(--nl)}
+.vf-av-ex button[aria-pressed=true]{color:var(--ac);box-shadow:inset 3px 3px 7px var(--nd),inset -3px -3px 7px var(--nl)}
+.vf-av-credit{margin-top:10px;font-size:10.5px;color:var(--mu);opacity:.8}
 @media (max-width:640px){.vf-av-grid{grid-template-columns:1fr}.vf-av-row{grid-template-columns:84px minmax(0,1fr) 36px}}
 `;
 
@@ -59,12 +65,26 @@ export function mountAvatarCard(root, { dark = false, accent = "#5856d6", compac
           <p>Crece con tu progreso: cada vez que subes peso en un ejercicio, el músculo que trabaja se desarrolla.</p>
           <div class="vf-av-bars">${GROUPS.map(([g, label]) => `<div class="vf-av-row" data-g="${g}"><span>${label}</span><div class="vf-av-track"><div class="vf-av-fill"></div></div><em>0%</em></div>`).join("")}</div>
           <div class="vf-av-xp"></div>
+          <div class="vf-av-credit">Modelo 3D: MakeHuman (CC0) · Ropa: elvs (CC BY)</div>
         </div>
       </div>
+      <div class="vf-av-ex"><span>Entrenar:</span>${EXERCISES.map(([k, l]) => `<button type="button" data-ex="${k}" aria-pressed="false">${l}</button>`).join("")}</div>
+      ${compact ? '<div class="vf-av-credit">Modelo 3D: MakeHuman (CC0) · Ropa: elvs (CC BY)</div>' : ""}
     </div>`;
   const stage = root.querySelector(".vf-av-stage");
   const ch = createCharacter(stage, { accent });
   root.querySelector(".vf-av-flex").addEventListener("click", () => ch.flex());
+  // Mini entrenamiento: el personaje hace 3 repeticiones del ejercicio con su máquina o pesas
+  const exBtns = [...root.querySelectorAll(".vf-av-ex button")];
+  let exTimer = 0;
+  for (const b of exBtns) b.addEventListener("click", () => {
+    const on = b.getAttribute("aria-pressed") === "true";
+    exBtns.forEach((x) => x.setAttribute("aria-pressed", "false"));
+    clearInterval(exTimer);
+    if (on) return ch.stop();
+    b.setAttribute("aria-pressed", "true"); ch.play(b.dataset.ex);
+    exTimer = setInterval(() => { if (ch.exercise === "idle") { b.setAttribute("aria-pressed", "false"); clearInterval(exTimer); } }, 400);
+  });
   setTimeout(() => { const h = root.querySelector(".vf-av-hint"); if (h) h.style.display = "none"; }, 4000);
   let lastLevel = null;
   return {
@@ -90,6 +110,6 @@ export function mountAvatarCard(root, { dark = false, accent = "#5856d6", compac
       lastLevel = progress.level;
     },
     flex: (ms) => ch.flex(ms),
-    dispose: () => ch.dispose(),
+    dispose: () => { clearInterval(exTimer); ch.dispose(); },
   };
 }
