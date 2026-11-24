@@ -155,7 +155,6 @@ export function createCharacter(container, { accent = "#5856d6" } = {}) {
     bindDir = {};
     for (const [n, c] of Object.entries(BONE_CHILD)) bindDir[n] = bone[c].position.clone().normalize();
     pelvisP = bone.pelvis.position.clone();
-    skel = new THREE.Skeleton(B);
     fig.add(B[0]);
     fig.updateMatrixWorld(true);
     // Piel del cuerpo (se ocultan las partes que tapa la ropa/zapatillas)
@@ -209,7 +208,17 @@ export function createCharacter(container, { accent = "#5856d6" } = {}) {
       if (n === "tank" || n === "sport_top") { mat.polygonOffset = true; mat.polygonOffsetFactor = -2; mat.polygonOffsetUnits = -4; } // la camiseta va por encima del short
       parts[n] = mesh; disposables.push(mat);
     }
-    for (const [n, m] of Object.entries(parts)) { m.bind(skel); m.frustumCulled = false; m.castShadow = !(n === "eyelashes" || n === "eyebrows"); m.receiveShadow = true; fig.add(m); }
+    // Se enlaza la malla al esqueleto en la pose base y con el personaje sin girar ni mover;
+    // si no, la piel queda desplazada respecto a los huesos y el cuerpo se deforma al animar.
+    const saveR = fig.rotation.clone(), saveP = fig.position.clone();
+    fig.rotation.set(0, 0, 0); fig.position.set(0, 0, 0);
+    for (const b of B) b.quaternion.identity();
+    bone.pelvis.position.copy(pelvisP);
+    for (const [n, m] of Object.entries(parts)) { m.frustumCulled = false; m.castShadow = !(n === "eyelashes" || n === "eyebrows"); m.receiveShadow = true; fig.add(m); }
+    fig.updateMatrixWorld(true);
+    skel = new THREE.Skeleton(B);
+    for (const m of Object.values(parts)) m.bind(skel, m.matrixWorld);
+    fig.rotation.copy(saveR); fig.position.copy(saveP); fig.updateMatrixWorld(true);
     built = { parts, U, skinMat, minY };
     y0 = minY; ground.position.y = y0;
     paint();
