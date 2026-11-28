@@ -37,6 +37,7 @@ export function importMedia() {
 function candidates() {
   const out = [
     process.env.MEDIA_IMPORT_DIR,
+    path.resolve(ROOT, "../../../../public_html/media-import/ejercicios"), // Hostinger: hbuilds/versions/<v>/nodejs
     path.resolve(ROOT, "../../../public_html/media-import/ejercicios"),
     path.resolve(ROOT, "../../public_html/media-import/ejercicios"),
   ];
