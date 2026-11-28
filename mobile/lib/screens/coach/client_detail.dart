@@ -15,10 +15,12 @@ import '../shared/avatar_card.dart';
 import '../shared/messages.dart';
 import '../shared/progress_widgets.dart';
 import '../shared/tracking.dart';
+import 'coaching.dart';
 import 'payments.dart';
+import '../../core/coaching.dart' show pendingReviews;
 import 'routine_editor.dart';
 
-const _tabs = [('resumen', 'Resumen'), ('rutina', 'Rutina'), ('historial', 'Entrenamientos'), ('medidas', 'Medidas'), ('fotos', 'Fotos'), ('notas', 'Notas'), ('pagos', 'Pagos'), ('datos', 'Datos')];
+const _tabs = [('resumen', 'Resumen'), ('rutina', 'Rutina'), ('programa', 'Programa'), ('checkins', 'Check-ins'), ('habitos', 'Hábitos'), ('nutricion', 'Nutrición'), ('historial', 'Entrenamientos'), ('medidas', 'Medidas'), ('fotos', 'Fotos'), ('notas', 'Notas'), ('pagos', 'Pagos'), ('datos', 'Datos')];
 
 class ClientDetail extends StatefulWidget {
   final int clientId;
@@ -81,7 +83,7 @@ class _ClientDetailState extends State<ClientDetail> with SingleTickerProviderSt
               bottom: TabBar(
                 controller: tc,
                 isScrollable: true,
-                tabs: [for (final (k, l) in _tabs) Tab(child: Row(children: [Text(l), if (k == 'pagos' && overdue > 0) ...[const SizedBox(width: 6), CountBadge(overdue)]]))],
+                tabs: [for (final (k, l) in _tabs) Tab(child: Row(children: [Text(l), if (k == 'pagos' && overdue > 0) ...[const SizedBox(width: 6), CountBadge(overdue)], if (k == 'checkins' && pendingReviews(c).isNotEmpty) ...[const SizedBox(width: 6), CountBadge(pendingReviews(c).length)]]))],
               ),
               backgroundColor: t.bg,
             ),
@@ -89,6 +91,10 @@ class _ClientDetailState extends State<ClientDetail> with SingleTickerProviderSt
           body: TabBarView(controller: tc, children: [
             _Summary(clientId: widget.clientId, onTab: openTab),
             _Pad(child: TrialRoutines(clientId: widget.clientId, slot: slot, onSlot: (s) => setState(() => slot = s))),
+            ProgramTab(clientId: widget.clientId),
+            CheckinsTab(clientId: widget.clientId),
+            HabitsTab(clientId: widget.clientId),
+            NutritionTab(clientId: widget.clientId),
             PageList(children: [Section(title: 'Entrenamientos', subtitle: 'Toca una sesión para ver cada serie', child: SessionList(sessions: store.workoutsOf(widget.clientId)))]),
             PageList(children: [Measurements(clientId: widget.clientId, canEdit: true)]),
             PageList(children: [Photos(clientId: widget.clientId, canUpload: true, canDelete: true)]),
@@ -126,6 +132,9 @@ class _Summary extends StatelessWidget {
     final w = weights.isEmpty ? null : weights.last;
     return PageList(children: [
       TrialPanel(clientId: clientId, onTab: onTab),
+      ComplianceCard(c: c),
+      if (pendingReviews(c).isNotEmpty)
+        NoteBox(icon: Icons.assignment_turned_in_rounded, tone: 'warn', action: TextButton(onPressed: () => onTab('checkins'), child: const Text('Revisar')), child: const Text('Tiene un check-in sin revisar.')),
       Grid2(children: [
         StatTile(label: 'Esta semana', value: s.goal > 0 ? '${s.week}/${s.goal}' : '${s.week}', sub: 'entrenamientos', tone: s.goal > 0 && s.week >= s.goal ? 'ok' : '', icon: Icons.calendar_today_rounded),
         StatTile(label: 'Semanas cumpliendo', value: '$streak', sub: 'seguidas', icon: Icons.local_fire_department_rounded, tone: streak > 0 ? 'warn' : ''),
@@ -142,6 +151,8 @@ class _Summary extends StatelessWidget {
             child: Text.rich(TextSpan(children: [TextSpan(text: '${n.s('category')}: ', style: const TextStyle(fontWeight: FontWeight.w700)), TextSpan(text: n.s('text'))]))),
       if (lastComment != null)
         NoteBox(icon: Icons.chat_bubble_outline_rounded, child: Text('Último comentario (${lastComment.s('dayName')}, ${ago(lastComment.d('finishedAt'))}): “${lastComment.s('comment')}”')),
+      OnboardingAnswers(c: c),
+      TagsEditor(key: ValueKey('tags-$clientId'), c: c),
       AdherenceChart(clientId),
       WeightChart(clientId, action: TextButton(onPressed: () => showWeightSheet(context, clientId), child: const Text('Registrar'))),
       AvatarCard(clientId),

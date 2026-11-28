@@ -9,6 +9,8 @@ import '../core/notify.dart';
 import '../core/store.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
+import 'client/coaching.dart';
+import 'coach/coaching.dart';
 import 'client/client_home.dart';
 import 'client/my_payments.dart';
 import 'client/my_routine.dart';
@@ -128,6 +130,10 @@ class _ShellState extends State<Shell> {
         push(context, const CommunityPage(standalone: true));
       case 'pagos':
         store.isCoach ? go('pagos') : push(context, const MyPayments());
+      case 'checkin':
+        if (!store.isCoach) push(context, const CheckinPage());
+      case 'nutricion':
+        if (!store.isCoach) push(context, const NutritionPage());
       default:
         go(page);
     }
@@ -329,6 +335,7 @@ class MorePage extends StatelessWidget {
       final items = coach
           ? [
               (Icons.diversity_3_rounded, 'Comunidad', 'Publicaciones, retos y tabla del mes', () => push(context, const CommunityPage(standalone: true))),
+              (Icons.auto_awesome_rounded, 'Automatizaciones', 'Reglas automáticas y cobro en línea', () => push(context, const AutomationsPage())),
               (Icons.menu_book_rounded, 'Biblioteca', 'Ejercicios y plantillas', () => push(context, const LibraryPage())),
               (Icons.storefront_rounded, 'Perfil y marca', 'Tu foto, logo, color, enlace e inscripción', () => push(context, const CoachProfilePage())),
               (Icons.web_rounded, 'Mi página', 'Tu página de presentación con WhatsApp y acceso', () => push(context, const PageEditorPage())),
@@ -336,6 +343,8 @@ class MorePage extends StatelessWidget {
               ...switchItems(context),
             ]
           : [
+              if (!store.selfCoached) (Icons.assignment_turned_in_rounded, 'Check-in semanal', 'Peso, fotos y cómo te sentiste', () => push(context, const CheckinPage())),
+              (Icons.restaurant_rounded, 'Nutrición', 'Tu plan de comidas y lo que registras', () => push(context, const NutritionPage())),
               (Icons.diversity_3_rounded, 'Comunidad', 'Comparte tus logros con el grupo', () => push(context, const CommunityPage(standalone: true))),
               if (!store.selfCoached) (Icons.account_balance_wallet_rounded, 'Pagos', 'Tus mensualidades', () => push(context, const MyPayments())),
               (Icons.person_rounded, 'Mi perfil', 'Tus datos, notificaciones y privacidad', () => push(context, const ClientProfilePage())),

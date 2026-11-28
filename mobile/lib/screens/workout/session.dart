@@ -187,6 +187,17 @@ class _WorkoutSessionState extends State<WorkoutSession> with WidgetsBindingObse
   }
 
   void edit(int ei, int si, String k, String v) => upd((a) => _sets(_ex(a)[ei])[si][k] = v.replaceAll(',', '.'));
+  /// Tipo de serie: normal → calentamiento (C) → al fallo (F) → normal.
+  void cycleKind(int ei, int si) => upd((a) {
+        final x = _sets(_ex(a)[ei])[si];
+        final next = switch (x['kind']) { null => 'w', 'w' => 'f', _ => null };
+        if (next == null) {
+          x.remove('kind');
+        } else {
+          x['kind'] = next;
+        }
+        HapticFeedback.selectionClick();
+      });
   void editDrop(int ei, int si, int di, String k, String v) => upd((a) => ((_sets(_ex(a)[ei])[si]['drops'] as List)[di] as Map)[k] = v.replaceAll(',', '.'));
 
   void addSet(int ei) => upd((a) {
@@ -580,7 +591,22 @@ class _ExerciseCardState extends State<_ExerciseCard> {
         for (final (si, x) in sets.indexed) ...[
           _row(
             context,
-            num: Text('${si + 1}', textAlign: TextAlign.center, style: context.tt.titleMedium?.copyWith(fontFamily: 'Sora')),
+            num: Tooltip(
+              message: 'Tipo de serie: toca para cambiar (normal, C calentamiento, F al fallo)',
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: () => st.cycleKind(widget.ei, si),
+                child: Container(
+                  height: 34,
+                  alignment: Alignment.center,
+                  decoration: x.s('kind').isEmpty ? null : BoxDecoration(color: x.s('kind') == 'w' ? t.warnSoft : t.badSoft, borderRadius: BorderRadius.circular(10)),
+                  child: Text(
+                    x.s('kind') == 'w' ? 'C' : x.s('kind') == 'f' ? 'F' : '${sets.take(si).where((y) => y.s('kind') != 'w').length + 1}',
+                    style: context.tt.titleMedium?.copyWith(fontFamily: 'Sora', color: x.s('kind') == 'w' ? t.warn : x.s('kind') == 'f' ? t.bad : null, fontWeight: x.s('kind').isEmpty ? null : FontWeight.w800),
+                  ),
+                ),
+              ),
+            ),
             prev: x['prevWeight'] != null ? '${kg(x.n('prevWeight'))} × ${x.s('prevReps')}' : '—',
             weightKey: 'w$si', weight: x.s('weight'), weightHint: x['prevWeight'] != null ? kgRaw(x.n('prevWeight')) : 'kg',
             repsKey: 'r$si', reps: x.s('reps'), repsHint: '${x['prevReps'] ?? repsLow(target['reps']) ?? ''}',

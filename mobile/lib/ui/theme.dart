@@ -3,7 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-const vytraBlue = Color(0xFF0A5BFF);
+/// Acento de VYTRAFIT cuando el entrenador no tiene color de marca: verde neón.
+const vytraBlue = Color(0xFF34F58F);
 
 Color? parseHex(String? hex) {
   if (hex == null || hex.isEmpty) return null;
@@ -73,12 +74,12 @@ ThemeData buildTheme(Color brand, Brightness b) {
   final onAccent = ThemeData.estimateBrightnessForColor(accent) == Brightness.dark ? Colors.white : const Color(0xFF0B0F1A);
   final tok = dark
       ? Tok(
-          dark: true, bg: const Color(0xFF070A12), surface: const Color(0xFF10141F), surface2: const Color(0xFF161B28), surface3: const Color(0xFF1F2535),
-          line: Colors.white.withValues(alpha: .07), ink: const Color(0xFFF2F4F9), ink2: const Color(0xFFC3C9D8), muted: const Color(0xFF8189A0),
+          dark: true, bg: const Color(0xFF050607), surface: const Color(0xFF0F1213), surface2: const Color(0xFF161A1C), surface3: const Color(0xFF1F2527),
+          line: Colors.white.withValues(alpha: .07), ink: const Color(0xFFEEF3F1), ink2: const Color(0xFFC3CDC9), muted: const Color(0xFF8E9A96),
           accent: accent, accentSoft: accent.withValues(alpha: .16), onAccent: onAccent,
-          ok: const Color(0xFF34D17A), okSoft: const Color(0xFF34D17A).withValues(alpha: .15), warn: const Color(0xFFFFB020), warnSoft: const Color(0xFFFFB020).withValues(alpha: .15),
-          bad: const Color(0xFFFF5B5B), badSoft: const Color(0xFFFF5B5B).withValues(alpha: .15), info: const Color(0xFF5AA9FF), infoSoft: const Color(0xFF5AA9FF).withValues(alpha: .15),
-          gold: const Color(0xFFFFC94D), goldSoft: const Color(0xFFFFC94D).withValues(alpha: .14),
+          ok: const Color(0xFF34F58F), okSoft: const Color(0xFF34F58F).withValues(alpha: .14), warn: const Color(0xFFFF9F43), warnSoft: const Color(0xFFFF9F43).withValues(alpha: .15),
+          bad: const Color(0xFFFF5D5D), badSoft: const Color(0xFFFF5D5D).withValues(alpha: .15), info: const Color(0xFF7CC4FF), infoSoft: const Color(0xFF7CC4FF).withValues(alpha: .15),
+          gold: const Color(0xFFF5C451), goldSoft: const Color(0xFFF5C451).withValues(alpha: .14),
         )
       : Tok(
           dark: false, bg: const Color(0xFFF3F4F8), surface: Colors.white, surface2: const Color(0xFFF7F8FB), surface3: const Color(0xFFE9ECF3),

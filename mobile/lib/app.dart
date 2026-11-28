@@ -52,7 +52,7 @@ class _VytrafitAppState extends State<VytrafitApp> with WidgetsBindingObserver {
           scaffoldMessengerKey: messengerKey,
           theme: buildTheme(color, Brightness.light),
           darkTheme: buildTheme(color, Brightness.dark),
-          themeMode: ThemeMode.system,
+          themeMode: ThemeMode.dark, // el estilo de VYTRAFIT es oscuro
           locale: const Locale('es'),
           supportedLocales: const [Locale('es'), Locale('en')],
           localizationsDelegates: const [GlobalMaterialLocalizations.delegate, GlobalWidgetsLocalizations.delegate, GlobalCupertinoLocalizations.delegate],

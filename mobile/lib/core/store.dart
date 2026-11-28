@@ -238,6 +238,15 @@ class AppStore extends ChangeNotifier {
     st['exercises'] = [...Catalog.library, ...mine];
     st['clients'] = st.lm('clients').map((c) => {...c, 'photos': c.lm('photos').map((p) => {...p, 'src': absUrl(p.sn('src'))}).toList()}).toList();
     st['subscriptions'] = st.lm('subscriptions').map((x) => {...x, 'receipt': absUrl(x.sn('receipt'))}).toList();
+    st['messages'] = st.lm('messages').map((m) => m.sn('audio') == null ? m : {...m, 'audio': absUrl(m.sn('audio'))}).toList();
+    st['payments'] = st.lm('payments').map((p) => p.sn('receipt') == null ? p : {...p, 'receipt': absUrl(p.sn('receipt'))}).toList();
+    for (final c in st.lm('clients')) {
+      for (final day in (c['foodLog'] as Map? ?? const {}).values) {
+        for (final e in ((day as Map)['entries'] as List? ?? const [])) {
+          if (e is Map && e['photoUrl'] != null) e['photoUrl'] = absUrl(e['photoUrl'] as String?);
+        }
+      }
+    }
     final active = Map<String, dynamic>.from(st.m('active') ?? <String, dynamic>{});
     st['active'] = active;
     if (_pendingActive != null) active['${_pendingActive!.i('clientId')}'] = _pendingActive;
@@ -463,6 +472,25 @@ class AppStore extends ChangeNotifier {
     }
 
     switch (op.s('kind')) {
+      case 'habit':
+        final c = client(a.inn('clientId'));
+        if (c != null) {
+          final log = Map<String, dynamic>.from(c['habitLog'] as Map? ?? const {});
+          final day = Map<String, dynamic>.from(log[a.s('date')] as Map? ?? const {});
+          day[a.s('habitId')] = a['value'];
+          log[a.s('date')] = day;
+          c['habitLog'] = log;
+        }
+      case 'meal':
+        final c = client(a.inn('clientId'));
+        if (c != null) {
+          final log = Map<String, dynamic>.from(c['foodLog'] as Map? ?? const {});
+          final day = Map<String, dynamic>.from(log[a.s('date')] as Map? ?? const {});
+          if (a['mealId'] != null) day['meals'] = {...Map<String, dynamic>.from(day['meals'] as Map? ?? const {}), a.s('mealId'): a['done']};
+          if (a['water'] != null) day['water'] = a['water'];
+          log[a.s('date')] = day;
+          c['foodLog'] = log;
+        }
       case 'msg':
         if (_find(list('messages'), 'id', 'm-$id') == null) {
           list('messages').add({'id': 'm-$id', 'coachId': a['coachId'], 'clientId': a['clientId'], 'from': a['from'], 'text': a['text'], 'at': at, 'read': false,
@@ -614,7 +642,7 @@ class AppStore extends ChangeNotifier {
               'exId': e['exId'], 'target': e['target'],
               'sets': e.lm('sets').map((x) {
                 final drops = x.lm('drops').where((dd) => dd.b('done')).map((dd) => {'weight': dd.n('weight'), 'reps': dd.i('reps'), 'done': true}).toList();
-                return {'weight': x.n('weight'), 'reps': x.n('reps').round(), 'done': x.b('done'), if (drops.isNotEmpty) 'drops': drops};
+                return {'weight': x.n('weight'), 'reps': x.n('reps').round(), 'done': x.b('done'), if (x.sn('kind') != null) 'kind': x['kind'], if (drops.isNotEmpty) 'drops': drops};
               }).toList(),
             }).toList();
         list('workouts').add({'id': 'w-$id', 'ref': ses['id'], 'clientId': ses['clientId'], 'finishedAt': fin, 'dayId': ses['dayId'], 'dayName': ses['dayName'],
@@ -761,7 +789,7 @@ class AppStore extends ChangeNotifier {
       for (final e in w.lm('exercises')) {
         if (e.i('exId') != exId) continue;
         for (final x in e.lm('sets')) {
-          if (!x.b('done') || !(x.n('reps') > 0)) continue;
+          if (!x.b('done') || !(x.n('reps') > 0) || x.s('kind') == 'w') continue;
           if (best == null || x.n('weight') > best.n('weight') || (x.n('weight') == best.n('weight') && x.n('reps') > best.n('reps'))) {
             best = {...?best, 'weight': x.n('weight'), 'reps': x.n('reps'), 'at': w.s('finishedAt')};
           }
@@ -1113,6 +1141,29 @@ class AppStore extends ChangeNotifier {
       _act('POST', '/api/posts/$postId/comments', {'text': text}, 'comment', {'postId': postId, 'authorId': meId, 'text': text.trim()}, 'Comentario');
   Future<ApiResult> deletePost(String postId) => _act('DELETE', '/api/posts/$postId', null, 'delPost', {'postId': postId}, 'Borrar publicación');
   Future<ApiResult> exportMyData() => Api.I.call('GET', '/api/account/export');
+
+  /* ============================================================ Seguimiento entre sesiones */
+  Future<ApiResult> saveOnboarding(J o) => _act('PUT', '/api/client/onboarding', o);
+  Future<ApiResult> logHabit(String date, String habitId, num value) =>
+      _act('PUT', '/api/client/habits/log', {'date': date, 'habitId': habitId, 'value': value}, 'habit', {'clientId': meId, 'date': date, 'habitId': habitId, 'value': value}, 'Hábito');
+  Future<ApiResult> sendCheckin(J c) => _act('POST', '/api/client/checkins', c);
+  Future<ApiResult> toggleMeal(String date, String mealId, bool done) =>
+      _act('PUT', '/api/client/food/meal', {'date': date, 'mealId': mealId, 'done': done}, 'meal', {'clientId': meId, 'date': date, 'mealId': mealId, 'done': done}, 'Comida');
+  Future<ApiResult> setWater(String date, int glasses) =>
+      _act('PUT', '/api/client/food/water', {'date': date, 'glasses': glasses}, 'meal', {'clientId': meId, 'date': date, 'water': glasses}, 'Agua');
+  Future<ApiResult> addFoodEntry(J e) => _act('POST', '/api/client/food/entry', e);
+  Future<ApiResult> deleteFoodEntry(String id) => _act('DELETE', '/api/client/food/entry/$id');
+  Future<ApiResult> sendReceipt(String paymentId, String? src, String method) => _act('POST', '/api/client/payments/$paymentId/receipt', {'src': src, 'method': method});
+  Future<ApiResult> saveHabits(int clientId, List<J> habits) => _act('PUT', '/api/coach/clients/$clientId/habits', {'habits': habits});
+  Future<ApiResult> saveCheckinCfg(int clientId, J cfg) => _act('PUT', '/api/coach/clients/$clientId/checkin-config', cfg);
+  Future<ApiResult> reviewCheckin(int clientId, String id, String reply) => _act('POST', '/api/coach/clients/$clientId/checkins/$id/review', {'reply': reply});
+  Future<ApiResult> saveNutrition(int clientId, J? n) => _act('PUT', '/api/coach/clients/$clientId/nutrition', {'nutrition': n});
+  Future<ApiResult> saveProgram(int clientId, J? program) => _act('PUT', '/api/coach/clients/$clientId/program', {'program': program});
+  Future<ApiResult> saveTags(int clientId, List<String> tags) => _act('PUT', '/api/coach/clients/$clientId/tags', {'tags': tags});
+  Future<ApiResult> saveAutomations(List<J> rules) => _act('PUT', '/api/coach/automations', {'rules': rules});
+  Future<ApiResult> saveBilling(J b) => _act('PUT', '/api/coach/billing', b);
+  Future<ApiResult> sendVoice(int clientId, String audio, int seconds) =>
+      _act('POST', '/api/messages', {'audio': audio, 'seconds': seconds, if (isCoach) 'clientId': clientId});
   Future<ApiResult> deleteMyAccount(String password) async {
     final r = await Api.I.call('DELETE', '/api/account', {'password': password});
     if (!r.ok) return r;
@@ -1216,7 +1267,7 @@ class AppStore extends ChangeNotifier {
     _saveTimer?.cancel();
     String? prName;
     for (final e in a.lm('exercises')) {
-      final done = e.lm('sets').where((x) => x.b('done') && x.n('reps') > 0).map((x) => x.n('weight'));
+      final done = e.lm('sets').where((x) => x.b('done') && x.n('reps') > 0 && x.s('kind') != 'w').map((x) => x.n('weight'));
       final top = done.isEmpty ? 0.0 : done.reduce(math.max);
       final prev = bestSet(clientId, e.i('exId'));
       if (prev != null && top > prev.n('weight')) {

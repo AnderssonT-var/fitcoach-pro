@@ -1,5 +1,6 @@
 // Mensajes entre entrenador y asesorado, con ejercicios etiquetados
 // (comentario, nota, técnica o molestia).
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -9,6 +10,7 @@ import '../../core/json.dart';
 import '../../core/store.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
+import 'voice.dart';
 import 'exercise_ui.dart';
 
 /// Ejercicio que se quiere comentar al abrir el chat (desde la rutina).
@@ -71,7 +73,7 @@ class _MessagesPageState extends State<MessagesPage> {
                                 Text(
                                   last == null
                                       ? 'Sin mensajes'
-                                      : '${last.i('from') == me ? 'Tú: ' : ''}${last.inn('exId') != null ? '[${store.exerciseById(last.i('exId')).s('name')}] ' : ''}${last.s('text')}',
+                                      : last.sn('audio') != null ? '${last.i('from') == me ? 'Tú: ' : ''}🎤 Nota de voz' : '${last.i('from') == me ? 'Tú: ' : ''}${last.inn('exId') != null ? '[${store.exerciseById(last.i('exId')).s('name')}] ' : ''}${last.s('text')}',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: context.tt.bodySmall?.copyWith(color: unread > 0 ? t.ink : t.muted),
@@ -111,6 +113,7 @@ class _ChatThreadState extends State<ChatThread> {
   final input = FocusNode();
   J? ref;
   int lastCount = -1;
+  bool recording = false;
 
   @override
   void initState() {
@@ -215,6 +218,15 @@ class _ChatThreadState extends State<ChatThread> {
                     padding: const EdgeInsets.only(left: 6, bottom: 8),
                     child: ExerciseChip(exId: ref!.i('exId'), tag: ref!.s('tag'), onTap: _pick, onRemove: () => setState(() => ref = null)),
                   ),
+                if (recording)
+                  VoiceRecorder(
+                    onClose: () => mounted ? setState(() => recording = false) : null,
+                    onSend: (audio, sec) async {
+                      final r = await store.sendVoice(widget.clientId, audio, sec);
+                      if (!r.ok && mounted) toast(context, r.error!, error: true);
+                    },
+                  )
+                else
                 Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
                   IconButton(onPressed: _pick, icon: Icon(Icons.fitness_center_rounded, color: t.accent), tooltip: 'Etiquetar un ejercicio'),
                   Expanded(
@@ -235,12 +247,23 @@ class _ChatThreadState extends State<ChatThread> {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  IconButton.filled(
-                    onPressed: text.text.trim().isEmpty ? null : send,
-                    icon: const Icon(Icons.send_rounded),
-                    style: IconButton.styleFrom(minimumSize: const Size(48, 48)),
-                    tooltip: 'Enviar',
-                  ),
+                  if (text.text.trim().isEmpty && ref == null && !kIsWeb)
+                    IconButton.filledTonal(
+                      onPressed: () {
+                        input.unfocus();
+                        setState(() => recording = true);
+                      },
+                      icon: const Icon(Icons.mic_rounded),
+                      style: IconButton.styleFrom(minimumSize: const Size(48, 48)),
+                      tooltip: 'Grabar nota de voz',
+                    )
+                  else
+                    IconButton.filled(
+                      onPressed: text.text.trim().isEmpty ? null : send,
+                      icon: const Icon(Icons.send_rounded),
+                      style: IconButton.styleFrom(minimumSize: const Size(48, 48)),
+                      tooltip: 'Enviar',
+                    ),
                 ]),
               ]),
             ),
@@ -291,7 +314,10 @@ class _Bubble extends StatelessWidget {
                 padding: const EdgeInsets.only(bottom: 8),
                 child: ExerciseChip(exId: m.i('exId'), tag: m.s('tag'), mine: mine, onTap: () => showExercise(context, store.exerciseById(m.i('exId')), coachName: coachFirst)),
               ),
-            Text(m.s('text'), style: TextStyle(color: fg, fontSize: 15, height: 1.35)),
+            if (m.sn('audio') != null)
+              VoiceNote(url: m.s('audio'), seconds: _voiceSec(m.s('text')), color: fg)
+            else
+              Text(m.s('text'), style: TextStyle(color: fg, fontSize: 15, height: 1.35)),
             const Gap(3),
             Align(
               alignment: Alignment.centerRight,
@@ -386,4 +412,9 @@ Future<J?> pickTaggedExercise(BuildContext context, int coachId, int clientId, J
       ]);
     }),
   );
+}
+
+int _voiceSec(String text) {
+  final m = RegExp(r'\((\d+):(\d{2})\)').firstMatch(text);
+  return m == null ? 0 : int.parse(m.group(1)!) * 60 + int.parse(m.group(2)!);
 }

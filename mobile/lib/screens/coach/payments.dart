@@ -106,6 +106,15 @@ class PayRow extends StatelessWidget {
             Pill(payLabel[st]!, tone: payTone[st]!, small: true),
           ]),
         ]),
+        if (st != 'paid' && p['clientPaidAt'] != null) ...[
+          const Gap(8),
+          NoteBox(
+            icon: Icons.receipt_long_rounded,
+            tone: 'info',
+            action: p.sn('receipt') != null ? TextButton(onPressed: () => showReceipt(context, p.s('receipt')), child: const Text('Ver')) : null,
+            child: Text('Avisó que pagó ${ago(p.d('clientPaidAt'))}${p.s('method').isNotEmpty ? ' · ${p.s('method')}' : ''}${p.sn('receipt') != null ? ' y adjuntó comprobante' : ''}.'),
+          ),
+        ],
         const Gap(8),
         Row(children: [
           if (st != 'paid')
@@ -237,3 +246,14 @@ class ClientPayments extends StatelessWidget {
 }
 
 void goPayments(BuildContext context) => goTab(context, 'pagos');
+
+void showReceipt(BuildContext context, String src) => showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        clipBehavior: Clip.antiAlias,
+        child: Stack(children: [
+          InteractiveViewer(child: SmartImage(src, fit: BoxFit.contain)),
+          Positioned(right: 4, top: 4, child: IconButton.filledTonal(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close_rounded), tooltip: 'Cerrar')),
+        ]),
+      ),
+    );

@@ -12,7 +12,9 @@ import '../shared/account.dart';
 import '../shared/messages.dart';
 import '../shared/progress_widgets.dart';
 import '../shell.dart';
+import '../../core/coaching.dart';
 import 'client_detail.dart';
+import 'coaching.dart';
 import 'clients.dart';
 import 'page_editor.dart';
 import 'subscription.dart';
@@ -38,11 +40,22 @@ class CoachHome extends StatelessWidget {
       final weekDone = active.fold<int>(0, (t, c) => t + store.weekCount(c.i('userId')));
       final weekGoal = active.fold<int>(0, (t, c) => t + (c.m('routine')?.i('frequency') ?? 0));
 
-      // Pendientes
+      // Necesitan atención: caídas de cumplimiento, check-ins, pagos, rutinas, mensajes…
       final todo = <(String, IconData, J?, String, String, VoidCallback)>[];
-      for (final p in overdue) {
-        final c = clients.where((x) => x.i('userId') == p.i('clientId')).firstOrNull;
-        todo.add(('bad', Icons.account_balance_wallet_rounded, c?.m('user'), '${p.s('concept')} vencida (${money(p.n('amount'))})', 'Cobrar', () => goTab(context, 'pagos')));
+      const icons = {
+        'drop': Icons.trending_down_rounded, 'inactive': Icons.hourglass_bottom_rounded, 'checkin': Icons.assignment_turned_in_rounded,
+        'routine': Icons.fitness_center_rounded, 'phase': Icons.flag_rounded, 'receipt': Icons.receipt_long_rounded,
+        'payment': Icons.account_balance_wallet_rounded, 'message': Icons.chat_bubble_rounded,
+      };
+      for (final a in needsAttention(clients: clients, workouts: store.workoutsAll, payments: pays, messages: store.messages, coachId: id)) {
+        final VoidCallback run = switch (a.kind) {
+          'checkin' => () => openClient(context, a.clientId, tab: 'checkins'),
+          'routine' => () => openClient(context, a.clientId, tab: 'rutina'),
+          'phase' => () => openClient(context, a.clientId, tab: 'programa'),
+          'receipt' || 'payment' => () => goTab(context, 'pagos'),
+          _ => () => openChat(context, a.clientId),
+        };
+        todo.add((a.level >= 3 ? 'bad' : a.level == 2 ? 'warn' : 'info', icons[a.kind] ?? Icons.info_rounded, store.userById(a.clientId), a.text, a.action, run));
       }
       for (final c in active) {
         final ti = trialInfo(c);
@@ -54,25 +67,6 @@ class CoachHome extends StatelessWidget {
               () => openClient(context, c.i('userId'), tab: 'rutina', slot: 'plan')));
         }
       }
-      for (final c in active.where((c) => c.m('routine') == null)) {
-        todo.add(('warn', Icons.fitness_center_rounded, c.m('user'), 'No tiene rutina asignada', 'Crear', () => openClient(context, c.i('userId'), tab: 'rutina')));
-      }
-      for (final c in active.where((c) => c.m('routine') != null)) {
-        final last = store.workoutsOf(c.i('userId')).firstOrNull;
-        final d = last == null ? null : daysSince(last.d('finishedAt')!);
-        if (d == null || d >= 7) {
-          todo.add(('warn', Icons.hourglass_bottom_rounded, c.m('user'), last != null ? 'Lleva $d días sin entrenar' : 'Aún no registra entrenamientos', 'Escribir', () => openChat(context, c.i('userId'))));
-        }
-      }
-      for (final c in clients) {
-        final unread = store.thread(id, c.i('userId')).where((m) => !m.b('read') && m.i('from') != id).toList();
-        if (unread.isNotEmpty) {
-          final txt = unread.last.s('text');
-          todo.add(('info', Icons.chat_bubble_rounded, c.m('user'), '${plural(unread.length, 'mensaje nuevo', 'mensajes nuevos')}: “${txt.length > 60 ? '${txt.substring(0, 60)}…' : txt}”', 'Responder',
-              () => openChat(context, c.i('userId'))));
-        }
-      }
-
       for (final r in store.reviews.where((r) => r.s('status') == 'pending')) {
         final c = clients.where((x) => x.i('userId') == r.i('clientId')).firstOrNull;
         final txt = r.s('text');
@@ -113,7 +107,7 @@ class CoachHome extends StatelessWidget {
           ),
         ]),
         Section(
-          title: 'Pendientes',
+          title: 'Necesitan atención',
           trailing: todo.isNotEmpty ? Pill('${todo.length}', tone: 'bad') : null,
           child: todo.isEmpty
               ? Row(children: [Icon(Icons.celebration_rounded, color: t.ok), const SizedBox(width: 10), Text('Todo al día. Buen trabajo.', style: context.tt.bodyMedium)])
@@ -140,6 +134,7 @@ class CoachHome extends StatelessWidget {
         if (active.isNotEmpty)
           Section(
             title: 'Cumplimiento semanal',
+            subtitle: 'A 30 días: ${() { final v = active.map((c) => compliance(c, store.workoutsAll, 30)).whereType<int>().toList(); return v.isEmpty ? '—' : '${(v.reduce((a, b) => a + b) / v.length).round()}%'; }()} en promedio',
             child: Column(children: [
               for (final c in active)
                 InkWell(
@@ -151,6 +146,10 @@ class CoachHome extends StatelessWidget {
                       Avatar.of(c.m('user'), size: 34),
                       const SizedBox(width: 10),
                       Expanded(child: Text(c.m('user')!.s('name'), maxLines: 1, overflow: TextOverflow.ellipsis, style: context.tt.titleSmall)),
+                      if (compliance(c, store.workoutsAll, 7) != null) ...[
+                        Text('${compliance(c, store.workoutsAll, 7)}%', style: context.tt.labelMedium?.copyWith(color: toneColor(context, compliance(c, store.workoutsAll, 7)), fontWeight: FontWeight.w800)),
+                        const SizedBox(width: 10),
+                      ],
                       if ((c.m('routine')?.i('frequency') ?? 0) > 0) ...[
                         Dots(done: store.weekCount(c.i('userId')), goal: c.m('routine')!.i('frequency')),
                         SizedBox(width: 34, child: Text('${store.weekCount(c.i('userId'))}/${c.m('routine')!.i('frequency')}', textAlign: TextAlign.right, style: context.tt.bodySmall)),

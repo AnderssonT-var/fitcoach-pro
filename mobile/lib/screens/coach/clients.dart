@@ -11,7 +11,9 @@ import '../../core/techniques.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
 import '../shell.dart';
+import '../../core/coaching.dart';
 import 'coach_home.dart';
+import 'coaching.dart';
 
 class ClientsPage extends StatefulWidget {
   const ClientsPage({super.key});
@@ -41,11 +43,13 @@ class _ClientsPageState extends State<ClientsPage> {
         'noroutine': (r) => r.b('active') && r['routine'] == null,
         'overdue': (r) => r['pay'] == 'overdue',
         'idle': (r) => r.b('active') && r.b('idle'),
+        'risk': (r) => r.b('active') && (compliance(r, store.workoutsAll, 30) ?? 100) < 50,
+        'review': (r) => pendingReviews(r).isNotEmpty,
         'paused': (r) => !r.b('active'),
       };
-      const labels = [('all', 'Todos'), ('active', 'Activos'), ('trial', 'En prueba'), ('noroutine', 'Sin rutina'), ('overdue', 'Pago vencido'), ('idle', 'Inactivos'), ('paused', 'En pausa')];
+      const labels = [('all', 'Todos'), ('active', 'Activos'), ('trial', 'En prueba'), ('noroutine', 'Sin rutina'), ('overdue', 'Pago vencido'), ('idle', 'Inactivos'), ('risk', 'En riesgo'), ('review', 'Check-in por revisar'), ('paused', 'En pausa')];
       final nq = normalize(q);
-      final shown = rows.where(f[filter]!).where((r) => nq.isEmpty || normalize('${r.m('user')!.s('name')} ${r.m('user')!.s('email')} ${r.s('goal')}').contains(nq)).toList()
+      final shown = rows.where(f[filter]!).where((r) => nq.isEmpty || normalize('${r.m('user')!.s('name')} ${r.m('user')!.s('email')} ${r.s('goal')} ${r.l('tags').join(' ')}').contains(nq)).toList()
         ..sort((a, b) => normalize(a.m('user')!.s('name')).compareTo(normalize(b.m('user')!.s('name'))));
 
       return TabPage(children: [
@@ -88,6 +92,9 @@ class _ClientsPageState extends State<ClientsPage> {
                         if (r.b('active')) ...[
                           if (trialInfo(r) case final ti?) Pill(ti.running ? 'Prueba · ${ti.daysLeft} d' : 'Prueba terminada', tone: ti.running ? 'info' : 'warn', icon: Icons.schedule_rounded, small: true),
                           if (r['pay'] == 'overdue') const Pill('Vencido', tone: 'bad', small: true) else if (r['pay'] == 'pending') const Pill('Pendiente', tone: 'warn', small: true) else const Pill('Al día', tone: 'ok', small: true),
+                          compliancePill(context, r),
+                          if (pendingReviews(r).isNotEmpty) const Pill('Check-in', tone: 'warn', icon: Icons.assignment_turned_in_rounded, small: true),
+                          for (final tag in r.l('tags').take(3)) Pill('$tag', small: true),
                           if (r.m('routine') != null) Dots(done: r.i('week'), goal: r.m('routine')!.i('frequency')) else const Pill('Sin rutina', tone: 'warn', small: true),
                         ] else
                           const Pill('En pausa', small: true),

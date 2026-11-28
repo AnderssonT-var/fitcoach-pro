@@ -10,7 +10,9 @@ import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
 import '../shared/account.dart';
 import '../shell.dart';
+import 'coaching.dart';
 import 'my_routine.dart';
+import '../../core/coaching.dart' show checkinDue, phaseInfo;
 
 int estimateMin(J day) {
   final sec = day.lm('exercises').fold<int>(0, (t, e) => t + e.i('sets') * (40 + parseRest(e['rest'])));
@@ -63,6 +65,9 @@ class _ClientHomeState extends State<ClientHome> {
           GestureDetector(onTap: () => goTab(context, 'mas'), child: Avatar.of(me, size: 46)),
         ]),
         const NotifyPrompt(),
+        if (!store.selfCoached && c['onboarding'] == null) OnboardingPrompt(c: c),
+        if (routine != null || ws.isNotEmpty) RankCard(c: c),
+        if (checkinDue(c) && !store.selfCoached) CheckinBanner(c: c),
         if (trial != null && trial.running)
           Panel(
             color: t.accentSoft,
@@ -101,7 +106,7 @@ class _ClientHomeState extends State<ClientHome> {
           _TodayCard(
             day: day,
             routine: routine,
-            label: trainedToday ? 'Ya entrenaste hoy' : dayId != null ? 'Elegiste' : 'Te toca hoy',
+            label: '${trainedToday ? 'Ya entrenaste hoy' : dayId != null ? 'Elegiste' : 'Te toca hoy'}${phaseInfo(c) != null ? ' · ${phaseInfo(c)!.phase.s('name')}, semana ${phaseInfo(c)!.week} de ${phaseInfo(c)!.weeks}' : ''}',
             days: days,
             suggestedId: suggested?.s('id'),
             onPick: (d) => setState(() => dayId = d),
@@ -128,6 +133,8 @@ class _ClientHomeState extends State<ClientHome> {
               ]),
             ]),
           ),
+        HabitsCard(c: c),
+        if (c['nutrition'] != null) NutritionMini(c: c),
         if (lastCoach != null && !store.selfCoached)
           Panel(
             onTap: () => goTab(context, 'mensajes'),
@@ -144,7 +151,7 @@ class _ClientHomeState extends State<ClientHome> {
                 if (unread > 0) CountBadge(unread),
               ]),
               const Gap(10),
-              Text(lastCoach.s('text'), maxLines: 4, overflow: TextOverflow.ellipsis, style: context.tt.bodyLarge),
+              Text(lastCoach.sn('audio') != null ? '🎤 Nota de voz' : lastCoach.s('text'), maxLines: 4, overflow: TextOverflow.ellipsis, style: context.tt.bodyLarge),
               const Gap(6),
               Text('Responder', style: context.tt.titleSmall?.copyWith(color: t.accent)),
             ]),
