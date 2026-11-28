@@ -4,6 +4,7 @@
    Para instalarlas o actualizarlas se suben a public_html/media-import/ejercicios/{a,t}/
    (después de desplegar): el servidor las mueve aquí en menos de 2 minutos. */
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import express from "express";
 import { config, ROOT } from "./config.js";
@@ -33,17 +34,29 @@ export function importMedia() {
   scan(true);
   setInterval(() => scan(false), 120e3).unref();
 }
-function scan(report) {
-  const dirs = [
+function candidates() {
+  const out = [
     process.env.MEDIA_IMPORT_DIR,
     path.resolve(ROOT, "../../../public_html/media-import/ejercicios"),
     path.resolve(ROOT, "../../public_html/media-import/ejercicios"),
-  ].filter(Boolean);
-  for (const dir of new Set(dirs)) {
+  ];
+  // Hostinger: ~/domains/<dominio>/public_html
+  try {
+    const d = path.join(os.homedir(), "domains");
+    for (const dom of fs.existsSync(d) ? fs.readdirSync(d) : []) out.push(path.join(d, dom, "public_html", "media-import", "ejercicios"));
+  } catch { /* nada */ }
+  return [...new Set(out.filter(Boolean))];
+}
+const seen = new Set();
+function scan(report) {
+  const dirs = candidates();
+  if (report) console.log(`[medios] buscando en: ${dirs.map((d) => `${d}${fs.existsSync(d) ? " (sí)" : ""}`).join(" | ")}`);
+  for (const dir of dirs) {
     try {
       if (!fs.existsSync(dir)) continue;
       const n = importFrom(dir);
       if (n) { console.log(`[medios] ${n} archivos importados desde ${dir}`); report = true; }
+      else if (!seen.has(dir)) { seen.add(dir); console.log(`[medios] ${dir} existe pero no tiene archivos para importar (${fs.readdirSync(dir).join(", ")})`); }
     } catch (e) {
       console.error("[medios] no se pudieron importar:", e.message);
     }
