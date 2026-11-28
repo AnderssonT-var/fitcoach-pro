@@ -1,9 +1,10 @@
 /* Tareas programadas: corren cada 5 minutos dentro del servidor y también cuando se llama a
    /api/cron (por ejemplo desde un cron de Hostinger o GitHub Actions). Varios procesos pueden
    correrlas a la vez: `once()` asegura que cada aviso salga una sola vez. */
-import { knex, J } from "./db.js";
+import { knex, J, S } from "./db.js";
 import { notify, once } from "./notify.js";
 import { settleTrials } from "./trial.js";
+import { phaseIndexAt, rulesOf } from "./coaching.js";
 
 const DAY = 864e5;
 const first = (n) => String(n || "").split(" ")[0];
@@ -15,7 +16,7 @@ let running = false;
 export async function runJobs() {
   if (running) return { skipped: true };
   running = true;
-  const out = { reminders: 0, payments: 0, trials: 0, licenses: 0 };
+  const out = { reminders: 0, payments: 0, trials: 0, licenses: 0, coaching: 0 };
   try {
     const clients = await knex("clients").where({ active: true });
     await settleTrials(clients); // pruebas vencidas pasan al plan completo aunque nadie abra la app
@@ -24,6 +25,7 @@ export async function runJobs() {
       out.payments = await payments();
       out.trials = await trials();
       out.licenses = await licenses();
+      out.coaching = await coaching(clients);
     }
   } catch (e) { console.error("[jobs]", e.message); out.error = e.message; }
   finally { running = false; }
@@ -143,6 +145,66 @@ async function licenses() {
     const days = Math.ceil((Date.parse(l.expires_at) - now) / DAY);
     await notify(l.coach_id, { title: `Tu licencia vence en ${days} ${days === 1 ? "día" : "días"}`, body: "Renuévala en Suscripción para que tus asesorados no pierdan el acceso.", page: "suscripcion", kind: "license" });
     n++;
+  }
+  return n;
+}
+
+/* Automatizaciones del entrenador: check-in semanal, asesorados inactivos y cambio de fase */
+async function coaching(clients) {
+  if (!clients.length) return 0;
+  const coachIds = [...new Set(clients.map((c) => c.coach_id))];
+  const coaches = await knex("users").whereIn("id", coachIds).select("id", "name", "profile");
+  const users = await knex("users").whereIn("id", clients.map((c) => c.user_id)).select("id", "name", "profile");
+  const last = await knex("workouts").whereIn("client_id", clients.map((c) => c.user_id)).select("client_id").max({ at: "finished_at" }).groupBy("client_id");
+  const now = new Date();
+  let n = 0;
+  for (const c of clients) {
+    const coach = coaches.find((x) => x.id === c.coach_id);
+    const u = users.find((x) => x.id === c.user_id);
+    if (!coach || !u) continue;
+    const rules = rulesOf(J(coach.profile, {}));
+    const on = (k) => rules.find((r) => r.kind === k);
+    const d = J(c.data, {});
+    const l = localNow(J(u.profile, {}).notif?.reminder, now);
+
+    // 1) Check-in semanal: el día elegido, desde la hora indicada, si no envió uno en los últimos 5 días
+    const ci = on("checkin");
+    if (ci?.on && d.routine) {
+      const day = d.checkinCfg?.day ?? ci.day ?? 0;
+      const lastCi = (d.checkins || []).at(-1);
+      const recent = lastCi && now - new Date(lastCi.date) < 5 * DAY;
+      if (l.dow === day && l.hour >= (ci.hour ?? 18) && l.hour < 22 && !recent && (await once(`ci:${u.id}:${l.day}`))) {
+        await notify(u.id, { title: "Tu check-in de la semana", body: "Peso, fotos y cómo te sentiste: te toma 2 minutos.", page: "checkin", tag: "checkin", kind: "checkin" });
+        n++;
+      }
+    }
+
+    // 2) Inactivo: N días sin entrenar teniendo rutina → aviso al entrenador (una vez por semana)
+    const ina = on("inactive");
+    if (ina?.on && d.routine) {
+      const at = last.find((x) => x.client_id === c.user_id)?.at || d.joinedAt;
+      const days = at ? Math.floor((now - new Date(at)) / DAY) : 0;
+      const week = `${now.getUTCFullYear()}-${Math.floor(now / (7 * DAY))}`;
+      if (days >= (ina.days || 4) && (await once(`ina:${u.id}:${week}`))) {
+        await notify(c.coach_id, { title: `${first(u.name)} lleva ${days} días sin entrenar`, body: "Escríbele para saber cómo está.", page: "clientes", params: { id: u.id }, kind: "inactive" });
+        n++;
+      }
+    }
+
+    // 3) Programa por fases: al cumplirse las semanas pasa a la fase siguiente
+    const ph = on("phase");
+    if (ph?.on && d.program?.phases?.length) {
+      const i = phaseIndexAt(d.program, now.getTime());
+      if (i != null && i !== d.program.current && (await once(`ph:${u.id}:${i}:${d.program.startedAt}`))) {
+        const p = d.program.phases[i];
+        d.program.current = i;
+        d.routine = { ...p.routine, phase: { index: i, name: p.name, total: d.program.phases.length } };
+        await knex("clients").where({ user_id: u.id }).update({ data: S(d) });
+        await notify(u.id, { title: `Empiezas la fase «${p.name}»`, body: `Tu rutina cambió: ${p.weeks} ${p.weeks === 1 ? "semana" : "semanas"} de ${p.name.toLowerCase()}.`, page: "rutina", kind: "routine" });
+        await notify(c.coach_id, { title: `${first(u.name)} pasó a la fase «${p.name}»`, body: "Su rutina se actualizó sola.", page: "clientes", params: { id: u.id }, kind: "routine" });
+        n++;
+      }
+    }
   }
   return n;
 }

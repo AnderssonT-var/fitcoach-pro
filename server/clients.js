@@ -1,5 +1,6 @@
 /* Alta de un asesorado: la usan el entrenador (Nuevo cliente) y la inscripción desde su enlace. */
-import { S } from "./db.js";
+import { J, S } from "./db.js";
+import { ruleOf } from "./coaching.js";
 import { config } from "./config.js";
 import { monthlyConcept, nowISO, uid } from "./util.js";
 
@@ -37,7 +38,10 @@ export async function insertClient(trx, a) {
   } else if (a.fee > 0) {
     await trx("payments").insert({ id: uid("pay-"), coach_id: a.coach.id, client_id: userId, concept: monthlyConcept(), amount: a.fee, due_date: now, paid_at: null, method: "" });
   }
+  // Bienvenida: la automática del entrenador si la tiene activa
+  const rule = ruleOf(J(a.coach.profile, {}), "welcome");
+  const auto = rule?.on && rule.text ? `¡Hola ${a.name.split(" ")[0]}! ${rule.text}` : null;
   await trx("messages").insert({ id: uid("m-"), coach_id: a.coach.id, client_id: userId, from_id: a.coach.id, read: false, at: now,
-    text: a.welcome || `¡Hola ${a.name.split(" ")[0]}! Bienvenido/a. Aquí verás tu rutina y podrás registrar cada entrenamiento.` });
+    text: a.welcome || auto || `¡Hola ${a.name.split(" ")[0]}! Bienvenido/a. Aquí verás tu rutina y podrás registrar cada entrenamiento.` });
   return userId;
 }

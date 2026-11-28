@@ -13,9 +13,11 @@ import {
 } from "../../store/db";
 import AvatarPanel from "../../avatar/AvatarPanel";
 import { MuscleLoadPanel } from "../../workout/MuscleLoad";
+import { CheckinsTab, ComplianceCard, HabitsTab, NutritionTab, OnboardingAnswers, ProgramTab, TagsEditor } from "./CoachCoaching";
+import { pendingReviews } from "../../lib/coaching";
 import { ago, kg, money, shortDate } from "../../lib/format";
 
-const TABS = [["resumen", "Resumen"], ["rutina", "Rutina"], ["historial", "Entrenamientos"], ["medidas", "Medidas"], ["fotos", "Fotos"], ["notas", "Notas"], ["pagos", "Pagos"], ["datos", "Datos"]];
+const TABS = [["resumen", "Resumen"], ["rutina", "Rutina"], ["programa", "Programa"], ["checkins", "Check-ins"], ["habitos", "Hábitos"], ["nutricion", "Nutrición"], ["historial", "Entrenamientos"], ["medidas", "Medidas"], ["fotos", "Fotos"], ["notas", "Notas"], ["pagos", "Pagos"], ["datos", "Datos"]];
 
 export default function ClientDetail({ clientId, tab: initialTab, slot: initialSlot }) {
   const db = useDB();
@@ -52,11 +54,15 @@ export default function ClientDetail({ clientId, tab: initialTab, slot: initialS
       </div>
 
       <div className="tabs" role="tablist">
-        {TABS.map(([k, l]) => <button key={k} role="tab" className="tab" aria-selected={tab === k} onClick={() => setTab(k)}>{l}{k === "pagos" && overdue.length > 0 && <span className="nav-count" style={{ marginLeft: 2 }}>{overdue.length}</span>}</button>)}
+        {TABS.map(([k, l]) => <button key={k} role="tab" className="tab" aria-selected={tab === k} onClick={() => setTab(k)}>{l}{k === "pagos" && overdue.length > 0 && <span className="nav-count" style={{ marginLeft: 2 }}>{overdue.length}</span>}{k === "checkins" && pendingReviews(c).length > 0 && <span className="nav-count" style={{ marginLeft: 2, background: "var(--yellow)" }}>{pendingReviews(c).length}</span>}</button>)}
       </div>
 
       {tab === "resumen" && <Summary clientId={clientId} onTab={openTab} />}
       {tab === "rutina" && <TrialRoutines clientId={clientId} slot={slot} onSlot={setSlot} />}
+      {tab === "programa" && <ProgramTab clientId={clientId} />}
+      {tab === "checkins" && <CheckinsTab clientId={clientId} />}
+      {tab === "habitos" && <HabitsTab clientId={clientId} />}
+      {tab === "nutricion" && <NutritionTab clientId={clientId} />}
       {tab === "historial" && <section className="panel"><SessionList sessions={ws} /></section>}
       {tab === "medidas" && <Measurements clientId={clientId} canEdit />}
       {tab === "fotos" && <Photos clientId={clientId} canUpload canDelete />}
@@ -78,6 +84,7 @@ function Summary({ clientId, onTab }) {
   return (
     <>
       <TrialPanel clientId={clientId} onTab={onTab} />
+      <ComplianceCard c={c} workouts={db.workouts} />
       <div className="stats">
         <Stat label="Esta semana" value={s.goal ? `${s.week}/${s.goal}` : s.week} sub="entrenamientos" tone={s.goal && s.week >= s.goal ? "ok" : ""} icon="calendar" />
         <Stat label="Semanas cumpliendo" value={streak} sub="seguidas" icon="flame" />
@@ -94,6 +101,7 @@ function Summary({ clientId, onTab }) {
         <div key={n.id} className="warn-box"><Icon name="note" size={18} /><span className="grow"><strong>{n.category}:</strong> {n.text}</span>
           <button className="btn btn-quiet btn-sm" onClick={() => onTab("notas")}>Ver notas</button></div>
       ))}
+      <OnboardingAnswers c={c} />
       {lastComment && (
         <div className="note-box"><Icon name="chat" size={18} /><span className="grow">Último comentario ({lastComment.dayName}, {ago(lastComment.finishedAt)}): “{lastComment.comment}”</span></div>
       )}
@@ -101,6 +109,7 @@ function Summary({ clientId, onTab }) {
         <AdherenceChart clientId={clientId} />
         <WeightChart clientId={clientId} />
       </div>
+      <TagsEditor c={c} key={`tags-${clientId}`} />
       <AvatarPanel clientId={clientId} />
       <MuscleLoadPanel clientId={clientId} />
       <div className="grid-2">

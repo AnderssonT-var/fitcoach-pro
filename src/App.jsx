@@ -32,6 +32,8 @@ import WorkoutSession from "./workout/WorkoutSession";
 import CoachProfile from "./pages/coach/CoachProfile";
 import PageEditor from "./pages/coach/PageEditor";
 import ClientProfile from "./pages/client/ClientProfile";
+import { CheckinPage, NutritionPage } from "./pages/client/Coaching";
+import { AutomationsPage } from "./pages/coach/CoachCoaching";
 
 /** Enlace de acceso con marca: …/#mendez-strength · páginas legales: #privacidad, #terminos */
 const readHash = () => { try { return decodeURIComponent(window.location.hash.slice(1)).toLowerCase(); } catch { return ""; } };
@@ -167,11 +169,11 @@ export default function App() {
     else if (page === "clientes" && params.id) view = <ClientDetail clientId={params.id} tab={params.tab} slot={params.slot} />;
     else view = {
       clientes: <Clients />, pagos: <Payments />, biblioteca: <Library />,
-      comunidad: <Community />, mensajes: <Messages />,
+      comunidad: <Community />, mensajes: <Messages />, automatizaciones: <AutomationsPage />,
     }[page] || <CoachHome />;
   } else {
     view = {
-      rutina: <MyRoutine />, progreso: <Progress />, pagos: <MyPayments />, perfil: <ClientProfile />,
+      rutina: <MyRoutine />, progreso: <Progress />, pagos: <MyPayments />, perfil: <ClientProfile />, checkin: <CheckinPage />, nutricion: <NutritionPage />,
       comunidad: <Community />, mensajes: <Messages />,
     }[page] || <ClientHome />;
   }

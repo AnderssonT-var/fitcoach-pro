@@ -6,6 +6,7 @@ import { addClient, clientsOf, paymentStatus, useDB, weekCount, workoutsOf } fro
 import { ago, daysSince, money } from "../../lib/format";
 import { TrialFields, TrialPill } from "./Trial";
 import { trialInfo, trialName } from "../../lib/trial";
+import { compliance, complianceTone, pendingReviews } from "../../lib/coaching";
 
 export const GOALS = ["Hipertrofia", "Fuerza", "Pérdida de grasa", "Tonificación", "Recomposición", "Rendimiento", "Salud general"];
 
@@ -22,14 +23,16 @@ export default function Clients() {
     const pays = db.payments.filter((p) => p.clientId === c.userId);
     const pay = pays.some((p) => paymentStatus(p) === "overdue") ? "overdue" : pays.some((p) => paymentStatus(p) === "pending") ? "pending" : "paid";
     const idle = c.routine && (!last || daysSince(last.finishedAt) >= 7);
-    return { ...c, last, pay, idle, week: weekCount(db, c.userId) };
+    const p7 = compliance(c, db.workouts, 7), p30 = compliance(c, db.workouts, 30);
+    const risk = c.active && p7 != null && p30 != null && (p7 < 50 || p30 - p7 >= 20);
+    return { ...c, last, pay, idle, week: weekCount(db, c.userId), p7, risk, reviews: pendingReviews(c).length };
   });
   const F = {
-    all: (r) => true, active: (r) => r.active, trial: (r) => r.active && !!trialInfo(r), noroutine: (r) => r.active && !r.routine,
+    all: (r) => true, active: (r) => r.active, risk: (r) => r.risk, checkin: (r) => r.reviews > 0, trial: (r) => r.active && !!trialInfo(r), noroutine: (r) => r.active && !r.routine,
     overdue: (r) => r.pay === "overdue", idle: (r) => r.active && r.idle, paused: (r) => !r.active,
   };
-  const LABELS = [["all", "Todos"], ["active", "Activos"], ["trial", "En prueba"], ["noroutine", "Sin rutina"], ["overdue", "Pago vencido"], ["idle", "Inactivos"], ["paused", "En pausa"]];
-  const shown = rows.filter(F[filter]).filter((r) => !q || `${r.user.name} ${r.user.email} ${r.goal}`.toLowerCase().includes(q.toLowerCase()))
+  const LABELS = [["all", "Todos"], ["risk", "En riesgo"], ["checkin", "Check-in por revisar"], ["active", "Activos"], ["trial", "En prueba"], ["noroutine", "Sin rutina"], ["overdue", "Pago vencido"], ["idle", "Inactivos"], ["paused", "En pausa"]];
+  const shown = rows.filter(F[filter]).filter((r) => !q || `${r.user.name} ${r.user.email} ${r.goal} ${(r.tags || []).join(" ")}`.toLowerCase().includes(q.toLowerCase()))
     .sort((a, b) => a.user.name.localeCompare(b.user.name));
 
   return (
@@ -63,7 +66,14 @@ export default function Clients() {
                 <div className="grow">
                   <div className="strong ellipsis">{r.user.name}</div>
                   <div className="small muted ellipsis">{r.goal} · {r.routine ? r.routine.name : "sin rutina"} · {r.last ? `entrenó ${ago(r.last.finishedAt)}` : "sin registros"}</div>
+                  {(r.risk || r.reviews > 0 || r.tags?.length > 0) && (
+                    <div className="row wrap gap-xs" style={{ marginTop: 5 }}>
+                      {r.risk && <span className="tag tag-bad">En riesgo</span>}
+                      {r.reviews > 0 && <span className="tag tag-warn">Check-in por revisar</span>}
+                      {(r.tags || []).map((t) => <span key={t} className="tag">{t}</span>)}
+                    </div>)}
                 </div>
+                {r.p7 != null && <span className="cl-comp"><strong className={`num ${complianceTone(r.p7)}-ink`}>{r.p7}%</strong><span>7 días</span></span>}
                 <span className="m-hide row gap-sm" style={{ width: 150 }}>
                   {r.routine ? <><Dots done={r.week} goal={r.routine.frequency} /><span className="small muted num">{r.week}/{r.routine.frequency}</span></> : <Pill tone="warn">Sin rutina</Pill>}
                 </span>

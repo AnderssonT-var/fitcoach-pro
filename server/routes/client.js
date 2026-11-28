@@ -12,6 +12,8 @@ import { addToBests, correctBest } from "../history.js";
 import { clientReviewRoutes } from "../reviews.js";
 import { notifyLater, setRestAlarm } from "../notify.js";
 import { mapEx } from "../exmap.js";
+import { clientCoaching } from "./coaching.js";
+import { coachRules, saveAudio } from "../coaching.js";
 import { deleteClientData, MESSAGE_TAGS, photosSchema, profileSchema, routineSchema, sessionSchema } from "./schemas.js";
 
 /* ============================================================
@@ -47,6 +49,7 @@ accountRouter.delete("/", h(async (req, res) => {
 export const clientRouter = Router();
 clientRouter.use(requireClientAccess, requireConsent);
 clientReviewRoutes(clientRouter);
+clientCoaching(clientRouter);
 
 /** Corregir un récord mal escrito (también corrige la serie en el historial). */
 export const bestFix = z.object({ weight: z.number().min(0).max(1000), reps: z.number().int().min(1).max(500).optional() });
@@ -157,16 +160,16 @@ clientRouter.post("/workout/finish", h(async (req, res) => {
   const bests = J((await knex("clients").where({ user_id: req.user.id }).select("data").first())?.data, {}).bests;
   const history = bests ? null : (await knex("workouts").where({ client_id: req.user.id }).select("data")).map((w) => J(w.data, {}));
   const best = (exId) => (bests ? Math.max(0, bests[exId]?.w ?? 0) : Math.max(0, ...history.flatMap((w) => (w.exercises || []).filter((e) => e.exId === exId)
-    .flatMap((e) => e.sets.filter((x) => x.done && x.reps > 0).map((x) => +x.weight || 0)))));
+    .flatMap((e) => e.sets.filter((x) => x.done && x.reps > 0 && x.kind !== "w").map((x) => +x.weight || 0)))));
   const prs = [];
   const exercises = a.exercises.map((e) => {
     const clean = (x) => ({ weight: Math.max(0, Math.min(1000, +x.weight || 0)), reps: Math.max(0, Math.min(500, Math.round(+x.reps || 0))), done: !!x.done });
     const sets = e.sets.map((x) => {
-      const out = clean(x);
+      const out = { ...clean(x), ...(x.kind ? { kind: x.kind } : {}) };
       const drops = (x.drops || []).map(clean).filter((d) => d.done && d.reps > 0);
       return drops.length ? { ...out, drops } : out;
     });
-    const top = Math.max(0, ...sets.filter((x) => x.done && x.reps > 0).map((x) => x.weight));
+    const top = Math.max(0, ...sets.filter((x) => x.done && x.reps > 0 && x.kind !== "w").map((x) => x.weight));
     const prev = best(e.exId);
     if (prev > 0 && top > prev) prs.push({ exId: e.exId, weight: top, prev });
     return { exId: e.exId, target: e.target, sets };
@@ -192,6 +195,14 @@ clientRouter.post("/workout/finish", h(async (req, res) => {
         text: `${req.user.name.split(" ")[0]} completó ${a.dayName} en ${Math.round(durationSec / 60)} min.${pr}`, workout_id: id });
     }
   });
+  // Automatización: felicitación del entrenador por un récord nuevo
+  if (prs.length) {
+    const rule = (await coachRules(coachId)).find((x) => x.kind === "pr");
+    if (rule?.on) {
+      const what = body.prName ? `${body.prName}: ${prs[0].weight} kg` : `${prs[0].weight} kg`;
+      await knex("messages").insert({ id: uid("m-"), coach_id: coachId, client_id: req.user.id, from_id: coachId, read: false, at: stamp(), text: `${rule.text || "¡Nuevo récord!"} (${what})` });
+    }
+  }
   // Aviso al entrenador
   notifyLater(coachId, { title: `${req.user.name.split(" ")[0]} terminó ${a.dayName}`,
     body: `${Math.round(durationSec / 60)} min${prs.length ? ` · ${prs.length} ${prs.length === 1 ? "récord" : "récords"} 🏆` : ""}${body.comment ? ` · “${body.comment.slice(0, 80)}”` : ""}`,
@@ -240,18 +251,23 @@ async function pair(req, clientId) {
 
 sharedRouter.post("/messages", h(async (req, res) => {
   const body = parse(z.object({
-    clientId: z.number().int().optional(), text: z.string().trim().min(1, "Escribe un mensaje.").max(2000),
+    clientId: z.number().int().optional(), text: z.string().trim().max(2000).default(""),
     exId: z.number().int().positive().transform(mapEx).optional(), tag: z.enum(MESSAGE_TAGS).optional(),
+    audio: z.string().max(6_000_000).optional(), seconds: z.number().min(0).max(600).optional(),
   }), req.body);
+  if (!body.text && !body.audio) throw bad("Escribe un mensaje.");
   const p = await pair(req, body.clientId);
   // Solo se puede etiquetar un ejercicio de la biblioteca general o de este entrenador
   if (body.exId && body.exId >= 100000 && !(await knex("exercises").where({ id: body.exId, coach_id: p.coachId }).first())) throw notFound("No encontramos ese ejercicio.");
-  const m = { id: uid("m-"), coach_id: p.coachId, client_id: p.clientId, from_id: req.user.id, text: body.text, at: stamp(), read: false,
-    ...(body.exId ? { ex_id: body.exId, tag: body.tag || "comentario" } : {}) };
+  const fileId = body.audio ? await saveAudio(req.user.id, body.audio) : null;
+  const secs = Math.round(body.seconds || 0);
+  const text = body.text || `Nota de voz (${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")})`;
+  const m = { id: uid("m-"), coach_id: p.coachId, client_id: p.clientId, from_id: req.user.id, text, at: stamp(), read: false,
+    ...(fileId ? { file_id: fileId } : {}), ...(body.exId ? { ex_id: body.exId, tag: body.tag || "comentario" } : {}) };
   await knex("messages").insert(m);
   // Aviso al otro lado de la conversación
   const toCoach = req.user.role !== "coach";
-  notifyLater(toCoach ? p.coachId : p.clientId, { title: req.user.name, body: body.text.slice(0, 140), page: "mensajes",
+  notifyLater(toCoach ? p.coachId : p.clientId, { title: req.user.name, body: text.slice(0, 140), page: "mensajes",
     params: toCoach ? { clientId: p.clientId } : null, tag: `chat-${p.coachId}-${p.clientId}`, kind: "message" });
   res.status(201).json({ id: m.id });
 }));

@@ -9,6 +9,7 @@
    ============================================================ */
 import { useSyncExternalStore } from "react";
 import { EXERCISE_LIBRARY } from "./exercises";
+import { apiBase as apiBaseUrl, isNative as isNativeApp } from "./api";
 import { abs, api, getStateTag, hasSession, onLost, pollSeconds, resetStateTag, setStateTag, setSyncInfo, setTokens } from "./api";
 import { askPersist, kvGet, kvSet } from "./idb";
 import { addDays, repsLow, startOfDay, weekStart } from "../lib/format";
@@ -105,6 +106,9 @@ function normalize(s) {
   s.exercises = [...LIBRARY, ...(s.exercises || []).map((e) => ({ ...e, photo: abs(e.photo) }))];
   s.clients = (s.clients || []).map((c) => ({ ...c, photos: (c.photos || []).map((p) => ({ ...p, src: abs(p.src) })) }));
   s.subscriptions = (s.subscriptions || []).map((x) => ({ ...x, receipt: abs(x.receipt) }));
+  s.messages = (s.messages || []).map((m) => (m.audio ? { ...m, audio: abs(m.audio) } : m));
+  s.payments = (s.payments || []).map((p) => (p.receipt ? { ...p, receipt: abs(p.receipt) } : p));
+  for (const c of s.clients) for (const day of Object.values(c.foodLog || {})) for (const e of day.entries || []) if (e.photoUrl) e.photoUrl = abs(e.photoUrl);
   s.workouts ||= [];
   s.reviews ||= [];
   s.active ||= {};
@@ -325,6 +329,18 @@ function warmImages() {
 const findClient = (d, id) => d.clients.find((c) => c.userId === id);
 const has = (arr, id) => (arr || []).some((x) => x.id === id);
 const REDUCERS = {
+  habit(d, a) {
+    const c = findClient(d, a.clientId);
+    if (c) c.habitLog = { ...(c.habitLog || {}), [a.date]: { ...(c.habitLog?.[a.date] || {}), [a.habitId]: a.value } };
+  },
+  meal(d, a) {
+    const c = findClient(d, a.clientId);
+    if (!c) return;
+    const day = { ...(c.foodLog?.[a.date] || {}) };
+    if (a.mealId != null) day.meals = { ...(day.meals || {}), [a.mealId]: a.done };
+    if (a.water != null) day.water = a.water;
+    c.foodLog = { ...(c.foodLog || {}), [a.date]: day };
+  },
   msg(d, a, op) {
     const id = `m-${op.id}`;
     if (!has(d.messages, id)) d.messages.push({ id, coachId: a.coachId, clientId: a.clientId, from: a.from, text: a.text, at: op.at, read: false, pending: true, exId: a.exId || null, tag: a.tag || null });
@@ -460,15 +476,15 @@ export function brandOf(s, user) {
 export const exerciseById = (s, id) => s.exercises.find((e) => e.id === id) || { id, name: "Ejercicio", muscle: "", equipment: "", primary: [], secondary: [] };
 
 /* Biblioteca: miniatura fija (t) y animación (a) de Gym visual, servidas por el servidor en /media */
-const MEDIA = `${import.meta.env.BASE_URL}media/ejercicios`;
+const media = () => `${isNativeApp() ? apiBaseUrl() : import.meta.env.BASE_URL.replace(/\/$/, "")}/media/ejercicios`;
 export function exerciseImage(ex, frame = 0) {
   if (ex?.photo) return ex.photo;
-  if (ex?.media) return frame > 0 ? `${MEDIA}/a/${ex.id}.webp` : `${MEDIA}/t/${ex.id}.webp`;
+  if (ex?.media) return frame > 0 ? `${media()}/a/${ex.id}.webp` : `${media()}/t/${ex.id}.webp`;
   if (!ex?.images) return null;
   return `${import.meta.env.BASE_URL}ejercicios/${ex.id}-${Math.min(frame, ex.images - 1)}.webp`;
 }
 /** Animación de la técnica (o null si el ejercicio no tiene). */
-export const exerciseAnim = (ex) => (ex?.media && !ex.photo ? `${MEDIA}/a/${ex.id}.webp` : null);
+export const exerciseAnim = (ex) => (ex?.media && !ex.photo ? `${media()}/a/${ex.id}.webp` : null);
 
 export function licenseStatus(l) {
   if (l.revoked) return "revoked";
@@ -544,7 +560,7 @@ export function bestSet(s, clientId, exId) {
     const e = w.exercises.find((x) => x.exId === exId);
     if (!e) continue;
     for (const x of e.sets) {
-      if (!x.done || !(+x.reps > 0)) continue;
+      if (!x.done || !(+x.reps > 0) || x.kind === "w") continue;
       if (!best || +x.weight > best.weight || (+x.weight === best.weight && +x.reps > best.reps)) best = { ...best, weight: +x.weight, reps: +x.reps, at: w.finishedAt };
     }
   }
@@ -939,7 +955,7 @@ export async function finishWorkout(clientId, { difficulty, comment, share }) {
   const prName = (() => {
     // Nombre del ejercicio con récord, para el mensaje de la comunidad
     for (const e of a.exercises) {
-      const top = Math.max(0, ...e.sets.filter((x) => x.done && +x.reps > 0).map((x) => +x.weight || 0));
+      const top = Math.max(0, ...e.sets.filter((x) => x.done && +x.reps > 0 && x.kind !== "w").map((x) => +x.weight || 0));
       const prev = bestSet(state, clientId, e.exId);
       if (prev && top > prev.weight) return exerciseById(state, e.exId).name;
     }
@@ -955,6 +971,36 @@ export async function finishWorkout(clientId, { difficulty, comment, share }) {
     return { queued: true, durationSec: Math.round((Date.now() - Date.parse(a.startedAt)) / 1000), done, volume: sessionVolume(a), prs: [], comment };
   }
   return r;
+}
+
+/* ============================================================
+   Seguimiento entre sesiones (cuestionario, hábitos, check-in, nutrición, fases,
+   automatizaciones y cobro en línea)
+   ============================================================ */
+export const saveOnboarding = (o) => act("PUT", "/api/client/onboarding", o);
+export const logHabit = (date, habitId, value) =>
+  act("PUT", "/api/client/habits/log", { date, habitId, value: +value || 0 }, { kind: "habit", args: { clientId: me(), date, habitId, value: +value || 0 }, label: "Hábito" });
+export const sendCheckin = (c) => act("POST", "/api/client/checkins", c);
+export const toggleMeal = (date, mealId, done) =>
+  act("PUT", "/api/client/food/meal", { date, mealId, done }, { kind: "meal", args: { clientId: me(), date, mealId, done }, label: "Comida" });
+export const setWater = (date, glasses) =>
+  act("PUT", "/api/client/food/water", { date, glasses }, { kind: "meal", args: { clientId: me(), date, water: glasses }, label: "Agua" });
+export const addFoodEntry = (e) => act("POST", "/api/client/food/entry", e);
+export const deleteFoodEntry = (id) => act("DELETE", `/api/client/food/entry/${id}`);
+export const sendReceipt = (paymentId, src, method = "") => act("POST", `/api/client/payments/${paymentId}/receipt`, { src: src || null, method });
+export const saveHabits = (clientId, habits) => act("PUT", `/api/coach/clients/${clientId}/habits`, { habits });
+export const saveCheckinCfg = (clientId, cfg) => act("PUT", `/api/coach/clients/${clientId}/checkin-config`, cfg);
+export const reviewCheckin = (clientId, id, reply = "") => act("POST", `/api/coach/clients/${clientId}/checkins/${id}/review`, { reply });
+export const saveNutrition = (clientId, nutrition) => act("PUT", `/api/coach/clients/${clientId}/nutrition`, { nutrition });
+export const saveProgram = (clientId, program) => act("PUT", `/api/coach/clients/${clientId}/program`, {
+  program: program && { ...program, phases: program.phases.map((p) => ({ id: p.id, name: p.name, weeks: +p.weeks || 1, routine: cleanRoutine(p.routine) })) },
+});
+export const saveTags = (clientId, tags) => act("PUT", `/api/coach/clients/${clientId}/tags`, { tags });
+export const saveAutomations = (rules) => act("PUT", "/api/coach/automations", { rules });
+export const saveBilling = (b) => act("PUT", "/api/coach/billing", b);
+export function sendVoice(coachId, clientId, audio, seconds) {
+  const mine = userById(state, state.sessionUserId);
+  return act("POST", "/api/messages", { audio, seconds, ...(mine?.role === "coach" ? { clientId } : {}) });
 }
 
 export { repsLow };

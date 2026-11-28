@@ -8,7 +8,7 @@ const MAX_TABS = 5;
 
 export function useTheme() {
   const [theme, setThemeState] = useState(() => {
-    try { return localStorage.getItem("fcp2.theme") || "system"; } catch { return "system"; }
+    try { return localStorage.getItem("fcp2.theme") || "dark"; } catch { return "dark"; }
   });
   function setTheme(t) {
     setThemeState(t);
@@ -20,8 +20,8 @@ export function useTheme() {
 }
 export function applyStoredTheme() {
   try {
-    const t = localStorage.getItem("fcp2.theme");
-    if (t && t !== "system") document.documentElement.setAttribute("data-theme", t);
+    const t = localStorage.getItem("fcp2.theme") || "dark"; // el estilo de VYTRAFIT es oscuro por defecto
+    if (t !== "system") document.documentElement.setAttribute("data-theme", t);
   } catch { /* nada */ }
 }
 const isDark = (t) => t === "dark" || (t === "system" && window.matchMedia?.("(prefers-color-scheme: dark)").matches);

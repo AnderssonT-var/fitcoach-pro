@@ -55,15 +55,18 @@ const coachPublic = (u) => {
   const o = userOut(u);
   // Lo que el asesorado ve de su entrenador: perfil público, sin datos internos
   return { id: o.id, role: o.role, name: o.name, photo: o.photo, body: o.body, phone: o.phone, city: o.city, headline: o.headline, years: o.years,
-    instagram: o.instagram, bio: o.bio, specialties: o.specialties, certifications: o.certifications, services: o.services, brand: o.brand, email: o.email };
+    instagram: o.instagram, bio: o.bio, specialties: o.specialties, certifications: o.certifications, services: o.services, brand: o.brand, email: o.email,
+    billing: o.billing || null };
 };
 
 export const licenseOut = (l) => ({
   id: l.id, code: l.code, months: l.months, coachId: l.coach_id, createdAt: l.created_at, activatedAt: l.activated_at,
   expiresAt: l.expires_at, unlimited: !l.months || (typeof l.expires_at === "string" && l.expires_at.startsWith("9999")), revoked: bool(l.revoked), note: l.note || "", charges: J(l.charges, []),
 });
-const paymentOut = (p) => ({ id: p.id, coachId: p.coach_id, clientId: p.client_id, concept: p.concept, amount: +p.amount, dueDate: p.due_date, paidAt: p.paid_at, method: p.method || "" });
-const messageOut = (m) => ({ id: m.id, coachId: m.coach_id, clientId: m.client_id, from: m.from_id, text: m.text, at: m.at, read: bool(m.read), exId: m.ex_id || null, tag: m.tag || null });
+const paymentOut = (p) => ({ id: p.id, coachId: p.coach_id, clientId: p.client_id, concept: p.concept, amount: +p.amount, dueDate: p.due_date, paidAt: p.paid_at, method: p.method || "",
+  receipt: signedUrl(p.receipt_file), clientPaidAt: p.client_paid_at || null });
+const messageOut = (m) => ({ id: m.id, coachId: m.coach_id, clientId: m.client_id, from: m.from_id, text: m.text, at: m.at, read: bool(m.read), exId: m.ex_id || null, tag: m.tag || null,
+  audio: signedUrl(m.file_id) });
 const postOut = (p) => ({ id: p.id, coachId: p.coach_id, authorId: p.author_id, kind: p.kind, text: p.text, at: p.at, likes: J(p.likes, []), comments: J(p.comments, []), workoutId: p.workout_id });
 const templateOut = (t) => ({ ...J(t.data, {}), id: t.id, coachId: t.coach_id, createdAt: t.created_at });
 const exerciseOut = (e) => {
@@ -75,9 +78,12 @@ export const subscriptionOut = (s) => ({
   receipt: signedUrl(s.receipt_file), createdAt: s.created_at, reviewedAt: s.reviewed_at, adminNote: s.admin_note || "", licenseId: s.license_id,
 });
 
-const CLIENT_DEFAULTS = { trial: null, planRoutine: null, goal: "", phone: "", heightCm: null, fee: 0, billingDay: 1, routine: null, weights: [], measurements: [], notes: [], joinedAt: null };
+const CLIENT_DEFAULTS = { trial: null, planRoutine: null, goal: "", phone: "", heightCm: null, fee: 0, billingDay: 1, routine: null, weights: [], measurements: [], notes: [], joinedAt: null,
+  onboarding: null, habits: null, habitLog: {}, checkinCfg: null, checkins: [], nutrition: null, foodLog: {}, program: null, tags: [] };
 export function clientOut(c, photos = [], user = null, { withNotes = true } = {}) {
   const data = { ...CLIENT_DEFAULTS, ...J(c.data, {}) };
+  // Fotos de comidas: URL firmada en lugar del id del archivo
+  for (const day of Object.values(data.foodLog || {})) for (const e of day.entries || []) { e.photoUrl = signedUrl(e.photo); delete e.photo; }
   if (!withNotes) { delete data.notes; delete data.planRoutine; } // el plan completo es sorpresa hasta que se activa
   return {
     ...data, userId: c.user_id, coachId: c.coach_id, active: bool(c.active),

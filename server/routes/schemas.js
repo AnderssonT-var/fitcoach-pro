@@ -67,6 +67,7 @@ const setSchema = z.object({
   weight: z.union([z.string(), z.number()]).transform((v) => String(v).slice(0, 10)),
   reps: z.union([z.string(), z.number()]).transform((v) => String(v).slice(0, 10)),
   prevWeight: z.number().nullable().optional(), prevReps: z.number().nullable().optional(), done: z.boolean(),
+  kind: z.enum(["w", "f"]).optional(), // w = calentamiento (no cuenta para récords), f = al fallo
   drops: z.array(z.object({
     weight: z.union([z.string(), z.number()]).transform((v) => String(v).slice(0, 10)),
     reps: z.union([z.string(), z.number()]).transform((v) => String(v).slice(0, 10)),

@@ -8,6 +8,8 @@ import {
 import { ago, capitalize, clock, parseRest, sameDay, tons } from "../../lib/format";
 import { trialInfo, trialName } from "../../lib/trial";
 import { NotifyPrompt } from "../shared/Account";
+import { CheckinBanner, HabitsCard, OnboardingPrompt, RankCard } from "./Coaching";
+import { foodToday, phaseInfo } from "../../lib/coaching";
 
 export function estimateMin(day) {
   const sec = day.exercises.reduce((t, e) => t + e.sets * (40 + parseRest(e.rest)), 0);
@@ -41,6 +43,9 @@ export default function ClientHome() {
         <button className="hello-btn" onClick={() => go("perfil")} aria-label="Mi perfil"><Avatar name={me.name} id={me.id} photo={me.photo} /></button>
       </div>
       <NotifyPrompt />
+      <OnboardingPrompt c={c} />
+      {(c.routine || ws.length > 0) && <RankCard c={c} />}
+      <CheckinBanner c={c} />
 
       {trialInfo(c)?.running && (() => { const t = trialInfo(c); return (
         <section className="panel panel-pad stack trial-client" style={{ gap: 10 }}>
@@ -74,7 +79,7 @@ export default function ClientHome() {
       ) : !active && (
         <section className="panel" style={{ overflow: "hidden" }}>
           <div className="stack hero-card" style={{ gap: 10 }}>
-            <span className="hero-kicker">{trainedToday ? "Ya entrenaste hoy" : dayId ? "Elegiste" : "Te toca hoy"}</span>
+            <span className="hero-kicker">{trainedToday ? "Ya entrenaste hoy" : dayId ? "Elegiste" : "Te toca hoy"}{phaseInfo(c) ? ` · ${phaseInfo(c).phase.name}, semana ${phaseInfo(c).week} de ${phaseInfo(c).weeks}` : ""}</span>
             <h2 className="hero-title">{day.name}</h2>
             <div className="hero-meta">
               {c.routine.name && <span><Icon name="dumbbell" size={16} />{c.routine.name}</span>}
@@ -112,7 +117,17 @@ export default function ClientHome() {
         </section>
       )}
 
+      <HabitsCard c={c} />
+
       <div className="grid-2">
+        {c.nutrition && (() => { const f = foodToday(c); return (
+          <button className="panel panel-pad stack" style={{ textAlign: "left", cursor: "pointer" }} onClick={() => go("nutricion")}>
+            <div className="small muted">Nutrición de hoy</div>
+            <div className="section-title num">{Math.max(0, c.nutrition.kcal - f.kcal)} kcal restantes</div>
+            <div className="progress green"><i style={{ width: `${Math.min(100, Math.round((f.kcal / (c.nutrition.kcal || 1)) * 100))}%` }} /></div>
+            <div className="small ink2">{f.meals.filter((m) => m.done).length} de {f.meals.length} comidas · {f.water} vasos de agua</div>
+            <span className="link-btn">Ver mi plan</span>
+          </button>); })()}
         {lastCoach && (
           <button className="panel panel-pad stack" style={{ textAlign: "left", cursor: "pointer" }} onClick={() => go("mensajes")}>
             <div className="row">

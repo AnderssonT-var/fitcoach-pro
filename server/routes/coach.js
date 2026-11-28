@@ -14,6 +14,7 @@ import { convertTrial } from "../trial.js";
 import { notifyLater } from "../notify.js";
 import { insertClient, newTrial, trialConcept } from "../clients.js";
 import { RESERVED_SLUGS, log, normalizeCode, ownClient, slugify } from "./common.js";
+import { coachCoaching } from "./coaching.js";
 import { routineSchema, measurementSchema, photosSchema, exerciseSchema, deleteClientData } from "./schemas.js";
 
 export const router = Router();
@@ -115,6 +116,7 @@ router.post("/page/image", h(async (req, res) => {
    Desde aquí se exige licencia vigente y términos aceptados
    ============================================================ */
 router.use(requireLicense, requireConsent);
+coachCoaching(router);
 
 /* ---------- asesorados ---------- */
 const trialSchema = z.object({ days: z.number().int().min(1).max(60), fee: z.number().min(0).max(100000).optional().default(0) });

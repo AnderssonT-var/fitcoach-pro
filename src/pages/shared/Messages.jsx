@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import Icon from "../../ui/Icon";
 import { Avatar, Empty, toast } from "../../ui/kit";
 import { useApp } from "../../context";
-import { clientById, clientsOf, exerciseById, markThreadRead, sendMessage, thread, useDB, userById } from "../../store/db";
+import { clientById, clientsOf, exerciseById, markThreadRead, sendMessage, sendVoice, thread, useDB, userById } from "../../store/db";
 import { ExerciseDetail } from "../../ui/exercises";
 import { ExerciseChip, ExercisePicker, tagInfo } from "./ExerciseTag";
 import { ago, date, sameDay, time } from "../../lib/format";
@@ -104,7 +104,7 @@ function Thread({ coachId, clientId, other, onBack, initialRef }) {
             {(i === 0 || !sameDay(msgs[i - 1].at, m.at)) && <div className="chat-day">{sameDay(m.at, new Date()) ? "Hoy" : date(m.at, { weekday: "long", day: "numeric", month: "short" })}</div>}
             <div className={`bubble ${m.from === me.id ? "me" : ""} ${m.exId ? "tagged" : ""}`}>
               {m.exId && <ExerciseChip exId={m.exId} tag={m.tag} mine={m.from === me.id} onOpen={() => setView(exerciseById(db, m.exId))} />}
-              {m.text}<time dateTime={m.at}>{time(m.at)}{m.from === me.id && m.read ? " · Visto" : ""}</time></div>
+              {m.audio ? <VoiceNote src={m.audio} label={m.text} /> : m.text}<time dateTime={m.at}>{time(m.at)}{m.from === me.id && m.read ? " · Visto" : ""}</time></div>
           </div>
         ))}
       </div>
@@ -113,11 +113,68 @@ function Thread({ coachId, clientId, other, onBack, initialRef }) {
         <button type="button" className="btn btn-ghost chat-tag-btn" onClick={() => setPicking(true)} aria-label="Etiquetar un ejercicio" title="Etiquetar un ejercicio"><Icon name="dumbbell" size={19} /></button>
         <label className="sr-only" htmlFor="chat-text">Mensaje</label>
         <input id="chat-text" ref={input} className="input grow" placeholder={ref ? `${tagInfo(ref.tag).l} sobre ${exerciseById(db, ref.exId).name}` : `Escribe a ${other.name.split(" ")[0]}`} value={text} onChange={(e) => setText(e.target.value)} autoComplete="off" />
-        <button className="btn btn-primary" type="submit" disabled={!text.trim()} aria-label="Enviar"><Icon name="send" size={18} /></button>
+        {text.trim() ? <button className="btn btn-primary" type="submit" aria-label="Enviar"><Icon name="send" size={18} /></button>
+          : <VoiceRecorder onDone={(audio, secs) => sendVoice(coachId, clientId, audio, secs).then((r) => (r?.error ? toast(r.error, "alert") : toast("Nota de voz enviada")))} />}
       </form>
       {picking && <ExercisePicker coachId={coachId} clientId={clientId} initial={ref} onClose={() => setPicking(false)}
         onPick={(r) => { setRef(r); setPicking(false); setTimeout(() => input.current?.focus(), 50); }} />}
       {view && <ExerciseDetail ex={view} coachName={userById(db, coachId)?.name.split(" ")[0]} onClose={() => setView(null)} />}
     </>
+  );
+}
+
+/* ---------- notas de voz ---------- */
+function VoiceNote({ src, label }) {
+  return (
+    <span className="voice-note">
+      <audio controls preload="none" src={src} aria-label={label} />
+    </span>
+  );
+}
+function VoiceRecorder({ onDone }) {
+  const [rec, setRec] = useState(null); // { mr, chunks, start }
+  const [secs, setSecs] = useState(0);
+  useEffect(() => {
+    if (!rec) return undefined;
+    const t = setInterval(() => setSecs(Math.round((Date.now() - rec.start) / 1000)), 250);
+    return () => clearInterval(t);
+  }, [rec]);
+  async function start() {
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") return toast("Tu navegador no permite grabar audio.", "alert");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const type = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"].find((t) => MediaRecorder.isTypeSupported?.(t)) || "";
+      const mr = new MediaRecorder(stream, type ? { mimeType: type, audioBitsPerSecond: 32000 } : undefined);
+      const chunks = [];
+      mr.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+      mr.start();
+      setSecs(0);
+      setRec({ mr, chunks, start: Date.now(), stream });
+    } catch { toast("Permite el micrófono para grabar notas de voz.", "alert"); }
+  }
+  function stop(send) {
+    const r = rec;
+    if (!r) return;
+    r.mr.onstop = () => {
+      r.stream.getTracks().forEach((t) => t.stop());
+      const secs = Math.round((Date.now() - r.start) / 1000);
+      if (!send || secs < 1) return;
+      const blob = new Blob(r.chunks, { type: r.mr.mimeType || "audio/webm" });
+      const fr = new FileReader();
+      fr.onload = () => onDone(String(fr.result).replace(/^data:audio\/([\w.+-]+);codecs=[^;,]+/, "data:audio/$1"), secs);
+      fr.readAsDataURL(blob);
+    };
+    r.mr.stop();
+    setRec(null);
+    if (secs >= 180) toast("Máximo 3 minutos por nota", "alert");
+  }
+  useEffect(() => { if (rec && secs >= 180) stop(true); }, [secs]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!rec) return <button type="button" className="btn btn-primary" onClick={start} aria-label="Grabar nota de voz" title="Grabar nota de voz"><Icon name="mic" size={18} /></button>;
+  return (
+    <span className="rec-bar" role="status">
+      <span className="rec-dot" aria-hidden="true" /><span className="num strong">{Math.floor(secs / 60)}:{String(secs % 60).padStart(2, "0")}</span>
+      <button type="button" className="btn btn-quiet btn-sm" onClick={() => stop(false)}>Cancelar</button>
+      <button type="button" className="btn btn-primary btn-sm" onClick={() => stop(true)} aria-label="Enviar nota de voz"><Icon name="send" size={16} /></button>
+    </span>
   );
 }

@@ -150,7 +150,10 @@ export default function WorkoutSession({ clientId, onClose }) {
     scrollTo(goTo, ei);
   }
   const editDrop = (ei, si, di, k, v) => upd((a) => { a.exercises[ei].sets[si].drops[di][k] = v.replace(",", "."); });
-  const edit = (ei, si, k, v) => upd((a) => { a.exercises[ei].sets[si][k] = v.replace(",", "."); });
+  const edit = (ei, si, k, v) => upd((a) => {
+    const st = a.exercises[ei].sets[si];
+    if (k === "kind") { if (v) st.kind = v; else delete st.kind; } else st[k] = v.replace(",", ".");
+  });
   const addSet = (ei) => upd((a) => { const ss = a.exercises[ei].sets; const l = ss.at(-1); const ex = a.exercises[ei];
     const drops = ex.target.drop?.on === "all" ? Array.from({ length: ex.target.drop.count }, () => ({ weight: "", reps: "", done: false })) : undefined;
     ss.push({ weight: l?.weight || "", reps: "", prevWeight: l?.prevWeight ?? null, prevReps: l?.prevReps ?? null, done: false, ...(drops ? { drops } : {}) }); });
@@ -324,7 +327,10 @@ function ExerciseCard({ ex, info, best, isCurrent, coachFirst, chatNote, ssLabel
         return (
           <div key={si} className="set-block">
           <div className={`set-grid set-row ${st.done ? "done" : isNext ? "next" : ""}`}>
-            <span className="display num" style={{ textAlign: "center", fontSize: 19 }}>{si + 1}</span>
+            <button className={`set-kind ${st.kind || ""}`} onClick={() => onEdit(si, "kind", st.kind === "w" ? "f" : st.kind === "f" ? undefined : "w")}
+              aria-label={`Serie ${si + 1}: ${st.kind === "w" ? "calentamiento" : st.kind === "f" ? "al fallo" : "normal"}. Toca para cambiar el tipo`} title="Tipo de serie: normal, C calentamiento, F al fallo">
+              {st.kind === "w" ? "C" : st.kind === "f" ? "F" : si + 1}
+            </button>
             <span className="small muted ellipsis num">{st.prevWeight != null ? `${kg(st.prevWeight)} × ${st.prevReps}` : "—"}</span>
             <input className="set-input" inputMode="decimal" aria-label={`Peso serie ${si + 1}`} value={st.weight}
               placeholder={st.prevWeight != null ? String(st.prevWeight) : "kg"} onFocus={(e) => e.target.select()}

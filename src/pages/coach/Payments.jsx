@@ -88,6 +88,10 @@ export function PayRow({ p, showClient }) {
           <div className="small muted">
             {st === "paid" ? `Pagado el ${shortDate(p.paidAt)} · ${p.method}` : st === "overdue" ? `Venció hace ${-d} ${-d === 1 ? "día" : "días"} (${shortDate(p.dueDate)})` : d === 0 ? "Vence hoy" : `Vence en ${d} ${d === 1 ? "día" : "días"} (${shortDate(p.dueDate)})`}
           </div>
+          {st !== "paid" && p.clientPaidAt && (
+            <div className="small strong warn-ink row gap-xs" style={{ marginTop: 2 }}><Icon name="bell" size={14} />Avisó que pagó el {shortDate(p.clientPaidAt)}{p.method ? ` (${p.method})` : ""}
+              {p.receipt && <a href={p.receipt} target="_blank" rel="noopener">Ver comprobante</a>}</div>
+          )}
         </div>
         <span className="display num" style={{ fontSize: 22 }}>{money(p.amount)}</span>
         <Pill tone={PAY_TONE[st]}>{PAY_LABEL[st]}</Pill>
@@ -105,7 +109,7 @@ export function PayRow({ p, showClient }) {
 }
 
 function MarkPaidModal({ p, onClose }) {
-  const [method, setMethod] = useState("Transferencia");
+  const [method, setMethod] = useState(METHODS.includes(p.method) ? p.method : "Transferencia");
   return (
     <Modal title="Registrar pago" onClose={onClose} footer={<>
       <button className="btn btn-quiet" onClick={onClose}>Cancelar</button>

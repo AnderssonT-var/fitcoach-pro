@@ -296,6 +296,11 @@ const MIGRATIONS = [
     // Todos vuelven a descargar el estado completo con los ids nuevos
     await k("state_versions").update({ v: `lib2${Date.now().toString(36)}` });
   }],
+  ["012_voz_y_comprobantes", async (k) => {
+    // Notas de voz en el chat y comprobante del asesorado («ya pagué»)
+    await k.schema.alterTable("messages", (t) => { t.string("file_id", 40).nullable(); });
+    await k.schema.alterTable("payments", (t) => { t.string("receipt_file", 40).nullable(); t.string("client_paid_at", 30).nullable(); });
+  }],
 ];
 
 /* Varios procesos pueden arrancar a la vez (el hosting levanta más de uno): en MySQL se toma un candado */

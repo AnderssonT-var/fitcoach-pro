@@ -46,7 +46,7 @@ export async function historyFor(where) {
 /** Actualiza récords con un entrenamiento: { [exId]: { w, r, at, first } } */
 export function addToBests(bests, w) {
   for (const e of w.exercises || []) {
-    const done = (e.sets || []).filter((x) => x.done && +x.reps > 0);
+    const done = (e.sets || []).filter((x) => x.done && +x.reps > 0 && x.kind !== "w");
     if (!done.length) continue;
     const top = done.reduce((b, x) => (+x.weight > b.w || (+x.weight === b.w && +x.reps > b.r) ? { w: +x.weight, r: +x.reps } : b), { w: -1, r: 0 });
     const cur = bests[e.exId];

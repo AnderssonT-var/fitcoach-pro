@@ -11,7 +11,7 @@ export const BRAND_COLORS = [
   { id: "turquesa", label: "Turquesa", hex: "#0E8A9C" },
   { id: "grafito", label: "Grafito", hex: "#3A3A3C" },
 ];
-export const DEFAULT_BRAND_COLOR = "#007AFF";
+export const DEFAULT_BRAND_COLOR = "#34F58F";
 
 export const svgData = (svg) => `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 
@@ -43,7 +43,8 @@ export function applyBrandColor(hex) {
   const grey = sat < 0.15;
   const dark = l < 0.5 ? `hsl(${Math.round(hue)} ${Math.round(Math.min(1, sat * 1.05) * 100)}% ${grey ? 82 : 62}%)` : `#${h}`;
   // Sobre un gris claro el texto va oscuro para que se lea
-  if (grey && l < 0.5) root.style.setProperty("--on-brand-dk", "#0D1220"); else root.style.removeProperty("--on-brand-dk");
+  // (sin marca el acento es el verde neón de VYTRAFIT con texto oscuro; con marca, texto blanco)
+  root.style.setProperty("--on-brand-dk", grey && l < 0.5 ? "#0D1220" : "#fff");
   const light = l > 0.55 ? `hsl(${Math.round(hue)} ${Math.round(sat * 100)}% 45%)` : `#${h}`;
   root.style.setProperty("--brand", light);
   root.style.setProperty("--brand-dk", dark);
