@@ -308,7 +308,8 @@ function warmImages() {
     const urls = [];
     for (const id of ids) {
       const ex = LIBRARY.find((e) => e.id === id);
-      for (let f = 0; f < (ex?.images || 0); f++) urls.push(exerciseImage(ex, f));
+      if (ex?.media) urls.push(exerciseImage(ex, 0), exerciseImage(ex, 1));
+      else for (let f = 0; f < (ex?.images || 0); f++) urls.push(exerciseImage(ex, f));
     }
     const key = urls.join("|");
     if (!urls.length || key === warmed) return;
@@ -458,11 +459,16 @@ export function brandOf(s, user) {
 
 export const exerciseById = (s, id) => s.exercises.find((e) => e.id === id) || { id, name: "Ejercicio", muscle: "", equipment: "", primary: [], secondary: [] };
 
+/* Biblioteca: miniatura fija (t) y animación (a) de Gym visual, servidas por el servidor en /media */
+const MEDIA = `${import.meta.env.BASE_URL}media/ejercicios`;
 export function exerciseImage(ex, frame = 0) {
   if (ex?.photo) return ex.photo;
+  if (ex?.media) return frame > 0 ? `${MEDIA}/a/${ex.id}.webp` : `${MEDIA}/t/${ex.id}.webp`;
   if (!ex?.images) return null;
   return `${import.meta.env.BASE_URL}ejercicios/${ex.id}-${Math.min(frame, ex.images - 1)}.webp`;
 }
+/** Animación de la técnica (o null si el ejercicio no tiene). */
+export const exerciseAnim = (ex) => (ex?.media && !ex.photo ? `${MEDIA}/a/${ex.id}.webp` : null);
 
 export function licenseStatus(l) {
   if (l.revoked) return "revoked";
@@ -727,7 +733,7 @@ export const deleteTemplate = (id) => act("DELETE", `/api/coach/templates/${id}`
 export const newUid = () => uid("re-");
 
 export function upsertExercise(_coachId, data) {
-  const { id, coachId, images, source, ...body } = data;
+  const { id, coachId, images, source, media, ...body } = data;
   const payload = { ...body, sets: +body.sets || 3, rest: +body.rest || 60, photo: body.photo?.startsWith?.("data:") ? body.photo : body.photo ? undefined : null };
   // Crear un ejercicio nuevo necesita conexión (el servidor le da su número); editarlo, no
   return id

@@ -11,6 +11,7 @@ import { groupOf } from "./common.js";
 import { addToBests, correctBest } from "../history.js";
 import { clientReviewRoutes } from "../reviews.js";
 import { notifyLater, setRestAlarm } from "../notify.js";
+import { mapEx } from "../exmap.js";
 import { deleteClientData, MESSAGE_TAGS, photosSchema, profileSchema, routineSchema, sessionSchema } from "./schemas.js";
 
 /* ============================================================
@@ -240,7 +241,7 @@ async function pair(req, clientId) {
 sharedRouter.post("/messages", h(async (req, res) => {
   const body = parse(z.object({
     clientId: z.number().int().optional(), text: z.string().trim().min(1, "Escribe un mensaje.").max(2000),
-    exId: z.number().int().positive().optional(), tag: z.enum(MESSAGE_TAGS).optional(),
+    exId: z.number().int().positive().transform(mapEx).optional(), tag: z.enum(MESSAGE_TAGS).optional(),
   }), req.body);
   const p = await pair(req, body.clientId);
   // Solo se puede etiquetar un ejercicio de la biblioteca general o de este entrenador

@@ -11,6 +11,7 @@ import { hashPassword, coachLicenseRow } from "./auth.js";
 import { FOREVER, nowISO } from "./util.js";
 import { addToBests } from "./history.js";
 import { bump } from "./versions.js";
+import { mapEx } from "./exmap.js";
 import { newCode } from "./routes/common.js";
 import { dropCache } from "./landing.js";
 
@@ -27,7 +28,7 @@ const MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", 
 const dataUrl = (file, mime) => `data:${mime};base64,${fs.readFileSync(path.join(ASSETS, file)).toString("base64")}`;
 
 let n = 0;
-const ex = (exId, sets, reps, rest, notes = "") => ({ uid: `re-demo-${++n}`, exId, sets, reps, rest, notes });
+const ex = (exId, sets, reps, rest, notes = "") => ({ uid: `re-demo-${++n}`, exId: mapEx(exId), sets, reps, rest, notes });
 
 const ROUTINES = {
   camila: () => ({
@@ -54,6 +55,7 @@ const ROUTINES = {
 };
 
 function sessions({ clientId, routine, weekdays, weeks, load, comments = {}, skipLastDays = 0 }) {
+  load = Object.fromEntries(Object.entries(load || {}).map(([k, v]) => [mapEx(k), v]));
   const out = [];
   const today = startOfDay();
   const monday = new Date(today); monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));

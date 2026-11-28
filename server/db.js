@@ -276,6 +276,26 @@ const MIGRATIONS = [
     // El administrador puede tener un perfil de atleta enlazado (para entrenar con su propia rutina)
     await k.schema.alterTable("users", (t) => { t.integer("linked_id").unsigned().nullable(); });
   }],
+  ["011_biblioteca_v2", async (k) => {
+    // La biblioteca vieja (ids 1–217) se reemplazó por la de 1.324 ejercicios (ids 10000+):
+    // rutinas, plantillas, historial, récords y mensajes pasan al ejercicio nuevo equivalente.
+    const { remapDeep, mapEx } = await import("./exmap.js");
+    for (const [table, key] of [["clients", "user_id"], ["templates", "id"], ["active_workouts", "client_id"], ["workouts", "id"]]) {
+      let n = 0;
+      for (const row of await k(table).select(key, "data")) {
+        const v = J(row.data);
+        if (!v) continue;
+        const out = S(remapDeep(v));
+        if (out !== S(v)) { await k(table).where({ [key]: row[key] }).update({ data: out }); n++; }
+      }
+      if (n) console.log(`[db] biblioteca v2: ${table} actualizados ${n}`);
+    }
+    for (const r of await k("messages").whereNotNull("ex_id").where("ex_id", "<", 10000).distinct("ex_id")) {
+      await k("messages").where({ ex_id: r.ex_id }).update({ ex_id: mapEx(r.ex_id) });
+    }
+    // Todos vuelven a descargar el estado completo con los ids nuevos
+    await k("state_versions").update({ v: `lib2${Date.now().toString(36)}` });
+  }],
 ];
 
 /* Varios procesos pueden arrancar a la vez (el hosting levanta más de uno): en MySQL se toma un candado */

@@ -1,9 +1,10 @@
 // Biblioteca de ejercicios precargada, nombres de músculos y siluetas.
-// Datos e imágenes: Free Exercise DB (dominio público), traducidos al español.
+// Datos: exercises-dataset (MIT), traducidos al español. Animaciones © Gym visual, servidas por vytra.fit.
 import 'dart:convert';
 
 import 'package:flutter/services.dart';
 
+import 'api.dart';
 import 'json.dart';
 
 class Catalog {
@@ -50,7 +51,12 @@ List<String> musclesOfRegion(String r) => [if (regionMuscle[r] != null) regionMu
 
 /// Imagen local del ejercicio (o la foto subida por el entrenador).
 String? exerciseAsset(J ex, [int frame = 0]) {
+  // Biblioteca v2: miniatura (t) y animación (a) de Gym visual, servidas por vytra.fit
+  if (ex.i('media') > 0) return '$apiBase/media/ejercicios/${frame > 0 ? 'a' : 't'}/${ex.i('id')}.webp';
   final imgs = ex.i('images');
   if (imgs <= 0) return null;
   return 'assets/ejercicios/${ex.i('id')}-${frame.clamp(0, imgs - 1)}.webp';
 }
+
+/// Animación de la técnica (null si el ejercicio no tiene).
+String? exerciseAnim(J ex) => ex.sn('photo') == null && ex.i('media') > 0 ? '$apiBase/media/ejercicios/a/${ex.i('id')}.webp' : null;

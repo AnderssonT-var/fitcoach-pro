@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import Icon from "./Icon";
 import { Modal } from "./kit";
 import MuscleMap, { MuscleLegend, muscleName } from "./MuscleMap";
-import { exerciseImage } from "../store/db";
+import { exerciseAnim, exerciseImage } from "../store/db";
 import { clock, parseRest } from "../lib/format";
 
 export const GROUPS = ["Pecho", "Espalda", "Hombros", "Bíceps", "Tríceps", "Antebrazos", "Abdomen", "Glúteos", "Cuádriceps", "Isquiotibiales", "Pantorrillas", "Cuerpo completo", "Cardio", "Estiramiento"];
@@ -31,7 +31,19 @@ export function useExerciseFilters(list, coachId) {
     list.forEach((e) => (e.primary || []).forEach((m) => { c[m] = (c[m] || 0) + 1; }));
     return c;
   }, [list]);
-  return { f, setF, shown, groups, equipment, muscleCount, total: list.length };
+  // La biblioteca tiene más de mil ejercicios: se muestran de 60 en 60
+  const [limit, setLimit] = useState(PAGE);
+  useEffect(() => setLimit(PAGE), [f]);
+  const page = useMemo(() => shown.slice(0, limit), [shown, limit]);
+  return { f, setF, shown, page, more: () => setLimit((n) => n + PAGE), groups, equipment, muscleCount, total: list.length };
+}
+const PAGE = 60;
+
+/** Botón «Mostrar más» bajo la cuadrícula. */
+export function MoreExercises({ state }) {
+  const left = state.shown.length - state.page.length;
+  if (left <= 0) return null;
+  return <button className="btn btn-quiet" style={{ alignSelf: "center", marginTop: 12 }} onClick={state.more}>Mostrar más ({left})</button>;
 }
 
 export function ExerciseFilters({ state, idPrefix = "ex", showMine, bodyOpen = false }) {
@@ -113,7 +125,8 @@ export function ExerciseTile({ ex, onOpen, action }) {
 
 /* ---------- ficha ---------- */
 export function ExerciseDetail({ ex, onClose, footer, coachName }) {
-  const frames = [exerciseImage(ex, 0), exerciseImage(ex, 1)].filter(Boolean);
+  const anim = exerciseAnim(ex);
+  const frames = anim ? [anim] : [exerciseImage(ex, 0), exerciseImage(ex, 1)].filter(Boolean);
   const unique = [...new Set(frames)];
   const [frame, setFrame] = useState(0);
   const [play, setPlay] = useState(unique.length > 1);
@@ -129,7 +142,7 @@ export function ExerciseDetail({ ex, onClose, footer, coachName }) {
         <div className="stack gap-sm">
           {unique.length ? (
             <div className="ex-frames">
-              {unique.map((src, i) => <img key={src} src={src} alt={i === 0 ? "Posición inicial" : "Posición final"} className={i === frame ? "on" : ""} />)}
+              {unique.map((src, i) => <img key={src} src={src} alt={anim ? `Técnica de ${ex.name}` : i === 0 ? "Posición inicial" : "Posición final"} className={i === frame ? "on" : ""} />)}
             </div>
           ) : null}
           {unique.length > 1 && (
@@ -163,7 +176,7 @@ export function ExerciseDetail({ ex, onClose, footer, coachName }) {
             </div>
           )}
           {ex.cues && <div className="note-box small"><Icon name="note" size={16} /><span><strong>{coachName ? `${coachName}:` : "Consejo:"}</strong> {ex.cues}</span></div>}
-          {ex.source && <p className="tiny muted">Imágenes: Free Exercise DB (dominio público).</p>}
+          {anim && <p className="tiny muted">Animación © Gym visual — gymvisual.com</p>}
         </div>
       </div>
     </Modal>

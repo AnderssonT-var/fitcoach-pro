@@ -49,7 +49,6 @@ flutter:
   uses-material-design: true
   assets:
     - assets/data/
-    - assets/ejercicios/
     - assets/brand/
   fonts:
     - family: Sora

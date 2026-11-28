@@ -27,7 +27,7 @@ class ExThumb extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         child: Container(
           width: w, height: h, color: t.dark ? const Color(0xFFE9EAEE) : t.surface3,
-          child: img != null ? SmartImage(img, width: w, height: h) : Icon(Icons.fitness_center_rounded, color: t.muted, size: h * .45),
+          child: img != null ? SmartImage(img, width: w, height: h, fit: ex.i('media') > 0 ? BoxFit.contain : BoxFit.cover) : Icon(Icons.fitness_center_rounded, color: t.muted, size: h * .45),
         ),
       ),
       if (done)
@@ -65,7 +65,8 @@ class _ExerciseDetailState extends State<_ExerciseDetail> {
   @override
   void initState() {
     super.initState();
-    frames = {exerciseImage(widget.ex, 0), exerciseImage(widget.ex, 1)}.whereType<String>().toList();
+    final anim = exerciseAnim(widget.ex);
+    frames = anim != null ? [anim] : {exerciseImage(widget.ex, 0), exerciseImage(widget.ex, 1)}.whereType<String>().toList();
     timer = Timer.periodic(const Duration(milliseconds: 1100), (_) {
       if (play && frames.length > 1 && mounted) setState(() => frame = (frame + 1) % frames.length);
     });
@@ -162,7 +163,7 @@ class _ExerciseDetailState extends State<_ExerciseDetail> {
           TextSpan(text: ex.s('cues')),
         ]))),
       ],
-      if (ex['coachId'] == null) Padding(padding: const EdgeInsets.only(top: 12), child: Text('Imágenes: Free Exercise DB (dominio público).', style: context.tt.bodySmall)),
+      if (exerciseAnim(ex) != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text('Animación © Gym visual — gymvisual.com', style: context.tt.bodySmall)),
     ]);
   }
 }

@@ -2,7 +2,7 @@ import { useState } from "react";
 import Icon from "../../ui/Icon";
 import { Confirm, Empty, Field, Modal, toast, run } from "../../ui/kit";
 import { ImageDrop } from "../../ui/inputs";
-import { ExerciseDetail, ExerciseFilters, ExerciseTile, GROUPS, LEVELS, MUSCLE_KEYS, useExerciseFilters } from "../../ui/exercises";
+import { ExerciseDetail, ExerciseFilters, ExerciseTile, GROUPS, MoreExercises, LEVELS, MUSCLE_KEYS, useExerciseFilters } from "../../ui/exercises";
 import MuscleMap, { MuscleLegend, muscleName } from "../../ui/MuscleMap";
 import { useApp } from "../../context";
 import { deleteExercise, deleteTemplate, exerciseById, exerciseInUse, upsertExercise, useDB } from "../../store/db";
@@ -48,9 +48,10 @@ function Exercises() {
         <section className="panel"><Empty icon="dumbbell" title="No hay ejercicios con esos filtros" text="Cambia la categoría o crea el ejercicio con tus propias indicaciones." /></section>
       ) : (
         <div className="ex-grid">
-          {filters.shown.map((e) => <ExerciseTile key={e.id} ex={e} onOpen={setOpen} />)}
+          {filters.page.map((e) => <ExerciseTile key={e.id} ex={e} onOpen={setOpen} />)}
         </div>
       )}
+      <MoreExercises state={filters} />
       {open && (
         <ExerciseDetail ex={exerciseById(db, open.id)} onClose={() => setOpen(null)}
           footer={open.coachId === me.id ? <>

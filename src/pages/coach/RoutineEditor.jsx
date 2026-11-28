@@ -3,7 +3,7 @@ import Icon from "../../ui/Icon";
 import { Confirm, Empty, Field, Modal, toast, run } from "../../ui/kit";
 import { useApp } from "../../context";
 import { exerciseById, exerciseImage, newUid, saveRoutine, saveTemplate, useDB, userById } from "../../store/db";
-import { ExerciseDetail, ExerciseFilters, ExerciseTile, useExerciseFilters } from "../../ui/exercises";
+import { ExerciseDetail, ExerciseFilters, ExerciseTile, MoreExercises, useExerciseFilters } from "../../ui/exercises";
 import { clock } from "../../lib/format";
 import { GOALS } from "./Clients";
 import { DROP_DEFAULT, DROP_PCTS, dropLabel, isDrop } from "../../workout/dropset";
@@ -219,13 +219,14 @@ export function ExercisePicker({ onClose, onPick, dayName }) {
       <ExerciseFilters state={filters} idPrefix="pick" showMine />
       <span className="small muted">{filters.shown.length} ejercicios</span>
       <div className="ex-grid">
-        {filters.shown.map((e) => (
+        {filters.page.map((e) => (
           <ExerciseTile key={e.id} ex={e} onOpen={setOpen}
             action={<button className={`btn btn-sm ${added[e.id] ? "btn-success" : "btn-primary"}`} onClick={() => add(e)} aria-label={`Agregar ${e.name}`}>
               <Icon name={added[e.id] ? "check" : "plus"} size={14} />{added[e.id] ? "Agregado" : "Agregar"}
             </button>} />
         ))}
       </div>
+      <MoreExercises state={filters} />
       {open && <ExerciseDetail ex={open} onClose={() => setOpen(null)} footer={<button className="btn btn-primary" onClick={() => { add(open); setOpen(null); }}><Icon name="plus" size={16} />Agregar a {dayName || "este día"}</button>} />}
     </Modal>
   );

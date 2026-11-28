@@ -10,12 +10,13 @@ const LOGO_MENDEZ = svgData('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 
 const LOGO_TORRES = svgData('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><circle cx="60" cy="60" r="60" fill="#0E8A9C"/><path d="M34 38h52M60 38v44" stroke="#fff" stroke-width="12" stroke-linecap="round"/><path d="M30 92c10-8 20-8 30 0s20 8 30 0" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round" stroke-opacity=".85"/></svg>');
 
 import { EXERCISE_LIBRARY } from "./exercises";
+import EXMAP from "../../server/exmap.json";
 
 export const EXERCISES = EXERCISE_LIBRARY.map((e) => ({ ...e, coachId: null }));
 
 let n = 0;
 const id = (p) => `${p}${++n}`;
-const ex = (exId, sets, reps, rest, notes = "") => ({ uid: id("re"), exId, sets, reps, rest, notes });
+const ex = (exId, sets, reps, rest, notes = "") => ({ uid: id("re"), exId: EXMAP[exId] || exId, sets, reps, rest, notes });
 
 function routineSofia() {
   return {
@@ -57,6 +58,7 @@ function routineFull(name = "Full body") {
 
 /* ---- generador de sesiones con progresión de cargas ---- */
 function buildSessions({ clientId, routine, weekdays, weeks, load, skipLastDays = 0, comments = {} }) {
+  load = Object.fromEntries(Object.entries(load || {}).map(([k, v]) => [EXMAP[k] || k, v]));
   const out = [];
   const today = startOfDay(new Date());
   const monday = weekStart(today);

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { knex, J } from "../db.js";
 import { deleteFile } from "../files.js";
+import { mapEx } from "../exmap.js";
 
 const str = (max) => z.string().trim().max(max);
 const MUSCLES = ["chest", "shoulders", "biceps", "triceps", "forearms", "abdominals", "lats", "middle back", "lower back", "traps", "glutes", "quadriceps", "hamstrings", "adductors", "abductors", "calves", "neck"];
@@ -19,7 +20,7 @@ export const routineSchema = z.object({
   days: z.array(z.object({
     id: str(40), name: str(60),
     exercises: z.array(z.object({
-      uid: str(40).optional(), exId: z.number().int().positive(), sets: z.number().int().min(1).max(20),
+      uid: str(40).optional(), exId: z.number().int().positive().transform(mapEx), sets: z.number().int().min(1).max(20),
       reps: z.union([z.string(), z.number()]).transform((v) => String(v).slice(0, 20)), rest: z.number().int().min(0).max(900),
       notes: str(300).optional().default(""),
       technique: z.enum(["normal", "dropset"]).optional().default("normal"),
@@ -77,7 +78,7 @@ export const sessionSchema = z.object({
   startedAt: z.string().max(30), restEndsAt: z.number().nullable().optional(), restTotal: z.number().optional().default(0),
   focus: z.number().int().min(0).max(60).optional(),
   exercises: z.array(z.object({
-    exId: z.number().int().positive(), notes: str(300).optional().default(""),
+    exId: z.number().int().positive().transform(mapEx), notes: str(300).optional().default(""),
     target: z.object({ sets: z.number(), reps: z.string().max(20), rest: z.number(), drop: dropSchema.optional(),
       linkNext: z.boolean().optional(), effort: effortSchema.optional(), tempo: tempoSchema.optional() }),
     sets: z.array(setSchema).max(30),

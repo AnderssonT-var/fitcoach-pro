@@ -6,6 +6,7 @@ import path from "node:path";
 import express from "express";
 import helmet from "helmet";
 import { mountLanding } from "./landing.js";
+import { importMedia, mountMedia } from "./media.js";
 import compression from "compression";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import jwt from "jsonwebtoken";
@@ -208,6 +209,9 @@ export function createApp() {
   app.use("/api", authenticate, ...changes, sharedRouter);
   app.use("/api", (_req, res) => res.status(404).json({ error: "No existe esa ruta." }));
 
+  /* Animaciones de la biblioteca de ejercicios */
+  mountMedia(app);
+
   /* Página de presentación de cada entrenador: /<enlace> */
   mountLanding(app);
 
@@ -307,6 +311,7 @@ export async function start() {
   jobs.unref();
   setTimeout(() => trackJob("avisos", runJobs).catch(() => {}), 20e3).unref();
   const app = createApp();
+  importMedia();
   const server = app.listen(config.port, () => console.log(`[VYTRAFIT] listo en el puerto ${config.port} (${config.isProd ? "producción" : "desarrollo"}, base ${config.db.client})`));
   server.keepAliveTimeout = 65e3; // mayor que el del proxy para evitar cortes 502
   server.headersTimeout = 66e3;
